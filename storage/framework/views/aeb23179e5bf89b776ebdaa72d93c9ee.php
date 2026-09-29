@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $title ?? 'SISTEMA | Pies Felices' }}</title>
+    <meta name="csrf-token" content="<?php echo e(csrf_token()); ?>">
+    <title><?php echo e($title ?? 'SISTEMA | Pies Felices'); ?></title>
 
     <!-- Bootstrap 5.3 & FontAwesome 6 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -106,10 +106,10 @@
 </head>
 <body>
 
-@php
+<?php
     $user = Auth::user();
     $perm = $user?->permission;
-@endphp
+?>
 
 <div id="wrapper">
     <!-- SIDEBAR -->
@@ -121,47 +121,47 @@
 
         <ul class="list-unstyled components">
             <li>
-                <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                <a href="<?php echo e(route('dashboard')); ?>" class="<?php echo e(request()->routeIs('dashboard') ? 'active' : ''); ?>">
                     <i class="fa-solid fa-chart-pie"></i> Dashboard
                 </a>
             </li>
 
             <div class="sidebar-heading">Operación</div>
             <li><a href="#"><i class="fa-solid fa-hand-holding-dollar"></i> Vender</a></li>
-            @if($perm?->can_sales) <li><a href="#"><i class="fa-solid fa-receipt"></i> Ventas</a></li> @endif
-            @if($perm?->can_inventory) <li><a href="#"><i class="fa-solid fa-boxes-stacked"></i> Inventario</a></li> @endif
-            @if($perm?->can_clients) <li><a href="#"><i class="fa-solid fa-hospital-user"></i> Clientes / Pacientes</a></li> @endif
+            <?php if($perm?->can_sales): ?> <li><a href="#"><i class="fa-solid fa-receipt"></i> Ventas</a></li> <?php endif; ?>
+            <?php if($perm?->can_inventory): ?> <li><a href="#"><i class="fa-solid fa-boxes-stacked"></i> Inventario</a></li> <?php endif; ?>
+            <?php if($perm?->can_clients): ?> <li><a href="#"><i class="fa-solid fa-hospital-user"></i> Clientes / Pacientes</a></li> <?php endif; ?>
 
             <div class="sidebar-heading">Caja & Finanzas</div>
-            @if($perm?->can_cash_closing) <li><a href="#"><i class="fa-solid fa-vault"></i> Cierre de Caja</a></li> @endif
-            @if($perm?->can_expenses) <li><a href="#"><i class="fa-solid fa-cart-shopping"></i> Gastos</a></li> @endif
-            @if($perm?->can_credit) <li><a href="#"><i class="fa-regular fa-credit-card"></i> Créditos</a></li> @endif
+            <?php if($perm?->can_cash_closing): ?> <li><a href="#"><i class="fa-solid fa-vault"></i> Cierre de Caja</a></li> <?php endif; ?>
+            <?php if($perm?->can_expenses): ?> <li><a href="#"><i class="fa-solid fa-cart-shopping"></i> Gastos</a></li> <?php endif; ?>
+            <?php if($perm?->can_credit): ?> <li><a href="#"><i class="fa-regular fa-credit-card"></i> Créditos</a></li> <?php endif; ?>
 
             <div class="sidebar-heading">Administración</div>
-            @if($user?->user_type == 0)
+            <?php if($user?->user_type == 0): ?>
                 <li>
-                    <a href="{{ route('branches.index') }}" class="{{ request()->routeIs('branches.*') ? 'active' : '' }}">
+                    <a href="<?php echo e(route('branches.index')); ?>" class="<?php echo e(request()->routeIs('branches.*') ? 'active' : ''); ?>">
                         <i class="fa-solid fa-store"></i> Sucursales
                     </a>
                 </li>
-            @endif
-            @if($perm?->can_users)
+            <?php endif; ?>
+            <?php if($perm?->can_users): ?>
                 <li>
-                    <a href="{{ route('users.index') }}" class="{{ request()->routeIs('users.*') ? 'active' : '' }}">
+                    <a href="<?php echo e(route('users.index')); ?>" class="<?php echo e(request()->routeIs('users.*') ? 'active' : ''); ?>">
                         <i class="fa-solid fa-users-gear"></i> Usuarios
                     </a>
                 </li>
-            @endif
-            @if($user?->isAdmin())
+            <?php endif; ?>
+            <?php if($user?->isAdmin()): ?>
                 <li>
-                    <a href="{{ route('roles.index') }}" class="{{ request()->routeIs('roles.*') ? 'active' : '' }}">
+                    <a href="<?php echo e(route('roles.index')); ?>" class="<?php echo e(request()->routeIs('roles.*') ? 'active' : ''); ?>">
                         <i class="fa-solid fa-user-shield"></i> Roles y Permisos
                     </a>
                 </li>
-            @endif
-            @if($perm?->can_employees && $user?->user_type == 0) <li><a href="#"><i class="fa-solid fa-id-card"></i> Empleados</a></li> @endif
-            @if($perm?->can_suppliers && $user?->user_type == 0) <li><a href="#"><i class="fa-solid fa-truck-field"></i> Proveedores</a></li> @endif
-            @if($perm?->can_prescriptions) <li><a href="#"><i class="fa-solid fa-photo-film"></i> Multimedia</a></li> @endif
+            <?php endif; ?>
+            <?php if($perm?->can_employees && $user?->user_type == 0): ?> <li><a href="#"><i class="fa-solid fa-id-card"></i> Empleados</a></li> <?php endif; ?>
+            <?php if($perm?->can_suppliers && $user?->user_type == 0): ?> <li><a href="#"><i class="fa-solid fa-truck-field"></i> Proveedores</a></li> <?php endif; ?>
+            <?php if($perm?->can_prescriptions): ?> <li><a href="#"><i class="fa-solid fa-photo-film"></i> Multimedia</a></li> <?php endif; ?>
         </ul>
     </nav>
 
@@ -171,15 +171,16 @@
         <nav class="navbar navbar-expand-lg navbar-top px-4 py-2">
             <div class="container-fluid p-0 d-flex justify-content-between align-items-center">
                 <span class="text-secondary fw-semibold">
-                    <i class="fa-solid fa-hospital me-2 text-primary"></i>Sucursal: <strong class="text-dark">{{ $user->branch_name ?? 'MATRIZ' }}</strong>
+                    <i class="fa-solid fa-hospital me-2 text-primary"></i>Sucursal: <strong class="text-dark"><?php echo e($user->branch_name ?? 'MATRIZ'); ?></strong>
                 </span>
 
                 <div class="d-flex align-items-center gap-3">
                     <span class="small fw-semibold text-secondary">
-                        <i class="fa-solid fa-circle-user me-1 text-primary"></i> {{ $user->username }}
+                        <i class="fa-solid fa-circle-user me-1 text-primary"></i> <?php echo e($user->username); ?>
+
                     </span>
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
+                    <form method="POST" action="<?php echo e(route('logout')); ?>">
+                        <?php echo csrf_field(); ?>
                         <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3">
                             <i class="fa-solid fa-power-off me-1"></i> Salir
                         </button>
@@ -190,11 +191,12 @@
 
         <!-- MAIN VIEW -->
         <main class="p-4">
-            {{ $slot }}
+            <?php echo e($slot); ?>
+
         </main>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
-</html>
+</html><?php /**PATH C:\Users\Irvin\OneDrive\Documentos\PiesFelices\resources\views/layouts/app.blade.php ENDPATH**/ ?>
