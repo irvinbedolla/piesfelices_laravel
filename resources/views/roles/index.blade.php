@@ -1,7 +1,7 @@
 <x-app-layout>
     <div class="card border-0 shadow-sm rounded-4 p-4">
         
-        <!-- ENCABEZADO -->
+        <!-- ENCABEZADO Y BOTÓN DE ACCIÓN -->
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
             <div>
                 <h4 class="fw-bold m-0 text-dark">
@@ -16,27 +16,72 @@
 
         <!-- NOTIFICACIONES -->
         @if(session('success'))
-            <div class="alert alert-success alert-dismissible fade show rounded-3" role="alert">
+            <div class="alert alert-success alert-dismissible fade show rounded-3 mb-4" role="alert">
                 <i class="fa-solid fa-circle-check me-2"></i>{{ session('success') }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         @endif
 
         @if(session('error'))
-            <div class="alert alert-danger alert-dismissible fade show rounded-3" role="alert">
+            <div class="alert alert-danger alert-dismissible fade show rounded-3 mb-4" role="alert">
                 <i class="fa-solid fa-triangle-exclamation me-2"></i>{{ session('error') }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         @endif
 
-        <!-- TABLA DE ROLES -->
+        <!-- CONTROLES DATATABLE: Registros por página y Buscador -->
+        <form method="GET" action="{{ route('roles.index') }}" id="dataTableForm">
+            <input type="hidden" name="sort_by" value="{{ $sortBy }}">
+            <input type="hidden" name="sort_order" value="{{ $sortOrder }}">
+
+            <div class="row align-items-center mb-3 g-3">
+                <div class="col-md-6 d-flex align-items-center gap-2">
+                    <span class="text-muted small">Mostrar</span>
+                    <select name="per_page" class="form-select form-select-sm rounded-3" style="width: 80px;" onchange="document.getElementById('dataTableForm').submit()">
+                        <option value="10" {{ $perPage == 10 ? 'selected' : '' }}>10</option>
+                        <option value="25" {{ $perPage == 25 ? 'selected' : '' }}>25</option>
+                        <option value="50" {{ $perPage == 50 ? 'selected' : '' }}>50</option>
+                        <option value="100" {{ $perPage == 100 ? 'selected' : '' }}>100</option>
+                    </select>
+                    <span class="text-muted small">registros por página</span>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white border-end-0 rounded-start-pill ps-3">
+                            <i class="fa-solid fa-magnifying-glass text-muted"></i>
+                        </span>
+                        <input type="text" name="search" value="{{ request('search') }}" class="form-control border-start-0 rounded-end-pill" placeholder="Buscar por rol o descripción..." onchange="document.getElementById('dataTableForm').submit()">
+                        @if(request('search'))
+                            <a href="{{ route('roles.index') }}" class="btn btn-outline-secondary rounded-pill ms-2">
+                                <i class="fa-solid fa-xmark"></i>
+                            </a>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <!-- TABLA DE ROLES CON ENCABEZADOS ORDENABLES -->
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th>Rol</th>
-                        <th>Descripción</th>
-                        <th class="text-center">Usuarios Asignados</th>
+                        <th>
+                            <a href="{{ route('roles.index', array_merge(request()->query(), ['sort_by' => 'name', 'sort_order' => $sortOrder === 'asc' ? 'desc' : 'asc'])) }}" class="text-dark text-decoration-none">
+                                Rol <i class="fa-solid fa-sort text-muted ms-1"></i>
+                            </a>
+                        </th>
+                        <th>
+                            <a href="{{ route('roles.index', array_merge(request()->query(), ['sort_by' => 'description', 'sort_order' => $sortOrder === 'asc' ? 'desc' : 'asc'])) }}" class="text-dark text-decoration-none">
+                                Descripción <i class="fa-solid fa-sort text-muted ms-1"></i>
+                            </a>
+                        </th>
+                        <th class="text-center">
+                            <a href="{{ route('roles.index', array_merge(request()->query(), ['sort_by' => 'users_count', 'sort_order' => $sortOrder === 'asc' ? 'desc' : 'asc'])) }}" class="text-dark text-decoration-none">
+                                Usuarios Asignados <i class="fa-solid fa-sort text-muted ms-1"></i>
+                            </a>
+                        </th>
                         <th>Permisos Habilitados</th>
                         <th class="text-end">Acciones</th>
                     </tr>
@@ -53,7 +98,7 @@
                                 <span class="text-secondary">{{ $role->description ?? 'Sin descripción' }}</span>
                             </td>
                             <td class="text-center">
-                                <span class="badge bg-purple-subtle text-purple rounded-pill px-3 py-2 fw-semibold" style="background-color: #f3e5f5; color: #7b1fa2;">
+                                <span class="badge rounded-pill px-3 py-2 fw-semibold" style="background-color: #f3e5f5; color: #7b1fa2;">
                                     <i class="fa-solid fa-users me-1"></i> {{ $role->users_count }} usuarios
                                 </span>
                             </td>
@@ -88,7 +133,7 @@
                         <tr>
                             <td colspan="5" class="text-center py-5 text-muted">
                                 <i class="fa-solid fa-user-shield fs-1 text-secondary opacity-50 mb-3 d-block"></i>
-                                No hay roles registrados todavía. Haz clic en <strong>Nuevo Rol</strong> para agregar el primero.
+                                No se encontraron roles coincidentes.
                             </td>
                         </tr>
                     @endforelse
@@ -96,8 +141,15 @@
             </table>
         </div>
 
-        <div class="mt-4">
-            {{ $roles->links() }}
+        <!-- PIE DATATABLE: Información de recuento y paginación -->
+        <div class="d-flex flex-wrap align-items-center justify-content-between mt-4 gap-3">
+            <div class="text-muted small">
+                Mostrando del <strong>{{ $roles->firstItem() ?? 0 }}</strong> al <strong>{{ $roles->lastItem() ?? 0 }}</strong> de <strong>{{ $roles->total() }}</strong> registros
+            </div>
+            <div>
+                {{ $roles->links() }}
+            </div>
         </div>
+
     </div>
 </x-app-layout>

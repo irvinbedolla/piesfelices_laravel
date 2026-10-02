@@ -1,5 +1,7 @@
 <x-app-layout>
     <div class="card border-0 shadow-sm rounded-4 p-4">
+        
+        {{-- ENCABEZADO Y BOTÓN DE ACCIÓN --}}
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
             <div>
                 <h4 class="fw-bold m-0 text-dark">
@@ -12,28 +14,91 @@
             </button>
         </div>
 
+        {{-- ALERTAS DE SESIÓN --}}
         @if(session('success'))
-            <div class="alert alert-success alert-dismissible fade show rounded-3" role="alert">
+            <div class="alert alert-success alert-dismissible fade show rounded-3 mb-4" role="alert">
                 <i class="fa-solid fa-circle-check me-2"></i>{{ session('success') }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         @endif
 
+        @if(session('error'))
+            <div class="alert alert-danger alert-dismissible fade show rounded-3 mb-4" role="alert">
+                <i class="fa-solid fa-triangle-exclamation me-2"></i>{{ session('error') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        {{-- CONTROLES DATATABLE: Registros por página y Buscador --}}
+        <form method="GET" action="{{ route('branches.index') }}" id="dataTableForm">
+            <input type="hidden" name="sort_by" value="{{ $sortBy }}">
+            <input type="hidden" name="sort_order" value="{{ $sortOrder }}">
+
+            <div class="row align-items-center mb-3 g-3">
+                <div class="col-md-6 d-flex align-items-center gap-2">
+                    <span class="text-muted small">Mostrar</span>
+                    <select name="per_page" class="form-select form-select-sm rounded-3" style="width: 80px;" onchange="document.getElementById('dataTableForm').submit()">
+                        <option value="10" {{ $perPage == 10 ? 'selected' : '' }}>10</option>
+                        <option value="25" {{ $perPage == 25 ? 'selected' : '' }}>25</option>
+                        <option value="50" {{ $perPage == 50 ? 'selected' : '' }}>50</option>
+                        <option value="100" {{ $perPage == 100 ? 'selected' : '' }}>100</option>
+                    </select>
+                    <span class="text-muted small">registros por página</span>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white border-end-0 rounded-start-pill ps-3">
+                            <i class="fa-solid fa-magnifying-glass text-muted"></i>
+                        </span>
+                        <input type="text" name="search" value="{{ request('search') }}" class="form-control border-start-0 rounded-end-pill" placeholder="Buscar por nombre, teléfono, dirección..." onchange="document.getElementById('dataTableForm').submit()">
+                        @if(request('search'))
+                            <a href="{{ route('branches.index') }}" class="btn btn-outline-secondary rounded-pill ms-2">
+                                <i class="fa-solid fa-xmark"></i>
+                            </a>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        {{-- TABLA DE SUCURSALES CON ENCABEZADOS ORDENABLES --}}
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th>Nombre</th>
-                        <th>Teléfono</th>
-                        <th>Dirección</th>
-                        <th>Estado</th>
+                        <th>
+                            <a href="{{ route('branches.index', array_merge(request()->query(), ['sort_by' => 'name', 'sort_order' => $sortOrder === 'asc' ? 'desc' : 'asc'])) }}" class="text-dark text-decoration-none">
+                                Nombre <i class="fa-solid fa-sort text-muted ms-1"></i>
+                            </a>
+                        </th>
+                        <th>
+                            <a href="{{ route('branches.index', array_merge(request()->query(), ['sort_by' => 'phone', 'sort_order' => $sortOrder === 'asc' ? 'desc' : 'asc'])) }}" class="text-dark text-decoration-none">
+                                Teléfono <i class="fa-solid fa-sort text-muted ms-1"></i>
+                            </a>
+                        </th>
+                        <th>
+                            <a href="{{ route('branches.index', array_merge(request()->query(), ['sort_by' => 'address', 'sort_order' => $sortOrder === 'asc' ? 'desc' : 'asc'])) }}" class="text-dark text-decoration-none">
+                                Dirección <i class="fa-solid fa-sort text-muted ms-1"></i>
+                            </a>
+                        </th>
+                        <th>
+                            <a href="{{ route('branches.index', array_merge(request()->query(), ['sort_by' => 'status', 'sort_order' => $sortOrder === 'asc' ? 'desc' : 'asc'])) }}" class="text-dark text-decoration-none">
+                                Estado <i class="fa-solid fa-sort text-muted ms-1"></i>
+                            </a>
+                        </th>
                         <th class="text-end">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($branches as $b)
                         <tr>
-                            <td class="fw-bold text-dark">{{ $b->name }}</td>
+                            <td>
+                                <span class="fw-bold text-dark">{{ $b->name }}</span>
+                                @if($b->is_matrix)
+                                    <span class="badge bg-primary-subtle text-primary rounded-pill ms-2 small">Matriz Central</span>
+                                @endif
+                            </td>
                             <td>{{ $b->phone ?? 'Sin teléfono' }}</td>
                             <td>{{ $b->address ?? 'Sin dirección' }}</td>
                             <td>
@@ -44,23 +109,50 @@
                                 @endif
                             </td>
                             <td class="text-end">
-                                <form method="POST" action="{{ route('branches.destroy', $b) }}" onsubmit="return confirm('¿Eliminar sucursal?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle">
-                                        <i class="fa-solid fa-trash"></i>
-                                    </button>
-                                </form>
+                                <div class="d-flex justify-content-end gap-2">
+                                    {{-- Botón para Establecer como Matriz Central --}}
+                                        @if(!$b->is_matrix)
+                                            <form method="POST" action="{{ route('branches.set-matrix', $b) }}" onsubmit="return confirm('¿Deseas establecer {{ $b->name }} como la nueva Matriz Central?');">
+                                                @csrf
+                                                @method('PATCH')
+                                                <button type="submit" class="btn btn-sm btn-outline-warning rounded-pill px-2 py-1 small fw-semibold" title="Establecer como Matriz Central">
+                                                    <i class="fa-solid fa-star me-1"></i> Asignar Matriz
+                                                </button>
+                                            </form>
+                                        @else
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1 fw-semibold small">
+                                                <i class="fa-solid fa-crown me-1"></i> Matriz Actual
+                                            </span>
+                                        @endif
+                                    <form method="POST" action="{{ route('branches.destroy', $b) }}" onsubmit="return confirm('¿Eliminar sucursal?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle" title="Eliminar Sucursal" {{ $b->is_matrix ? 'disabled' : '' }}>
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="text-center py-4 text-muted">No hay sucursales registradas.</td>
+                            <td colspan="5" class="text-center py-4 text-muted">No se encontraron sucursales coincidentes.</td>
                         </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
+
+        {{-- PIE DATATABLE: Información de recuento y paginación --}}
+        <div class="d-flex flex-wrap align-items-center justify-content-between mt-4 gap-3">
+            <div class="text-muted small">
+                Mostrando del <strong>{{ $branches->firstItem() ?? 0 }}</strong> al <strong>{{ $branches->lastItem() ?? 0 }}</strong> de <strong>{{ $branches->total() }}</strong> registros
+            </div>
+            <div>
+                {{ $branches->links() }}
+            </div>
+        </div>
+
     </div>
 
     <!-- MODAL CREAR SUCURSAL -->
@@ -75,8 +167,8 @@
                     </div>
                     <div class="modal-body py-4">
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Nombre de la Sucursal</label>
-                            <input type="text" name="name" class="form-control rounded-3" placeholder="Ej. MATRIZ, SUCURSAL 1" required>
+                            <label class="form-label fw-semibold">Nombre de la Sucursal (*)</label>
+                            <input type="text" name="name" class="form-control rounded-3" placeholder="Ej. ALTOZANO, CENTRO" required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Teléfono</label>
@@ -89,7 +181,7 @@
                     </div>
                     <div class="modal-footer border-0 pt-0">
                         <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary rounded-pill px-4">Guardar</button>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold">Guardar</button>
                     </div>
                 </form>
             </div>

@@ -4,13 +4,40 @@ namespace App\Http\Controllers;
 
 use App\Models\Branch;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class BranchController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $branches = Branch::latest()->paginate(10);
-        return view('branches.index', compact('branches'));
+        // 1. Parámetros de DataTable nativa
+        $perPage   = $request->get('per_page', 10);
+        $sortBy    = $request->get('sort_by', 'created_at');
+        $sortOrder = $request->get('sort_order', 'desc');
+
+        // 2. Consulta Base
+        $query = Branch::query();
+
+        // 3. Buscador Global por Nombre, Teléfono o Dirección
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                ->orWhere('phone', 'like', "%{$search}%")
+                ->orWhere('address', 'like', "%{$search}%");
+            });
+        }
+
+        // 4. Ordenamiento dinámico seguro
+        $allowedSorts = ['name', 'phone', 'address', 'status', 'created_at'];
+        if (in_array($sortBy, $allowedSorts)) {
+            $query->orderBy($sortBy, $sortOrder === 'asc' ? 'asc' : 'desc');
+        }
+
+        // 5. Paginación manteniendo parámetros en URL
+        $branches = $query->paginate($perPage)->withQueryString();
+
+        return view('branches.index', compact('branches', 'perPage', 'sortBy', 'sortOrder'));
     }
 
     public function store(Request $request)
@@ -48,5 +75,25 @@ class BranchController extends Controller
     {
         $branch->delete();
         return redirect()->route('branches.index')->with('success', 'Sucursal eliminada con éxito.');
+    }
+
+    public function setMatrix(Branch $branch)
+    {
+        try {
+            DB::transaction(function () use ($branch) {
+                // 1. Quitar la marca de Matriz a todas las sucursales
+                Branch::query()->update(['is_matrix' => false]);
+
+                // 2. Establecer la sucursal seleccionada como la nueva Matriz
+                $branch->update(['is_matrix' => true]);
+            });
+
+            return redirect()->route('branches.index')
+                ->with('success', "La sucursal '{$branch->name}' ahora es la Matriz Central.");
+
+        } catch (\Exception $e) {
+            return redirect()->back()
+                ->with('error', 'Error al cambiar la sucursal matriz: ' . $e->getMessage());
+        }
     }
 }

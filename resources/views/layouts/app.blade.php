@@ -108,62 +108,11 @@
 
 @php
     $user = Auth::user();
-    $perm = $user?->permission;
 @endphp
 
 <div id="wrapper">
-    <!-- SIDEBAR -->
-    <nav id="sidebar">
-        <div class="sidebar-header d-flex align-items-center gap-2">
-            <i class="fa-solid fa-shoe-prints fs-4 text-warning"></i>
-            <span class="fs-5 fw-bold text-white tracking-wide">PIES FELICES</span>
-        </div>
-
-        <ul class="list-unstyled components">
-            <li>
-                <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'active' : '' }}">
-                    <i class="fa-solid fa-chart-pie"></i> Dashboard
-                </a>
-            </li>
-
-            <div class="sidebar-heading">Operación</div>
-            <li><a href="#"><i class="fa-solid fa-hand-holding-dollar"></i> Vender</a></li>
-            @if($perm?->can_sales) <li><a href="#"><i class="fa-solid fa-receipt"></i> Ventas</a></li> @endif
-            @if($perm?->can_inventory) <li><a href="#"><i class="fa-solid fa-boxes-stacked"></i> Inventario</a></li> @endif
-            @if($perm?->can_clients) <li><a href="#"><i class="fa-solid fa-hospital-user"></i> Clientes / Pacientes</a></li> @endif
-
-            <div class="sidebar-heading">Caja & Finanzas</div>
-            @if($perm?->can_cash_closing) <li><a href="#"><i class="fa-solid fa-vault"></i> Cierre de Caja</a></li> @endif
-            @if($perm?->can_expenses) <li><a href="#"><i class="fa-solid fa-cart-shopping"></i> Gastos</a></li> @endif
-            @if($perm?->can_credit) <li><a href="#"><i class="fa-regular fa-credit-card"></i> Créditos</a></li> @endif
-
-            <div class="sidebar-heading">Administración</div>
-            @if($user?->user_type == 0)
-                <li>
-                    <a href="{{ route('branches.index') }}" class="{{ request()->routeIs('branches.*') ? 'active' : '' }}">
-                        <i class="fa-solid fa-store"></i> Sucursales
-                    </a>
-                </li>
-            @endif
-            @if($perm?->can_users)
-                <li>
-                    <a href="{{ route('users.index') }}" class="{{ request()->routeIs('users.*') ? 'active' : '' }}">
-                        <i class="fa-solid fa-users-gear"></i> Usuarios
-                    </a>
-                </li>
-            @endif
-            @if($user?->isAdmin())
-                <li>
-                    <a href="{{ route('roles.index') }}" class="{{ request()->routeIs('roles.*') ? 'active' : '' }}">
-                        <i class="fa-solid fa-user-shield"></i> Roles y Permisos
-                    </a>
-                </li>
-            @endif
-            @if($perm?->can_employees && $user?->user_type == 0) <li><a href="#"><i class="fa-solid fa-id-card"></i> Empleados</a></li> @endif
-            @if($perm?->can_suppliers && $user?->user_type == 0) <li><a href="#"><i class="fa-solid fa-truck-field"></i> Proveedores</a></li> @endif
-            @if($perm?->can_prescriptions) <li><a href="#"><i class="fa-solid fa-photo-film"></i> Multimedia</a></li> @endif
-        </ul>
-    </nav>
+    <!-- NAVEGACIÓN MODULARIZADA -->
+    @include('layouts.navigation')
 
     <!-- CONTENT -->
     <div id="content">

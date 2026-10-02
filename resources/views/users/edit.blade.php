@@ -56,15 +56,7 @@
                     </select>
                 </div>
 
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold">Tipo / Nivel (*)</label>
-                    <select name="user_type" class="form-select rounded-3" required>
-                        <option value="1" {{ $user->user_type == 1 ? 'selected' : '' }}>Operador / Vendedor</option>
-                        <option value="0" {{ $user->user_type == 0 ? 'selected' : '' }}>Administrador General</option>
-                    </select>
-                </div>
-
-                <div class="col-md-3">
+                <div class="col-md-6">
                     <label class="form-label fw-semibold">Estado (*)</label>
                     <select name="status" class="form-select rounded-3" required>
                         <option value="activo" {{ $user->status === 'activo' ? 'selected' : '' }}>Activo</option>

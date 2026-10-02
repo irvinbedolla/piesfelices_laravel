@@ -84,4 +84,15 @@ class User extends Authenticatable
     {
         return $this->user_type === 0;
     }
+
+    public function employee(): HasOne
+    {
+        return $this->hasOne(Employee::class); 
+        // Si la relación es de uno a muchos, usa: $this->hasMany(Employee::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class, 'branch_id');
+    }
 }

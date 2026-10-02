@@ -1,11 +1,117 @@
-<div class="col-md-4">
-    <label class="form-label fw-semibold">Rol Asignado</label>
-    <select name="role_id" class="form-select rounded-3">
-        <option value="">-- Sin Rol (Solo Permisos Manuales) --</option>
-        @foreach($roles as $role)
-            <option value="{{ $role->id }}" {{ (isset($user) && $user->role_id == $role->id) ? 'selected' : '' }}>
-                {{ $role->name }}
-            </option>
-        @endforeach
-    </select>
-</div>
+<x-app-layout>
+    <div class="card border-0 shadow-sm rounded-4 p-4" style="max-width: 900px; margin: 0 auto;">
+        <div class="d-flex align-items-center justify-content-between mb-4">
+            <div>
+                <h4 class="fw-bold m-0 text-dark">
+                    <i class="fa-solid fa-user-shield text-primary me-2"></i>Crear Nuevo Rol
+                </h4>
+                <p class="text-muted small m-0">Define un rol con su plantilla de permisos predeterminada</p>
+            </div>
+            <a href="{{ route('roles.index') }}" class="btn btn-outline-secondary rounded-pill px-4">
+                <i class="fa-solid fa-arrow-left me-2"></i>Volver
+            </a>
+        </div>
+
+        @if($errors->any())
+            <div class="alert alert-danger rounded-3 mb-4">
+                <ul class="m-0 ps-3">
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
+        <form method="POST" action="{{ route('roles.store') }}">
+            @csrf
+
+            <!-- DATOS BÁSICOS DEL ROL -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Nombre del Rol (*)</label>
+                    <input type="text" name="name" class="form-control rounded-3" value="{{ old('name') }}" required placeholder="Ej. Recepcionista, Podólogo, Cajero">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Descripción</label>
+                    <input type="text" name="description" class="form-control rounded-3" value="{{ old('description') }}" placeholder="Breve descripción de las funciones de este rol">
+                </div>
+            </div>
+
+            <hr class="my-4">
+
+            <!-- MATRIZ DE PERMISOS -->
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="fw-bold m-0"><i class="fa-solid fa-shield-halved text-primary me-2"></i>Matriz de Permisos Predeterminada</h5>
+                <small class="text-muted">Los usuarios con este rol heredarán estos accesos.</small>
+            </div>
+
+            <div class="row g-3 bg-light p-3 rounded-4 mb-4">
+                <div class="col-md-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="can_sales" value="1" id="can_sales" checked>
+                        <label class="form-check-label fw-medium" for="can_sales">Vender / Punto de Venta</label>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="can_inventory" value="1" id="can_inventory">
+                        <label class="form-check-label fw-medium" for="can_inventory">Inventario</label>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="can_clients" value="1" id="can_clients">
+                        <label class="form-check-label fw-medium" for="can_clients">Clientes / Pacientes</label>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="can_credit" value="1" id="can_credit">
+                        <label class="form-check-label fw-medium" for="can_credit">Módulo de Créditos</label>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="can_expenses" value="1" id="can_expenses">
+                        <label class="form-check-label fw-medium" for="can_expenses">Gastos</label>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="can_cash_closing" value="1" id="can_cash_closing">
+                        <label class="form-check-label fw-medium" for="can_cash_closing">Cierre de Caja</label>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="can_suppliers" value="1" id="can_suppliers">
+                        <label class="form-check-label fw-medium" for="can_suppliers">Proveedores</label>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="can_employees" value="1" id="can_employees">
+                        <label class="form-check-label fw-medium" for="can_employees">Empleados</label>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="can_users" value="1" id="can_users">
+                        <label class="form-check-label fw-medium" for="can_users">Gestión de Usuarios</label>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="can_prescriptions" value="1" id="can_prescriptions">
+                        <label class="form-check-label fw-medium" for="can_prescriptions">Multimedia / Recetas</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                <a href="{{ route('roles.index') }}" class="btn btn-light rounded-pill px-4">Cancelar</a>
+                <button type="submit" class="btn btn-primary rounded-pill px-4">Guardar Rol</button>
+            </div>
+        </form>
+    </div>
+</x-app-layout>

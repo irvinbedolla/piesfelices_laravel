@@ -15,10 +15,42 @@ class UserController extends Controller
     /**
      * Listado de usuarios con sus relaciones.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $users = User::with(['permission', 'role'])->latest()->paginate(10);
-        return view('users.index', compact('users'));
+        // 1. Parámetros de la DataTable nativa
+        $perPage   = $request->get('per_page', 10);
+        $sortBy    = $request->get('sort_by', 'created_at');
+        $sortOrder = $request->get('sort_order', 'desc');
+
+        // 2. Consulta Base con Eager Loading de relaciones
+        $query = User::with(['permission', 'role', 'branch']);
+
+        // 3. Buscador Global por usuario, correo, sucursal o estado
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->where('username', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")
+                ->orWhere('status', 'like', "%{$search}%")
+                ->orWhereHas('role', function ($r) use ($search) {
+                    $r->where('name', 'like', "%{$search}%");
+                })
+                ->orWhereHas('branch', function ($b) use ($search) {
+                    $b->where('name', 'like', "%{$search}%");
+                });
+            });
+        }
+
+        // 4. Ordenamiento seguro
+        $allowedSorts = ['username', 'email', 'user_type', 'status', 'created_at'];
+        if (in_array($sortBy, $allowedSorts)) {
+            $query->orderBy($sortBy, $sortOrder === 'asc' ? 'asc' : 'desc');
+        }
+
+        // 5. Paginación manteniendo la query string en las URLs de navegación
+        $users = $query->paginate($perPage)->withQueryString();
+
+        return view('users.index', compact('users', 'perPage', 'sortBy', 'sortOrder'));
     }
 
     /**
@@ -40,7 +72,6 @@ class UserController extends Controller
             'username'    => 'required|string|max:50|unique:users,username',
             'email'       => 'nullable|email|max:255|unique:users,email',
             'password'    => 'required|string|min:6',
-            'user_type'   => 'required|integer',
             'branch_name' => 'required|string|max:100',
             'role_id'     => 'required|exists:roles,id',
             'status'      => 'required|string',
@@ -50,7 +81,7 @@ class UserController extends Controller
             'username'    => $request->username,
             'email'       => $request->email,
             'password'    => Hash::make($request->password),
-            'user_type'   => $request->user_type,
+            'user_type'   => 1,
             'branch_name' => $request->branch_name,
             'role_id'     => $request->role_id,
             'status'      => $request->status,
@@ -65,7 +96,6 @@ class UserController extends Controller
         $request->validate([
             'username'    => ['required', 'string', 'max:50', Rule::unique('users')->ignore($user->id)],
             'email'       => ['nullable', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
-            'user_type'   => 'required|integer',
             'branch_name' => 'required|string|max:100',
             'role_id'     => 'required|exists:roles,id',
             'status'      => 'required|string',
@@ -74,7 +104,6 @@ class UserController extends Controller
         $data = [
             'username'    => $request->username,
             'email'       => $request->email,
-            'user_type'   => $request->user_type,
             'branch_name' => $request->branch_name,
             'role_id'     => $request->role_id,
             'status'      => $request->status,

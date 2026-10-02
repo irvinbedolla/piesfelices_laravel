@@ -8,15 +8,41 @@ use Illuminate\Http\Request;
 
 class RoleController extends Controller
 {
-    public function index()
+   public function index(Request $request)
     {
-        $roles = Role::with('permission')->withCount('users')->latest()->paginate(10);
-        return view('roles.index', compact('roles'));
+        // 1. Parámetros de DataTable nativa
+        $perPage   = $request->get('per_page', 10);
+        $sortBy    = $request->get('sort_by', 'created_at');
+        $sortOrder = $request->get('sort_order', 'desc');
+
+        // 2. Consulta Base con Eager Loading y Conteo de Usuarios
+        $query = Role::with('permission')->withCount('users');
+
+        // 3. Buscador Global por Nombre o Descripción del Rol
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        // 4. Ordenamiento dinámico seguro
+        $allowedSorts = ['name', 'description', 'users_count', 'created_at'];
+        if (in_array($sortBy, $allowedSorts)) {
+            $query->orderBy($sortBy, $sortOrder === 'asc' ? 'asc' : 'desc');
+        }
+
+        // 5. Paginación manteniendo parámetros en URL
+        $roles = $query->paginate($perPage)->withQueryString();
+
+        return view('roles.index', compact('roles', 'perPage', 'sortBy', 'sortOrder'));
     }
 
     public function create()
     {
-        return view('roles.create');
+        $roles = Role::all();
+        return view('roles.create', compact('roles'));
     }
 
     public function store(Request $request)
