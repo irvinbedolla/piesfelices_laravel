@@ -22,7 +22,7 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('roles.update', $role) }}">
+        <form method="POST" data-loading-text="Cargando." action="{{ route('roles.update', $role) }}">
             @csrf
             @method('PUT')
 

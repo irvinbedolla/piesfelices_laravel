@@ -95,4 +95,17 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Branch::class, 'branch_id');
     }
+
+    /**
+     * Obtiene la etiqueta legible del rol
+     */
+    public function getRoleNameAttribute(): string
+    {
+        return match ((int) ($this->role_id ?? 2)) {
+            1 => 'Administrador',
+            2 => 'Administrador de Centro',
+            3 => 'Recepción',
+            default => 'Podólogo',
+        };
+    }
 }

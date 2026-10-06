@@ -28,7 +28,7 @@
         @endif
 
         {{-- CONTROLES DATATABLE: Registros por página y Buscador --}}
-        <form method="GET" action="{{ route('suppliers.index') }}" id="dataTableForm">
+        <form method="GET" data-loading-text="Cargando." action="{{ route('suppliers.index') }}" id="dataTableForm">
             <input type="hidden" name="sort_by" value="{{ $sortBy }}">
             <input type="hidden" name="sort_order" value="{{ $sortOrder }}">
 
@@ -122,7 +122,7 @@
                                     <a href="{{ route('suppliers.edit', $s) }}" class="btn btn-sm btn-outline-primary rounded-circle" title="Editar">
                                         <i class="fa-solid fa-pen-to-square"></i>
                                     </a>
-                                    <form method="POST" action="{{ route('suppliers.destroy', $s) }}" onsubmit="return confirm('¿Confirmas eliminar este proveedor?');">
+                                    <form method="POST" data-loading-text="Cargando." action="{{ route('suppliers.destroy', $s) }}" onsubmit="return confirm('¿Confirmas eliminar este proveedor?');">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle" title="Eliminar">

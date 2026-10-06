@@ -15,7 +15,7 @@
         </div>
 
         {{-- CONTROLES DE DATATABLE: REGISTROS POR PÁGINA Y BUSCADOR --}}
-        <form method="GET" action="{{ route('inventory.movements') }}" id="dataTableForm">
+        <form method="GET" data-loading-text="Cargando." action="{{ route('inventory.movements') }}" id="dataTableForm">
             <input type="hidden" name="sort_by" value="{{ $sortBy }}">
             <input type="hidden" name="sort_order" value="{{ $sortOrder }}">
 

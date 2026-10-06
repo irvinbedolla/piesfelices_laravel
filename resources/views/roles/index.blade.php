@@ -30,7 +30,7 @@
         @endif
 
         <!-- CONTROLES DATATABLE: Registros por página y Buscador -->
-        <form method="GET" action="{{ route('roles.index') }}" id="dataTableForm">
+        <form method="GET" data-loading-text="Cargando." action="{{ route('roles.index') }}" id="dataTableForm">
             <input type="hidden" name="sort_by" value="{{ $sortBy }}">
             <input type="hidden" name="sort_order" value="{{ $sortOrder }}">
 
@@ -119,7 +119,7 @@
                                         <i class="fa-solid fa-pen-to-square"></i>
                                     </a>
 
-                                    <form method="POST" action="{{ route('roles.destroy', $role) }}" onsubmit="return confirm('¿Confirmas eliminar este rol? Solo se puede eliminar si no tiene usuarios activos.');">
+                                    <form method="POST" data-loading-text="Cargando." action="{{ route('roles.destroy', $role) }}" onsubmit="return confirm('¿Confirmas eliminar este rol? Solo se puede eliminar si no tiene usuarios activos.');">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle" title="Eliminar Rol" {{ $role->users_count > 0 ? 'disabled' : '' }}>

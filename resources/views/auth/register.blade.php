@@ -1,5 +1,5 @@
 <x-guest-layout>
-    <form method="POST" action="{{ route('register') }}">
+    <form method="POST" data-loading-text="Cargando." action="{{ route('register') }}">
         @csrf
 
         <!-- Name -->

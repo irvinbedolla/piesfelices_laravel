@@ -20,7 +20,7 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('employees.update', $employee) }}">
+        <form method="POST" data-loading-text="Cargando." action="{{ route('employees.update', $employee) }}">
             @csrf
             @method('PUT')
 

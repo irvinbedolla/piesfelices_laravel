@@ -22,7 +22,7 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('roles.store') }}">
+        <form method="POST" data-loading-text="Cargando." action="{{ route('roles.store') }}">
             @csrf
 
             <!-- DATOS BÁSICOS DEL ROL -->

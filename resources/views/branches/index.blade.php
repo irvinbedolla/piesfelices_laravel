@@ -30,7 +30,7 @@
         @endif
 
         {{-- CONTROLES DATATABLE: Registros por página y Buscador --}}
-        <form method="GET" action="{{ route('branches.index') }}" id="dataTableForm">
+        <form method="GET" data-loading-text="Cargando." action="{{ route('branches.index') }}" id="dataTableForm">
             <input type="hidden" name="sort_by" value="{{ $sortBy }}">
             <input type="hidden" name="sort_order" value="{{ $sortOrder }}">
 
@@ -112,7 +112,7 @@
                                 <div class="d-flex justify-content-end gap-2">
                                     {{-- Botón para Establecer como Matriz Central --}}
                                         @if(!$b->is_matrix)
-                                            <form method="POST" action="{{ route('branches.set-matrix', $b) }}" onsubmit="return confirm('¿Deseas establecer {{ $b->name }} como la nueva Matriz Central?');">
+                                            <form method="POST" data-loading-text="Cargando." action="{{ route('branches.set-matrix', $b) }}" onsubmit="return confirm('¿Deseas establecer {{ $b->name }} como la nueva Matriz Central?');">
                                                 @csrf
                                                 @method('PATCH')
                                                 <button type="submit" class="btn btn-sm btn-outline-warning rounded-pill px-2 py-1 small fw-semibold" title="Establecer como Matriz Central">
@@ -124,7 +124,7 @@
                                                 <i class="fa-solid fa-crown me-1"></i> Matriz Actual
                                             </span>
                                         @endif
-                                    <form method="POST" action="{{ route('branches.destroy', $b) }}" onsubmit="return confirm('¿Eliminar sucursal?');">
+                                    <form method="POST" data-loading-text="Cargando." action="{{ route('branches.destroy', $b) }}" onsubmit="return confirm('¿Eliminar sucursal?');">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle" title="Eliminar Sucursal" {{ $b->is_matrix ? 'disabled' : '' }}>
@@ -159,7 +159,7 @@
     <div class="modal fade" id="createBranchModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow rounded-4">
-                <form method="POST" action="{{ route('branches.store') }}">
+                <form method="POST" data-loading-text="Cargando." action="{{ route('branches.store') }}">
                     @csrf
                     <div class="modal-header border-0 pb-0">
                         <h5 class="fw-bold modal-title"><i class="fa-solid fa-store text-primary me-2"></i>Nueva Sucursal</h5>

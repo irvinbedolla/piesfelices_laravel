@@ -10,7 +10,7 @@
             </a>
         </div>
 
-        <form method="POST" action="{{ route('suppliers.update', $supplier) }}">
+        <form method="POST" data-loading-text="Cargando." action="{{ route('suppliers.update', $supplier) }}">
             @csrf
             @method('PUT')
 

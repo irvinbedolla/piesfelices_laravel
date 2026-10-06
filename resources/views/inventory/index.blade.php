@@ -1,43 +1,17 @@
 <x-app-layout>
     <div class="container-fluid px-2 px-md-4 py-3" style="max-width: 100%; overflow-x: hidden;">
 
-        {{-- BARRA SUPERIOR DE ACCIONES Y FILTROS --}}
         <div class="card border-0 shadow-sm rounded-4 p-3 mb-4">
-            <div class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center justify-content-between gap-3">
-                
-                {{-- Filtros combinados: Sucursal, Tipo y Bajo Stock --}}
-                <form method="GET" action="{{ route('inventory.index') }}" class="d-flex flex-wrap align-items-center gap-2">
-                    <div class="d-flex align-items-center gap-2">
-                        <label class="fw-bold text-dark text-nowrap"><i class="fa-solid fa-store text-primary me-1"></i> Sucursal:</label>
-                        <select name="branch_id" class="form-select rounded-pill border-primary shadow-sm" onchange="this.form.submit()" {{ $user->type == 1 ? 'disabled' : '' }}>
-                            @foreach ($branches as $b)
-                                <option value="{{ $b->id }}" {{ $selectedBranchId == $b->id ? 'selected' : '' }}>
-                                    {{ $b->name }} {{ $b->is_matrix ? '(Matriz)' : '' }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
+            {{-- FILA 1: ENCABEZADO Y ACCIONES PRINCIPALES --}}
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 pb-3 border-bottom">
+                <div>
+                    <h5 class="fw-bold m-0 text-dark">
+                        <i class="fa-solid fa-boxes-stacked text-primary me-2"></i>Gestión de Inventario
+                    </h5>
+                    <small class="text-muted">Consulta y administra existencias en tiempo real</small>
+                </div>
 
-                    <div class="d-flex align-items-center gap-2">
-                        <label class="fw-bold text-dark text-nowrap"><i class="fa-solid fa-filter text-primary me-1"></i> Tipo:</label>
-                        <select name="type" class="form-select rounded-pill border-secondary shadow-sm" onchange="this.form.submit()">
-                            <option value="">-- Todos --</option>
-                            <option value="GENERAL" {{ $selectedType == 'GENERAL' ? 'selected' : '' }}>General</option>
-                            <option value="CALZADO" {{ $selectedType == 'CALZADO' ? 'selected' : '' }}>Calzado</option>
-                            <option value="MEDICAMENTO" {{ $selectedType == 'MEDICAMENTO' ? 'selected' : '' }}>Medicamento</option>
-                        </select>
-                    </div>
-
-                    <div class="d-flex align-items-center ms-lg-2">
-                        <input type="checkbox" name="low_stock" value="1" id="lowStockCheck" class="btn-check" onchange="this.form.submit()" {{ $onlyLowStock ? 'checked' : '' }}>
-                        <label class="btn btn-outline-danger rounded-pill fw-semibold px-3 shadow-sm" for="lowStockCheck">
-                            <i class="fa-solid fa-triangle-exclamation me-1"></i> Solo Bajo Stock
-                        </label>
-                    </div>
-                </form>
-
-                {{-- Botones de Acción --}}
-                <div class="d-flex flex-wrap gap-2 justify-content-start justify-content-lg-end">
+                <div class="d-flex flex-wrap gap-2">
                     @if (in_array($user->type, [0, 3]))
                         <button type="button" class="btn btn-success rounded-pill px-3 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#newProductModal">
                             <i class="fa-solid fa-plus me-1"></i> Nuevo
@@ -46,16 +20,59 @@
                             <i class="fa-solid fa-arrows-rotate me-1"></i> Traspaso
                         </button>
                     @endif
+
+                    <a href="{{ route('supply-orders.create', ['branch_id' => $selectedBranchId]) }}" class="btn btn-warning rounded-pill px-3 fw-semibold shadow-sm text-dark">
+                        <i class="fa-solid fa-boxes-packing me-1"></i> Orden de Surtido
+                    </a>
+
                     <a href="{{ route('inventory.movements') }}" class="btn btn-light border rounded-pill px-3 text-dark fw-semibold">
                         <i class="fa-solid fa-list-check text-primary me-1"></i> Movimientos
                     </a>
-                    {{-- BOTÓN IMPRIMIR PDF CON FILTROS DINÁMICOS --}}
-                    <a href="{{ route('inventory.pdf', request()->query()) }}" target="_blank" class="btn btn-outline-danger rounded-pill px-3 fw-semibold shadow-sm">
+                </div>
+            </div>
+
+            {{-- FILA 2: BARRA DE FILTROS Y EXPORTACIÓN --}}
+            <form method="GET" data-loading-text="Cargando." action="{{ route('inventory.index') }}" class="d-flex flex-wrap align-items-center justify-content-between gap-3 bg-light p-2 rounded-4">
+                <div class="d-flex flex-wrap align-items-center gap-3">
+                    {{-- Filtro Sucursal --}}
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="fw-bold text-secondary small text-nowrap"><i class="fa-solid fa-store text-primary me-1"></i>Sucursal:</label>
+                        <select name="branch_id" class="form-select form-select-sm rounded-pill border-0 shadow-sm px-3" onchange="this.form.submit()" {{ $user->type == 1 ? 'disabled' : '' }}>
+                            @foreach ($branches as $b)
+                                <option value="{{ $b->id }}" {{ $selectedBranchId == $b->id ? 'selected' : '' }}>
+                                    {{ $b->name }} {{ $b->is_matrix ? '(Matriz)' : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    {{-- Filtro Tipo --}}
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="fw-bold text-secondary small text-nowrap"><i class="fa-solid fa-filter text-primary me-1"></i>Tipo:</label>
+                        <select name="type" class="form-select form-select-sm rounded-pill border-0 shadow-sm px-3" onchange="this.form.submit()">
+                            <option value="">-- Todos --</option>
+                            <option value="GENERAL" {{ $selectedType == 'GENERAL' ? 'selected' : '' }}>General</option>
+                            <option value="CALZADO" {{ $selectedType == 'CALZADO' ? 'selected' : '' }}>Calzado</option>
+                            <option value="MEDICAMENTO" {{ $selectedType == 'MEDICAMENTO' ? 'selected' : '' }}>Medicamento</option>
+                        </select>
+                    </div>
+
+                    {{-- Toggle Bajo Stock --}}
+                    <div class="d-flex align-items-center">
+                        <input type="checkbox" name="low_stock" value="1" id="lowStockCheck" class="btn-check" onchange="this.form.submit()" {{ $onlyLowStock ? 'checked' : '' }}>
+                        <label class="btn btn-sm {{ $onlyLowStock ? 'btn-danger' : 'btn-outline-danger' }} rounded-pill px-3 fw-semibold shadow-sm" for="lowStockCheck">
+                            <i class="fa-solid fa-triangle-exclamation me-1"></i> Solo Bajo Stock
+                        </label>
+                    </div>
+                </div>
+
+                {{-- Botón Exportar PDF a la derecha del bloque de filtros --}}
+                <div>
+                    <a href="{{ route('inventory.pdf', request()->query()) }}" target="_blank" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-semibold shadow-sm bg-white">
                         <i class="fa-solid fa-file-pdf me-1"></i> Exportar PDF
                     </a>
                 </div>
-
-            </div>
+            </form>
         </div>
 
         {{-- ALERTAS DE SESIÓN --}}
@@ -75,7 +92,7 @@
         {{-- CONTENEDOR DATATABLE --}}
         <div class="card border-0 shadow-sm rounded-4 p-3 p-md-4">
             
-            <form method="GET" action="{{ route('inventory.index') }}" id="dataTableForm">
+            <form method="GET" data-loading-text="Cargando." action="{{ route('inventory.index') }}" id="dataTableForm">
                 <input type="hidden" name="branch_id" value="{{ $selectedBranchId }}">
                 <input type="hidden" name="type" value="{{ $selectedType }}">
                 <input type="hidden" name="low_stock" value="{{ $onlyLowStock ? '1' : '' }}">
@@ -258,7 +275,7 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST" action="{{ route('inventory.store-product') }}" enctype="multipart/form-data">
+                <form method="POST" data-loading-text="Cargando." action="{{ route('inventory.store-product') }}" enctype="multipart/form-data">
                     @csrf
                     <div class="modal-body py-3">
                         <div class="alert alert-info rounded-3 small py-2 mb-3">
@@ -348,7 +365,7 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST" action="{{ route('inventory.adjust') }}">
+                <form method="POST" data-loading-text="Cargando." action="{{ route('inventory.adjust') }}">
                     @csrf
                     <input type="hidden" name="product_id" id="adjust_product_id">
                     <input type="hidden" name="branch_id" value="{{ $selectedBranchId }}">
@@ -402,7 +419,7 @@
                 </div>
                 
                 {{-- IMPORTANTE: enctype="multipart/form-data" PARA PERMITIR SUBIR LA IMAGEN --}}
-                <form method="POST" id="editProductForm" enctype="multipart/form-data">
+                <form method="POST" data-loading-text="Cargando." id="editProductForm" enctype="multipart/form-data">
                     @csrf
                     @method('PUT')
                     
@@ -491,7 +508,7 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST" action="{{ route('inventory.transfer') }}">
+                <form method="POST" data-loading-text="Cargando." action="{{ route('inventory.transfer') }}">
                     @csrf
                     <div class="modal-body py-3">
                         <div class="mb-3 position-relative">

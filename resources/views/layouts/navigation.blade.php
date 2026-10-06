@@ -4,16 +4,19 @@
 
 <nav id="sidebar">
     <!-- LOGO Y TÍTULO -->
-    <div class="sidebar-header d-flex align-items-center gap-2">
-        <i class="fa-solid fa-shoe-prints fs-4 text-warning"></i>
-        <span class="fs-5 fw-bold text-white tracking-wide">PIES FELICES</span>
+    <div class="sidebar-header d-flex align-items-center justify-content-center px-3 py-3">
+        <a href="{{ route('dashboard') }}">
+            <img src="{{ asset('images/logo.jpg') }}" 
+                alt="Pies Felices" 
+                style="height: 48px; width: auto; max-width: 180px; object-fit: contain;">
+        </a>
     </div>
 
     <ul class="list-unstyled components">
         <!-- DASHBOARD -->
         <li>
             <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'active' : '' }}">
-                <i class="fa-solid fa-chart-pie"></i> Dashboard
+                <i class="fa-solid fa-chart-pie"></i> Inicio
             </a>
         </li>
 
@@ -21,11 +24,12 @@
         <div class="sidebar-heading">Operación</div>
 
         @if($user?->hasAccessTo('can_sales'))
-            <li>
-                <a href="#"><i class="fa-solid fa-hand-holding-dollar"></i> Vender / POS</a>
-            </li>
-            <li>
-                <a href="#"><i class="fa-solid fa-receipt"></i> Historial Ventas</a>
+            {{-- ÍTEM VENTAS / PUNTO DE VENTA EN EL SIDEBAR --}}
+            <li class="nav-item">
+                <a href="{{ route('pos.index') }}" class="nav-link {{ request()->routeIs('pos.*') ? 'active' : '' }}">
+                    <i class="fa-solid fa-cart-shopping me-2"></i>
+                    <span>Venta</span>
+                </a>
             </li>
         @endif
 
@@ -35,38 +39,81 @@
                 </a>
             </li>
 
-        @if($user?->hasAccessTo('can_clients') || $user?->hasAccessTo('can_patients'))
+        {{-- ÍTEM CLIENTES EN EL SIDEBAR --}}
+        <li class="nav-item">
+            <a href="{{ route('customers.directory') }}" class="nav-link {{ request()->routeIs('customers.*') ? 'active' : '' }}">
+                <i class="fa-solid fa-users me-2"></i>
+                <span>Clientes</span>
+            </a>
+        </li>
+
+        {{-- ÍTEM RECETAS Y CITAS EN EL SIDEBAR --}}
+        @if($user?->hasAccessTo('can_prescriptions'))
             <li>
-                <a href="#"><i class="fa-solid fa-hospital-user"></i> Clientes / Pacientes</a>
+                <a href="{{ route('prescriptions.index') }}" class="nav-link {{ request()->routeIs('prescriptions.*') ? 'active' : '' }}">
+                    <i class="fa-solid fa-file-medical me-2"></i>
+                    <span>Recetas</span>
+                </a>
             </li>
         @endif
 
-        @if($user?->hasAccessTo('can_prescriptions'))
-            <li>
-                <a href="#"><i class="fa-solid fa-notes-medical"></i> Recetas y Citas</a>
-            </li>
-        @endif
+        {{-- ÍTEM CITAS EN EL SIDEBAR --}}
+        <li class="{{ request()->routeIs('appointments.*') ? 'active' : '' }}">
+            <a href="{{ route('appointments.index') }}">
+                <i class="fa-solid fa-calendar-check"></i>
+                <span>Citas</span>
+            </a>
+        </li>
+
+        <li class="{{ request()->routeIs('sales.consultation.*') ? 'active' : '' }}">
+            <a href="{{ route('sales.consultation.index') }}">
+                <i class="fa-solid fa-magnifying-glass-dollar"></i>
+                <span>Consulta de Ventas</span>
+            </a>
+        </li>
 
         <!-- SECCIÓN: CAJA & FINANZAS -->
         <div class="sidebar-heading">Caja & Finanzas</div>
-
-        @if($user?->hasAccessTo('can_cash_closing'))
-            <li>
-                <a href="#"><i class="fa-solid fa-vault"></i> Cierre de Caja</a>
-            </li>
-        @endif
+        
+        {{-- ÍTEM CIERRE DE CAJA EN EL SIDEBAR --}}
+        <li class="nav-item">
+            <a href="{{ route('cash-closing.index') }}" class="nav-link {{ request()->routeIs('cash-closing.*') ? 'active' : '' }}">
+                <i class="fa-solid fa-vault me-2"></i>
+                <span>Cierres de Caja</span>
+            </a>
+        </li>
 
         @if($user?->hasAccessTo('can_expenses'))
-            <li>
-                <a href="#"><i class="fa-solid fa-cart-shopping"></i> Control de Gastos</a>
+            <li class="{{ request()->routeIs('expenses.*') ? 'active' : '' }}">
+                <a href="{{ route('expenses.index') }}">
+                    <i class="fa-solid fa-cart-shopping"></i>
+                    <span>Control de Gastos</span>
+                </a>
+            </li>
+            <li class="{{ request()->routeIs('loans.*') ? 'active' : '' }}">
+                <a href="{{ route('loans.index') }}">
+                    <i class="fa-solid fa-hand-holding-dollar"></i>
+                    <span>Préstamos</span>
+                </a>
             </li>
         @endif
 
-        @if($user?->hasAccessTo('can_credit'))
-            <li>
-                <a href="#"><i class="fa-regular fa-credit-card"></i> Créditos y Cobranza</a>
+        {{-- ÍTEM CRÉDITOS Y COBRANZA EN EL SIDEBAR --}}
+        @if($user?->hasAccessTo('can_credit') ?? true)
+            <li class="{{ request()->routeIs('credits.*') ? 'active' : '' }}">
+                <a href="{{ route('credits.index') }}">
+                    <i class="fa-regular fa-credit-card"></i>
+                    <span>Créditos y Cobranza</span>
+                </a>
             </li>
         @endif
+        
+            <li class="{{ request()->routeIs('reports.*') ? 'active' : '' }}">
+                <a href="{{ route('reports.index') }}">
+                    <i class="fa-solid fa-receipt"></i>
+                    <span>Reportes</span>
+                </a>
+            </li>
 
         <!-- SECCIÓN: ADMINISTRACIÓN -->
         @if($user?->isAdmin() || $user?->hasAccessTo('can_users') || $user?->hasAccessTo('can_employees') || $user?->hasAccessTo('can_suppliers'))

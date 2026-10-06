@@ -10,7 +10,7 @@
             </a>
         </div>
 
-        <form method="POST" action="{{ route('suppliers.store') }}">
+        <form method="POST" data-loading-text="Cargando." action="{{ route('suppliers.store') }}">
             @csrf
 
             <div class="row g-3 mb-4">

@@ -30,7 +30,7 @@
         @endif
 
         {{-- CONTROLES DATATABLE: Registros por página y Buscador --}}
-        <form method="GET" action="{{ route('users.index') }}" id="dataTableForm">
+        <form method="GET" data-loading-text="Cargando." action="{{ route('users.index') }}" id="dataTableForm">
             <input type="hidden" name="sort_by" value="{{ $sortBy }}">
             <input type="hidden" name="sort_order" value="{{ $sortOrder }}">
 
@@ -137,7 +137,7 @@
                                     </a>
                                     
                                     @if($u->id !== auth()->id())
-                                        <form method="POST" action="{{ route('users.destroy', $u) }}" onsubmit="return confirm('¿Confirmas desactivar a este usuario?');">
+                                        <form method="POST" data-loading-text="Cargando." action="{{ route('users.destroy', $u) }}" onsubmit="return confirm('¿Confirmas desactivar a este usuario?');">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle" title="Desactivar">
