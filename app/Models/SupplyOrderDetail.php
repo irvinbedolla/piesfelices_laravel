@@ -22,6 +22,7 @@ class SupplyOrderDetail extends Model
         'product_id',
         'quantity_requested',
         'stock_at_request',
+        'quantity_requested',
     ];
 
     /**

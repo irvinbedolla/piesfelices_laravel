@@ -30,7 +30,7 @@
                 </div>
             @endif
 
-            <form action="{{ route('supply-orders.store') }}" method="POST" data-loading-text="Cargando." id="formOrdenSurtido">
+            <form action="{{ route('supply-orders.store') }}" method="POST" id="formOrdenSurtido" target="_blank">
                 @csrf
                 <input type="hidden" name="branch_id" value="{{ $selectedBranchId }}">
 

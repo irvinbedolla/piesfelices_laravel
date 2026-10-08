@@ -33,7 +33,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-
+    Route::get('/profile/password', [ProfileController::class, 'editPassword'])->name('profile.password.edit');
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
+    
     // Rutas del Módulo de Usuarios
     Route::resource('users', UserController::class);
     Route::resource('branches', BranchController::class);
@@ -144,4 +146,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/api/dashboard-stats', [DashboardController::class, 'stats'])->name('api.dashboard.stats');
 
+
+    Route::resource('branches', BranchController::class)->only(['index', 'store', 'update']);
+
+    
 require __DIR__.'/auth.php';

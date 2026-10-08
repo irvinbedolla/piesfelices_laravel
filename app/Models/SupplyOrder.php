@@ -30,4 +30,9 @@ class SupplyOrder extends Model
     {
         return $this->hasMany(SupplyOrderDetail::class, 'supply_order_id');
     }
+
+    public function items()
+    {
+        return $this->hasMany(SupplyOrderDetail::class, 'supply_order_id', 'id');
+    }
 }

@@ -107,7 +107,7 @@
                             <td>
                                 <span class="fw-bold text-dark"><?php echo e($b->name); ?></span>
                                 <?php if($b->is_matrix): ?>
-                                    <span class="badge bg-primary-subtle text-primary rounded-pill ms-2 small">Matriz Central</span>
+                                    <span class="badge bg-primary-subtle text-primary rounded-pill ms-2 small">Sucursal Principal</span>
                                 <?php endif; ?>
                             </td>
                             <td><?php echo e($b->phone ?? 'Sin teléfono'); ?></td>
@@ -122,17 +122,82 @@
                             <td class="text-end">
                                 <div class="d-flex justify-content-end gap-2">
                                     
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-primary rounded-pill px-3" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#editBranchModal<?php echo e($b->id); ?>">
+                                        <i class="fa-solid fa-pen-to-square me-1"></i> Editar
+                                    </button>
+
+                                    
+                                    <div class="modal fade text-start" id="editBranchModal<?php echo e($b->id); ?>" tabindex="-1" aria-hidden="true">
+                                        <div class="modal-dialog modal-dialog-centered">
+                                            <div class="modal-content border-0 shadow-lg rounded-4">
+                                                <div class="modal-header border-0 pb-0">
+                                                    <h5 class="modal-title fw-bold text-dark">
+                                                        <i class="fa-solid fa-pen-to-square text-primary me-2"></i>Editar Sucursal
+                                                    </h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+
+                                                <form action="<?php echo e(route('branches.update', $b->id)); ?>" method="POST">
+                                                    <?php echo csrf_field(); ?>
+                                                    <?php echo method_field('PUT'); ?>
+
+                                                    <div class="modal-body py-3">
+                                                        
+                                                        <div class="mb-3">
+                                                            <label class="form-label extra-small fw-bold text-muted text-uppercase mb-1">Nombre de Sucursal (*)</label>
+                                                            <input type="text" name="name" class="form-control rounded-3" value="<?php echo e(old('name', $b->name)); ?>" required>
+                                                        </div>
+
+                                                        
+                                                        <div class="mb-3">
+                                                            <label class="form-label extra-small fw-bold text-muted text-uppercase mb-1">Dirección</label>
+                                                            <input type="text" name="address" class="form-control rounded-3" value="<?php echo e(old('address', $b->address)); ?>">
+                                                        </div>
+
+                                                        
+                                                        <div class="mb-3">
+                                                            <label class="form-label extra-small fw-bold text-muted text-uppercase mb-1">Teléfono de Contacto</label>
+                                                            <input type="text" name="phone" class="form-control rounded-3" value="<?php echo e(old('phone', $b->phone)); ?>">
+                                                        </div>
+
+                                                        
+                                                        <div class="form-check form-switch mt-3">
+                                                            <input class="form-check-input" type="checkbox" name="is_matrix" value="1" id="is_matrix_<?php echo e($b->id); ?>" <?php echo e($b->is_matrix ? 'checked' : ''); ?>>
+                                                            <label class="form-check-label small fw-semibold text-dark" for="is_matrix_<?php echo e($b->id); ?>">
+                                                                Establecer como Sucursal Matriz Principal
+                                                            </label>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="modal-footer border-0 pt-0">
+                                                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                                                        <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold">
+                                                            <i class="fa-solid fa-floppy-disk me-1"></i> Guardar Cambios
+                                                        </button>
+                                                    </div>
+                                                </form>
+
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+
+
+                                    
                                         <?php if(!$b->is_matrix): ?>
-                                            <form method="POST" data-loading-text="Cargando." action="<?php echo e(route('branches.set-matrix', $b)); ?>" onsubmit="return confirm('¿Deseas establecer <?php echo e($b->name); ?> como la nueva Matriz Central?');">
+                                            <form method="POST" data-loading-text="Cargando." action="<?php echo e(route('branches.set-matrix', $b)); ?>" onsubmit="return confirm('¿Deseas establecer <?php echo e($b->name); ?> como la nueva Sucursal Principal?');">
                                                 <?php echo csrf_field(); ?>
                                                 <?php echo method_field('PATCH'); ?>
-                                                <button type="submit" class="btn btn-sm btn-outline-warning rounded-pill px-2 py-1 small fw-semibold" title="Establecer como Matriz Central">
-                                                    <i class="fa-solid fa-star me-1"></i> Asignar Matriz
+                                                <button type="submit" class="btn btn-sm btn-outline-warning rounded-pill px-2 py-1 small fw-semibold" title="Establecer como Sucursal Principal">
+                                                    <i class="fa-solid fa-star me-1"></i> Asignar Sucursal Principal
                                                 </button>
                                             </form>
                                         <?php else: ?>
                                             <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1 fw-semibold small">
-                                                <i class="fa-solid fa-crown me-1"></i> Matriz Actual
+                                                <i class="fa-solid fa-crown me-1"></i> Sucursal Principal
                                             </span>
                                         <?php endif; ?>
                                     <form method="POST" data-loading-text="Cargando." action="<?php echo e(route('branches.destroy', $b)); ?>" onsubmit="return confirm('¿Eliminar sucursal?');">

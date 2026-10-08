@@ -201,18 +201,52 @@
                     </span>
                 </div>
 
-                <div class="d-flex align-items-center gap-2 gap-md-3">
-                    <span class="small fw-semibold text-secondary">
-                        <i class="fa-solid fa-circle-user me-1 text-primary"></i> <?php echo e($user?->name ?? $user?->username ?? 'Usuario'); ?>
+                <div class="d-flex align-items-center gap-3 ms-auto pe-3">
+    
+        
+        <div class="dropdown">
+            <button class="btn btn-light border-0 d-flex align-items-center gap-2 rounded-pill px-3 py-1 shadow-sm dropdown-toggle" 
+                    type="button" 
+                    id="userDropdown" 
+                    data-bs-toggle="dropdown" 
+                    aria-expanded="false">
+                <i class="fa-solid fa-circle-user text-primary fs-5"></i>
+                <span class="fw-semibold text-dark small"><?php echo e(auth()->user()->name ?? auth()->user()->username ?? 'admin'); ?></span>
+            </button>
 
-                    </span>
-                    <form method="POST" action="<?php echo e(route('logout')); ?>" data-loading-text="Cerrando sesión...">
+            
+            <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg rounded-4 p-2 mt-2" aria-labelledby="userDropdown" style="min-width: 200px;">
+                <li>
+                    <div class="px-3 py-2 border-bottom">
+                        <div class="fw-bold text-dark small"><?php echo e(auth()->user()->name ?? 'Usuario'); ?></div>
+                        <small class="text-muted extra-small"><?php echo e(auth()->user()->email ?? ''); ?></small>
+                    </div>
+                </li>
+                
+                
+                <li>
+                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 rounded-3 mt-1 small" href="<?php echo e(route('profile.password.edit')); ?>">
+                        <i class="fa-solid fa-key text-primary"></i>
+                        <span>Cambiar Contraseña</span>
+                    </a>
+                </li>
+
+                <li><hr class="dropdown-divider my-1"></li>
+
+                
+                <li>
+                    <form method="POST" action="<?php echo e(route('logout')); ?>">
                         <?php echo csrf_field(); ?>
-                        <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3">
-                            <i class="fa-solid fa-power-off me-1"></i> <span class="d-none d-md-inline">Salir</span>
+                        <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 rounded-3 text-danger small">
+                            <i class="fa-solid fa-power-off"></i>
+                            <span>Cerrar Sesión</span>
                         </button>
                     </form>
-                </div>
+                </li>
+            </ul>
+        </div>
+
+    </div>
             </div>
         </nav>
 

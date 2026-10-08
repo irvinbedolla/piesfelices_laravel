@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
 
+
 class SupplyOrderController extends Controller
 {
     /**
@@ -43,52 +44,40 @@ class SupplyOrderController extends Controller
         ));
     }
 
-    /**
-     * Guardar la Orden de Surtido en la Base de Datos
-     */
     public function store(Request $request)
     {
+        // 1. Validar la solicitud
         $request->validate([
-            'branch_id' => 'required|exists:branches,id',
-            'products'  => 'required|array|min:1',
-            'products.*' => 'exists:products,id',
-            'quantity'  => 'required|array',
-            'notes'     => 'nullable|string|max:500',
-        ], [
-            'products.required' => 'Debes marcar al menos un producto para generar la orden.'
+            'branch_id' => 'required',
+            'products'  => 'required|array',
         ]);
 
-        try {
-            $orderId = DB::transaction(function () use ($request) {
-                // 1. Crear cabecera de la orden
-                $order = SupplyOrder::create([
-                    'branch_id' => $request->branch_id,
-                    'user_id'   => Auth::id(),
-                    'status'    => 'PENDIENTE',
-                    'notes'     => $request->notes,
-                ]);
+        // 2. Crear el registro principal de la orden
+        $order = SupplyOrder::create([
+            'branch_id' => $request->branch_id,
+            'notes'     => $request->notes,
+            'user_id'   => auth()->id(),
+            'status'    => 'PENDIENTE',
+        ]);
 
-                // 2. Insertar detalles
-                foreach ($request->products as $productId) {
-                    $requestedQty = (int) ($request->quantity[$productId] ?? 5);
-                    $stockCurrent = (int) ($request->stock_actual[$productId] ?? 0);
+        // 3. Adjuntar/Guardar los productos seleccionados y sus cantidades
+        foreach ($request->products as $productId) {
+            $qty = $request->quantity[$productId] ?? 1;
+            $stockActual = $request->stock_actual[$productId] ?? 0;
 
-                    SupplyOrderDetail::create([
-                        'supply_order_id'   => $order->id,
-                        'product_id'        => $productId,
-                        'quantity_requested' => $requestedQty,
-                        'stock_at_request'   => $stockCurrent,
-                    ]);
-                }
-
-                return $order->id;
-            });
-
-            return redirect()->route('supply-orders.pdf', $orderId);
-
-        } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Error al procesar la orden: ' . $e->getMessage());
+            $order->items()->create([
+                'product_id'         => $productId,
+                'quantity_requested' => $qty,         // <--- Nombre exacto de la columna en BD
+                'stock_at_request'   => $stockActual,
+            ]);
         }
+
+        // 4. Cargar relaciones para la vista PDF
+        $order->load(['branch', 'user', 'items.product']);
+
+        // 5. Generar y retornar el PDF directamente (esto es lo que abre el documento en la nueva pestaña)
+        $pdf = Pdf::loadView('supply_orders.pdf', compact('order'));
+        return $pdf->setPaper('letter', 'portrait')->stream("Orden_Surtido_#{$order->id}.pdf");
     }
 
     /**

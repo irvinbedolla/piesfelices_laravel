@@ -425,71 +425,26 @@
         </div>
     </div>
 
-    <!-- MODAL DATOS DE FACTURACIÓN (#invoiceModal) -->
-    <div class="modal fade" id="invoiceModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg rounded-4">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold text-dark">
-                        <i class="fa-solid fa-file-invoice-dollar text-primary me-2"></i>Datos de Facturación
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body py-3">
-                    
-                    {{-- SWITCH FACTURAR SÍ / NO --}}
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">¿Requiere Factura?</label>
-                        <select id="invoiceRequiredSelect" class="form-select rounded-3">
-                            <option value="NO" {{ $sale->venta_factura == 'NO' ? 'selected' : '' }}>NO</option>
-                            <option value="SI" {{ $sale->venta_factura == 'SI' ? 'selected' : '' }}>SÍ</option>
-                        </select>
-                    </div>
-
-                    {{--CAMPOS ADICIONALES (SE MUESTRAN SOLO SI FACTURA ES SÍ) --}}
-                    <div id="invoiceFieldsContainer" class="{{ $sale->venta_factura == 'SI' ? '' : 'd-none' }}">
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Número de Factura (Consecutivo)</label>
-                            <input type="number" id="invoiceNumberInput" class="form-control rounded-3 fw-bold text-primary" value="{{ $sale->numero_factura }}" placeholder="Cargando consecutivo...">
-                            <small class="text-muted">Calculado automáticamente. Puedes modificarlo manualmente si lo requieres.</small>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Uso de CFDI</label>
-                            <select id="invoiceCfdiSelect" class="form-select rounded-3">
-                                <option value="G01" {{ $sale->venta_cfdi == 'G01' ? 'selected' : '' }}>G01 - Adquisición de mercancías</option>
-                                <option value="G03" {{ $sale->venta_cfdi == 'G03' ? 'selected' : '' }}>G03 - Gastos en general</option>
-                                <option value="P01" {{ $sale->venta_cfdi == 'P01' ? 'selected' : '' }}>P01 - Por definir</option>
-                                <option value="D01" {{ $sale->venta_cfdi == 'D01' ? 'selected' : '' }}>D01 - Honorarios médicos</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Tipo de Factura</label>
-                            <select id="invoiceTypeSelect" class="form-select rounded-3">
-                                <option value="PG" {{ $sale->venta_tipo_factura == 'PG' ? 'selected' : '' }}>PG (Público en General)</option>
-                                <option value="Factura" {{ $sale->venta_tipo_factura == 'Factura' ? 'selected' : '' }}>Factura Nominal</option>
-                            </select>
-                        </div>
-                    </div>
-
-                </div>
-                <div class="modal-footer border-0 pt-0">
-                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" id="saveInvoiceBtn" class="btn btn-primary rounded-pill px-4 fw-semibold">
-                        Guardar Datos
-                    </button>
-                </div>
+    {{-- OVERLAY / MODAL DE ESPERA AJAX --}}
+    <div id="loadingOverlay" 
+        class="position-fixed top-0 start-0 w-100 h-100 d-none align-items-center justify-content-center bg-dark bg-opacity-50" 
+        style="z-index: 9999;">
+        <div class="card border-0 shadow-lg rounded-4 p-4 text-center bg-white" style="max-width: 300px;">
+            <div class="spinner-border text-primary mx-auto mb-3" style="width: 3rem; height: 3rem;" role="status">
+                <span class="visually-hidden">Cargando...</span>
             </div>
+            <h6 class="fw-bold m-0 text-dark">Procesando Selección...</h6>
+            <small class="text-muted extra-small">Por favor espera un momento</small>
         </div>
     </div>
 
     {{-- SCRIPTS JS AJAX DE CONTROL DEL POS --}}
     <script>
-        const saleId = "{{ $sale->venta_id }}";
-        const totalSale = parseFloat("{{ $sale->venta_total }}");
+       
 
         document.addEventListener('DOMContentLoaded', function () {
+            const saleId = "{{ $sale->venta_id }}";
+            const totalSale = parseFloat("{{ $sale->venta_total }}");
             // Escáner de Código de Barras
             const barcodeInput = document.getElementById('barcodeReader');
             if (barcodeInput) {
@@ -513,8 +468,10 @@
                 });
             });
 
-            // Función AJAX Agregar Producto
+            // Función AJAX para agregar producto/servicio
             function addProductAjax(payload) {
+                showLoading(); // Muestra el spinner
+
                 fetch(`/pos/${saleId}/add-product`, {
                     method: 'POST',
                     headers: {
@@ -523,13 +480,19 @@
                     },
                     body: JSON.stringify(payload)
                 })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        location.reload();
+                .then(res => res.json().then(data => ({ status: res.status, body: data })))
+                .then(res => {
+                    if (res.body.success) {
+                        location.reload(); // Recarga la página si todo salió bien
                     } else {
-                        alert(data.message);
+                        hideLoading(); // <--- Oculta la pantalla de carga si el backend retorna error
+                        alert(res.body.message || 'Error al agregar el producto');
                     }
+                })
+                .catch(error => {
+                    hideLoading(); // <--- Oculta la pantalla de carga si la petición AJAX falla
+                    console.error('Error AJAX:', error);
+                    alert('Ocurrió un error de conexión con el servidor.');
                 });
             }
 
@@ -654,6 +617,7 @@
             btn.addEventListener('click', function () {
                 const customerId = this.getAttribute('data-id');
                 const customerName = this.getAttribute('data-name');
+                showLoading();
 
                 fetch(`/pos/${saleId}/header`, {
                     method: 'PUT',
@@ -671,6 +635,7 @@
                     if (data.success) {
                         location.reload();
                     } else {
+                        hideLoading();
                         alert('Error al asignar el cliente');
                     }
                 });
@@ -819,6 +784,8 @@
                     return;
                 }
 
+                showLoading();
+
                 fetch(`/pos/${saleId}/add-service`, {
                     method: 'POST',
                     headers: {
@@ -829,8 +796,14 @@
                 })
                 .then(res => res.json())
                 .then(data => {
-                    if (data.success) location.reload();
-                });
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        hideLoading(); // <--- Oculta el spinner si falla
+                        alert(data.message);
+                    }
+                })
+                .catch(() => hideLoading());
             });
         }
 
@@ -889,6 +862,24 @@
             });
         }
 
+        var saleId = "{{ $sale->venta_id }}";
+        var totalSale = parseFloat("{{ $sale->venta_total }}");
 
+        // Funciones para mostrar y ocultar el spinner de espera
+        function showLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                overlay.classList.remove('d-none');
+                overlay.classList.add('d-flex');
+            }
+        }
+
+        function hideLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                overlay.classList.remove('d-flex');
+                overlay.classList.add('d-none');
+            }
+        }
     </script>
 </x-app-layout>

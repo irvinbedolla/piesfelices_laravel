@@ -58,19 +58,6 @@ class BranchController extends Controller
         return redirect()->route('branches.index')->with('success', 'Sucursal registrada con éxito.');
     }
 
-    public function update(Request $request, Branch $branch)
-    {
-        $request->validate([
-            'name' => 'required|string|max:100|unique:branches,name,' . $branch->id,
-            'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string|max:255',
-        ]);
-
-        $branch->update($request->only(['name', 'phone', 'address', 'status']));
-
-        return redirect()->route('branches.index')->with('success', 'Sucursal actualizada con éxito.');
-    }
-
     public function destroy(Branch $branch)
     {
         $branch->delete();
@@ -95,5 +82,30 @@ class BranchController extends Controller
             return redirect()->back()
                 ->with('error', 'Error al cambiar la sucursal matriz: ' . $e->getMessage());
         }
+    }
+
+    public function update(Request $request, $id)
+    {
+        $branch = Branch::findOrFail($id);
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+        ], [
+            'name.required' => 'El nombre de la sucursal es obligatorio.',
+        ]);
+
+        // Si se marca como matriz esta sucursal, desmarcar las demás (opcional)
+        if ($request->has('is_matrix') && $request->is_matrix == 1) {
+            Branch::where('id', '!=', $id)->update(['is_matrix' => 0]);
+        }
+
+        $branch->update([
+            'name'      => $request->name,
+            'address'   => $request->address,
+            'phone'     => $request->phone,
+            'is_matrix' => $request->has('is_matrix') ? 1 : 0,
+        ]);
+
+        return redirect()->route('branches.index')->with('success', '¡Sucursal actualizada correctamente!');
     }
 }

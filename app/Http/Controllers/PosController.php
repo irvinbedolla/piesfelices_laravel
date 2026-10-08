@@ -12,6 +12,7 @@ use App\Models\InventoryMovement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class PosController extends Controller
@@ -27,7 +28,6 @@ class PosController extends Controller
         $userBranchId = $user->branch_id ?? ($matrixBranch->id ?? 1);
         $userBranchName = Branch::find($userBranchId)?->name ?? 'MATRIZ';
 
-        // 1. Si no viene ID en la URL, reutilizar un borrador existente del usuario o crear uno nuevo
         if (!$id) {
             $draftSale = Sale::where('venta_idempleado', $user->id)
                 ->where('venta_total', 0)
@@ -63,7 +63,7 @@ class PosController extends Controller
         $customers = Customer::where('sucursal', $sale->venta_sucursal)->get();
         $sellers   = User::all();
 
-        // 2. Cargar únicamente productos disponibles (> 0) en la sucursal activa
+        // Cargar productos disponibles (> 0) en la sucursal activa
         $products = Product::whereHas('branches', function ($q) use ($activeBranchId) {
             $q->where('branch_id', $activeBranchId)
               ->where('branch_product.stock_current', '>', 0);
@@ -75,61 +75,105 @@ class PosController extends Controller
     }
 
     /**
-     * Agregar Producto por lector CB o Clic
+     * Agregar Producto Físico al Carrito
      */
     public function addProduct(Request $request, $saleId)
     {
-        $sale = Sale::findOrFail($saleId);
-        $productId = $request->product_id;
-        $barcode   = $request->barcode;
+        try {
+            $sale = Sale::findOrFail($saleId);
+            $productId = $request->product_id;
 
-        if ($barcode) {
-            $product = Product::where('barcode', $barcode)->first();
-        } else {
+            // SI ES UN SERVICIO O NO TIENE PRODUCT_ID -> DERIVAR A SERVICIO
+            if ($request->has('is_service') || !$productId) {
+                return $this->addService($request, $saleId);
+            }
+
+            // SI ES UN PRODUCTO FÍSICO -> CONSULTAR STOCK ESPECÍFICO DE LA SUCURSAL
             $product = Product::findOrFail($productId);
-        }
+            
+            // Obtener el ID de la sucursal asociada al nombre guardado en la venta
+            $branch = Branch::where('name', $sale->venta_sucursal)->first();
+            $branchId = $branch ? $branch->id : (Auth::user()->branch_id ?? 1);
 
-        if (!$product) {
-            return response()->json(['success' => false, 'message' => 'Producto no encontrado.'], 404);
-        }
+            // Consultar stock en la tabla pivote branch_product
+            $pivot = DB::table('branch_product')
+                ->where('product_id', $productId)
+                ->where('branch_id', $branchId)
+                ->first();
 
-        // Consultar stock en sucursal
-        $pivot = DB::table('branch_product')
-            ->where('product_id', $product->id)
-            ->where('branch_id', Auth::user()->branch_id ?? 1)
-            ->first();
+            $stockDisponible = $pivot ? $pivot->stock_current : 0;
 
-        $availableStock = $pivot ? $pivot->stock_current : 0;
+            // Cantidad actual agregada en el carrito (usando solo producto_id)
+            $existingItem = $sale->items()
+                ->where('producto_id', $productId)
+                ->first();
 
-        $existingItem = SaleItem::where('venta_id', $saleId)
-            ->where('producto_id', $product->id)
-            ->first();
+            $cantEnCarrito = $existingItem ? $existingItem->cantidad : 0;
 
-        $currentQty = $existingItem ? $existingItem->cantidad : 0;
+            if (($cantEnCarrito + 1) > $stockDisponible) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Supera la existencia disponible ({$stockDisponible})"
+                ], 422);
+            }
 
-        if (($currentQty + 1) > $availableStock) {
+            if ($existingItem) {
+                $existingItem->increment('cantidad');
+            } else {
+                $sale->items()->create([
+                    'producto_id' => $product->id,
+                    'nombre'      => $product->name,
+                    'sku'         => $product->barcode ?? 'S/C',
+                    'cantidad'    => 1,
+                    'precio'      => $product->sale_price,
+                ]);
+            }
+
+            $this->recalculateTotal($saleId);
+            return response()->json(['success' => true]);
+
+        } catch (\Exception $e) {
+            Log::error("Error en addProduct: " . $e->getMessage());
             return response()->json([
                 'success' => false, 
-                'message' => "Stock insuficiente en esta sucursal. Disponible: {$availableStock}"
-            ], 422);
+                'message' => 'Error al agregar producto: ' . $e->getMessage()
+            ], 500);
         }
+    }
 
-        if ($existingItem) {
-            $existingItem->increment('cantidad');
-        } else {
-            SaleItem::create([
-                'venta_id'    => $saleId,
-                'producto_id' => $product->id,
-                'cantidad'    => 1,
-                'precio'      => $product->sale_price,
-                'nombre'      => $product->name,
-                'sku'         => $product->barcode,
+    /**
+     * Agregar Servicio sin validación de stock
+     */
+    public function addService(Request $request, $saleId)
+    {
+        try {
+            $request->validate([
+                'concept' => 'required|string',
+                'amount'  => 'required|numeric|min:0.01',
             ]);
+
+            $sale = Sale::findOrFail($saleId);
+
+            $sale->items()->create([
+                'product_id'  => null,
+                'producto_id' => 0,
+                'nombre'      => '[SERVICIO] ' . $request->concept,
+                'sku'         => 'SERV',
+                'cantidad'    => 1,
+                'precio'      => $request->amount,
+            ]);
+
+            $this->recalculateTotal($saleId);
+
+            return response()->json(['success' => true]);
+
+        } catch (\Exception $e) {
+            Log::error("Error en addService: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al agregar servicio: ' . $e->getMessage()
+            ], 500);
         }
-
-        $this->recalculateTotal($saleId);
-
-        return response()->json(['success' => true]);
     }
 
     /**
@@ -137,28 +181,40 @@ class PosController extends Controller
      */
     public function updateQuantity(Request $request, $itemId)
     {
-        $item = SaleItem::findOrFail($itemId);
-        $newQty = max(1, (int) $request->cantidad);
+        try {
+            $item = SaleItem::findOrFail($itemId);
+            $newQty = max(1, (int) $request->cantidad);
+            $productId = $item->product_id ?? $item->producto_id;
 
-        // Validar Stock
-        $pivot = DB::table('branch_product')
-            ->where('product_id', $item->producto_id)
-            ->where('branch_id', Auth::user()->branch_id ?? 1)
-            ->first();
+            // Si es un producto físico, validamos stock
+            if ($productId && $productId > 0) {
+                $sale = Sale::findOrFail($item->venta_id);
+                $branch = Branch::where('name', $sale->venta_sucursal)->first();
+                $branchId = $branch ? $branch->id : (Auth::user()->branch_id ?? 1);
 
-        $availableStock = $pivot ? $pivot->stock_current : 0;
+                $pivot = DB::table('branch_product')
+                    ->where('product_id', $productId)
+                    ->where('branch_id', $branchId)
+                    ->first();
 
-        if ($newQty > $availableStock) {
-            return response()->json([
-                'success' => false, 
-                'message' => "Supera la existencia disponible ({$availableStock})"
-            ], 422);
+                $availableStock = $pivot ? $pivot->stock_current : 0;
+
+                if ($newQty > $availableStock) {
+                    return response()->json([
+                        'success' => false, 
+                        'message' => "Supera la existencia disponible ({$availableStock})"
+                    ], 422);
+                }
+            }
+
+            $item->update(['cantidad' => $newQty]);
+            $this->recalculateTotal($item->venta_id);
+
+            return response()->json(['success' => true]);
+
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
-
-        $item->update(['cantidad' => $newQty]);
-        $this->recalculateTotal($item->venta_id);
-
-        return response()->json(['success' => true]);
     }
 
     /**
@@ -209,20 +265,23 @@ class PosController extends Controller
             $redirectUrl = DB::transaction(function () use ($request, $saleId) {
                 $sale = Sale::with('items')->findOrFail($saleId);
                 $receivedAmount = (float) $request->get('abono', 0);
-                $branchId = Auth::user()->branch_id ?? 1;
+                
+                $branch = Branch::where('name', $sale->venta_sucursal)->first();
+                $branchId = $branch ? $branch->id : (Auth::user()->branch_id ?? 1);
 
                 if ($sale->items->count() === 0) {
                     throw new \Exception("No hay productos ni servicios en el carrito.");
                 }
 
-                // Descontar inventario solo de productos físicos (producto_id > 0)
+                // Descontar inventario solo de productos físicos
                 foreach ($sale->items as $item) {
-                    if ($item->producto_id == 0) {
+                    $pId = $item->product_id ?? $item->producto_id;
+                    if (!$pId || $pId == 0) {
                         continue; // Omitir servicios
                     }
 
                     $pivot = DB::table('branch_product')
-                        ->where('product_id', $item->producto_id)
+                        ->where('product_id', $pId)
                         ->where('branch_id', $branchId)
                         ->lockForUpdate()
                         ->first();
@@ -236,12 +295,12 @@ class PosController extends Controller
                     $newStock = $prevStock - $item->cantidad;
 
                     DB::table('branch_product')
-                        ->where('product_id', $item->producto_id)
+                        ->where('product_id', $pId)
                         ->where('branch_id', $branchId)
                         ->update(['stock_current' => $newStock, 'updated_at' => now()]);
 
                     InventoryMovement::create([
-                        'product_id'     => $item->producto_id,
+                        'product_id'     => $pId,
                         'user_id'        => Auth::id(),
                         'branch_id'      => $branchId,
                         'type'           => 'SALIDA',
@@ -253,7 +312,6 @@ class PosController extends Controller
                     ]);
                 }
 
-                // Marcar venta como finalizada
                 $sale->update([
                     'venta_abono' => $sale->venta_tipo == '1' ? $sale->venta_total : $receivedAmount,
                     'venta_fecha' => date('Y-m-d'),
@@ -278,7 +336,6 @@ class PosController extends Controller
         $sale = Sale::findOrFail($saleId);
         $sale->items()->delete();
         
-        // Mantener la estructura limpia reiniciando valores en lugar de eliminar la fila de la BD
         $sale->update([
             'venta_total'     => 0,
             'venta_descuento' => 0,
@@ -303,40 +360,19 @@ class PosController extends Controller
         return $pdf->stream("ticket_venta_#{$saleId}.pdf");
     }
 
+    /**
+     * Recalcular total de la venta
+     */
     private function recalculateTotal($saleId)
     {
         $sale = Sale::with('items')->findOrFail($saleId);
-        $subtotal = $sale->items->sum(fn($i) => $i->cantidad * $i->precio);
-        $total = max(0, $subtotal - $sale->venta_descuento);
+        $subtotal = $sale->items->sum(function($i) {
+            return $i->cantidad * $i->precio;
+        });
+        
+        $total = max(0, $subtotal - ($sale->venta_descuento ?? 0));
 
         $sale->update(['venta_total' => $total]);
-    }
-
-    /**
-     * Agregar Servicio Personalizado a la Venta
-     */
-    public function addService(Request $request, $saleId)
-    {
-        $request->validate([
-            'concept' => 'required|string|max:200',
-            'amount'  => 'required|numeric|min:0.01',
-        ]);
-
-        $sale = Sale::findOrFail($saleId);
-
-        // Insertar el servicio como un ítem de concepto libre
-        SaleItem::create([
-            'venta_id'    => $sale->venta_id,
-            'producto_id' => 0, // ID 0 indica que es un Servicio
-            'cantidad'    => 1,
-            'precio'      => $request->amount,
-            'nombre'      => '[SERVICIO] ' . trim($request->concept),
-            'sku'         => 'SERV',
-        ]);
-
-        $this->recalculateTotal($saleId);
-
-        return response()->json(['success' => true]);
     }
 
     /**
@@ -346,7 +382,6 @@ class PosController extends Controller
     {
         $sale = Sale::findOrFail($saleId);
 
-        // Obtener la última factura de la sucursal actual
         $lastInvoice = Sale::where('venta_sucursal', $sale->venta_sucursal)
             ->where('venta_factura', 'SI')
             ->whereNotNull('numero_factura')
