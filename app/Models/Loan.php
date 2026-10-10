@@ -20,8 +20,13 @@ class Loan extends Model
         'status',
     ];
 
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'usuario', 'id');
+    }
+
     public function payments()
     {
-        return $this->hasMany(LoanPayment::class, 'idPrestamo', 'pres_id');
+        return $this->hasMany(LoanPayment::class, 'id', 'pres_id');
     }
 }

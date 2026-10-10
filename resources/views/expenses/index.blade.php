@@ -1,6 +1,21 @@
 <x-app-layout>
     <div class="container-fluid py-4">
         
+        {{-- MENSAGE DE ALERTA DE ÉXITO O ERROR --}}
+        @if(session('success'))
+            <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-sm mb-4" role="alert">
+                <i class="fa-solid fa-circle-check me-2"></i>{{ session('success') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endif
+
+        @if(session('error'))
+            <div class="alert alert-danger alert-dismissible fade show rounded-3 shadow-sm mb-4" role="alert">
+                <i class="fa-solid fa-triangle-exclamation me-2"></i>{{ session('error') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endif
+
         {{-- PANEL DE REGISTRO RÁPIDO --}}
         <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
             <h5 class="fw-bold text-primary mb-3">
@@ -14,20 +29,22 @@
                 </div>
                 <div class="col-12 col-md-2">
                     <label class="form-label extra-small fw-bold text-muted">Cantidad ($)</label>
-                    <input type="number" step="0.01" name="cantida" class="form-control rounded-3" placeholder="0.00" required>
+                    <input type="number" step="0.01" name="cantidad" class="form-control rounded-3" placeholder="0.00" required>
                 </div>
                 <div class="col-12 col-md-2">
                     <label class="form-label extra-small fw-bold text-muted">Fecha</label>
                     <input type="date" name="fecha" value="{{ date('Y-m-d') }}" class="form-control rounded-3" required>
                 </div>
                 
-                {{-- Selector de Sucursal: Solo editable por Admin General --}}
+                {{-- Selector de Sucursal en Registro --}}
                 <div class="col-12 col-md-2">
                     <label class="form-label extra-small fw-bold text-muted">Sucursal</label>
-                    @if(in_array($userRole, [0, 3]))
+                    @if($isAdmin)
                         <select name="sucursal" class="form-select rounded-3">
                             @foreach($branches as $b)
-                                <option value="{{ $b->name }}">{{ $b->name }}</option>
+                                <option value="{{ $b->name }}" {{ (isset($selectedBranch) && $selectedBranch == $b->name) ? 'selected' : '' }}>
+                                    {{ $b->name }}
+                                </option>
                             @endforeach
                         </select>
                     @else
@@ -57,32 +74,48 @@
                     <i class="fa-solid fa-receipt me-2 text-primary"></i>Historial de Gastos
                 </h5>
                 
-                {{-- Filtro de Fechas y Sucursal --}}
+                {{-- Filtro de Búsqueda, Fechas y Sucursal --}}
                 <form method="GET" action="{{ route('expenses.index') }}" data-loading-text="Filtrando Gastos..." class="d-flex flex-wrap gap-2 align-items-center">
-                    <input type="date" name="fecha1" value="{{ $fecha1 }}" class="form-control form-control-sm rounded-3">
-                    <input type="date" name="fecha2" value="{{ $fecha2 }}" class="form-control form-control-sm rounded-3">
                     
-                    @if(in_array($userRole, [0, 3]))
-                        <select name="sucursal" class="form-select form-select-sm rounded-3">
+                    {{-- Campo de Búsqueda por Concepto --}}
+                    <div class="input-group input-group-sm" style="max-width: 200px;">
+                        <span class="input-group-text bg-white border-end-0 rounded-start-pill text-muted ps-3">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </span>
+                        <input type="text" name="search" value="{{ $search ?? '' }}" class="form-control form-control-sm border-start-0 rounded-end-pill" placeholder="Buscar concepto...">
+                    </div>
+
+                    <input type="date" name="fecha1" value="{{ $fecha1 }}" class="form-control form-control-sm rounded-3" style="max-width: 140px;">
+                    <input type="date" name="fecha2" value="{{ $fecha2 }}" class="form-control form-control-sm rounded-3" style="max-width: 140px;">
+                    
+                    @if($isAdmin)
+                        <select name="sucursal" class="form-select form-select-sm rounded-3 border-primary" style="max-width: 180px;">
                             <option value="TODOS" {{ $selectedBranch == 'TODOS' ? 'selected' : '' }}>Todas las Sucursales</option>
                             @foreach($branches as $b)
-                                <option value="{{ $b->name }}" {{ $selectedBranch == $b->name ? 'selected' : '' }}>{{ $b->name }}</option>
+                                <option value="{{ $b->name }}" {{ $selectedBranch == $b->name ? 'selected' : '' }}>
+                                    {{ $b->name }}
+                                </option>
                             @endforeach
                         </select>
                     @else
                         <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2">
                             <i class="fa-solid fa-hospital me-1"></i> {{ $userBranch }}
                         </span>
+                        <input type="hidden" name="sucursal" value="{{ $userBranch }}">
                     @endif
 
                     <button type="submit" class="btn btn-sm btn-dark rounded-pill px-3">Filtrar</button>
+                    <a href="{{ route('expenses.index') }}" class="btn btn-sm btn-light border rounded-circle text-muted" title="Limpiar Filtros">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                    </a>
                 </form>
             </div>
 
+            {{-- TABLA DE REGISTROS --}}
             <div class="table-responsive">
-                <table class="table table-hover align-middle">
+                <table class="table table-hover align-middle text-nowrap">
                     <thead class="table-light">
-                        <tr>
+                        <tr class="extra-small fw-bold text-uppercase">
                             <th>CONCEPTO</th>
                             <th>FECHA</th>
                             <th class="text-end">CANTIDAD</th>
@@ -96,7 +129,7 @@
                             <tr>
                                 <td class="fw-semibold">{{ $e->concepto }}</td>
                                 <td>{{ $e->fecha }}</td>
-                                <td class="text-end fw-bold">${{ number_format($e->cantida, 2) }}</td>
+                                <td class="text-end fw-bold">${{ number_format($e->cantidad, 2) }}</td>
                                 <td><span class="badge bg-light text-dark border">{{ $e->sucursal }}</span></td>
                                 <td>
                                     @if($e->tipo == 2) 
@@ -122,6 +155,16 @@
                         @endforelse
                     </tbody>
                 </table>
+            </div>
+
+            {{-- NAVEGACIÓN Y PAGINACIÓN --}}
+            <div class="d-flex flex-wrap justify-content-between align-items-center mt-3 pt-3 border-top">
+                <div class="small text-muted mb-2">
+                    Mostrando del <strong>{{ $expenses->firstItem() ?? 0 }}</strong> al <strong>{{ $expenses->lastItem() ?? 0 }}</strong> de <strong>{{ $expenses->total() }}</strong> registros
+                </div>
+                <div>
+                    {{ $expenses->links('pagination::bootstrap-5') }}
+                </div>
             </div>
 
             {{-- RESUMEN DE TOTALES --}}

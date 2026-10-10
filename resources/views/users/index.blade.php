@@ -75,11 +75,6 @@
                         <th>Sucursal</th>
                         <th>Rol Asignado</th>
                         <th>
-                            <a href="{{ route('users.index', array_merge(request()->query(), ['sort_by' => 'user_type', 'sort_order' => $sortOrder === 'asc' ? 'desc' : 'asc'])) }}" class="text-dark text-decoration-none">
-                                Tipo <i class="fa-solid fa-sort text-muted ms-1"></i>
-                            </a>
-                        </th>
-                        <th>
                             <a href="{{ route('users.index', array_merge(request()->query(), ['sort_by' => 'status', 'sort_order' => $sortOrder === 'asc' ? 'desc' : 'asc'])) }}" class="text-dark text-decoration-none">
                                 Estado <i class="fa-solid fa-sort text-muted ms-1"></i>
                             </a>
@@ -107,13 +102,6 @@
                                     </span>
                                 @else
                                     <span class="badge bg-light text-muted border rounded-pill px-3">Personalizado</span>
-                                @endif
-                            </td>
-                            <td>
-                                @if($u->user_type == 0)
-                                    <span class="badge bg-primary text-white rounded-pill px-3">Administrador</span>
-                                @else
-                                    <span class="badge bg-info-subtle text-info rounded-pill px-3">Operador</span>
                                 @endif
                             </td>
                             <td>

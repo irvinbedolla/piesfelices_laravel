@@ -144,7 +144,8 @@
                     <tbody>
                         @forelse ($products as $p)
                             @php
-                                $branchData = $p->branches->first();
+                                // Buscar explícitamente la sucursal seleccionada dentro de la colección cargada
+                                $branchData = $p->branches->firstWhere('id', $selectedBranchId);
                                 $currentStock = $branchData ? $branchData->pivot->stock_current : 0;
                                 $minStock = $branchData ? $branchData->pivot->stock_min : 1;
                             @endphp

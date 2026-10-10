@@ -14,7 +14,12 @@ class Prescription extends Model
         'diagnosis',
         'indications',
         'next_appointment',
-        'branch_name',
-        'user_id',
+        'branch_id',
+        //'user_id',
     ];
+
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class, 'branch_id');
+    }
 }

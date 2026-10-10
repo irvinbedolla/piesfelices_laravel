@@ -38,18 +38,17 @@ class InventoryController extends Controller
         $sortBy    = $request->get('sort_by', 'created_at');
         $sortOrder = $request->get('sort_order', 'desc');
 
-        // 3. Consulta optimizada en MySQL (JOIN / WhereHas)
+        // 3. Consulta optimizada en MySQL
         $query = Product::whereHas('branches', function ($q) use ($selectedBranchId, $onlyLowStock) {
             $q->where('branch_id', $selectedBranchId);
             
-            // Filtro conducido directamente por MySQL para Bajo Stock
             if ($onlyLowStock) {
+                // Muestra productos agotados o por debajo del mínimo (Bajo Stock)
                 $q->whereColumn('branch_product.stock_current', '<=', 'branch_product.stock_min');
-            }else{
-                // Por defecto, mostrar únicamente artículos que tengan stock (stock_current > 0)
+            } else {
+                // Por defecto: Muestra SOLO productos con existencias activas en esta sucursal
                 $q->where('branch_product.stock_current', '>', 0);
             }
-
         })->with(['branches' => function ($q) use ($selectedBranchId) {
             $q->where('branch_id', $selectedBranchId);
         }]);

@@ -3,7 +3,7 @@
         
         <div class="card border-0 shadow-sm rounded-4 p-4">
             
-            {{-- MENSAGE DE ALERTA DE ÉXITO O ERROR --}}
+            {{-- MENSAJES DE SESIÓN --}}
             @if(session('success'))
                 <div class="alert alert-success alert-dismissible fade show rounded-3" role="alert">
                     <i class="fa-solid fa-circle-check me-2"></i>{{ session('success') }}
@@ -28,7 +28,7 @@
                 </div>
 
                 <div>
-                    @if(in_array($userRole, [1,2]))
+                    @if($isAdmin)
                         <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2 fs-6">
                             <i class="fa-solid fa-user-shield me-1"></i> Modo Administrador
                         </span>
@@ -44,25 +44,25 @@
             <ul class="nav nav-pills nav-fill bg-light p-1 rounded-pill mb-4 border">
                 <li class="nav-item">
                     <a class="nav-link rounded-pill fw-bold {{ $tab === 'general' ? 'active bg-primary' : 'text-secondary' }}" 
-                       href="{{ route('sales.consultation.index', array_merge(request()->all(), ['tab' => 'general'])) }}">
+                       href="{{ route('sales.consultation.index', array_merge(request()->query(), ['tab' => 'general'])) }}">
                         <i class="fa-solid fa-list me-1"></i> Ventas en General
                     </a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link rounded-pill fw-bold {{ $tab === 'facturadas' ? 'active bg-success' : 'text-secondary' }}" 
-                       href="{{ route('sales.consultation.index', array_merge(request()->all(), ['tab' => 'facturadas'])) }}">
+                       href="{{ route('sales.consultation.index', array_merge(request()->query(), ['tab' => 'facturadas'])) }}">
                         <i class="fa-solid fa-file-invoice-dollar me-1"></i> Facturadas
                     </a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link rounded-pill fw-bold {{ $tab === 'canceladas' ? 'active bg-danger' : 'text-secondary' }}" 
-                       href="{{ route('sales.consultation.index', array_merge(request()->all(), ['tab' => 'canceladas'])) }}">
+                       href="{{ route('sales.consultation.index', array_merge(request()->query(), ['tab' => 'canceladas'])) }}">
                         <i class="fa-solid fa-ban me-1"></i> Canceladas
                     </a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link rounded-pill fw-bold {{ $tab === 'abonos' ? 'active bg-info text-white' : 'text-secondary' }}" 
-                       href="{{ route('sales.consultation.index', array_merge(request()->all(), ['tab' => 'abonos'])) }}">
+                       href="{{ route('sales.consultation.index', array_merge(request()->query(), ['tab' => 'abonos'])) }}">
                         <i class="fa-solid fa-hand-holding-dollar me-1"></i> Abonos en General
                     </a>
                 </li>
@@ -94,11 +94,13 @@
 
                 <div class="col-12 col-md-3">
                     <label class="form-label extra-small fw-bold text-muted mb-1">Sucursal</label>
-                    @if(in_array($userRole, [1,2]))
+                    @if($isAdmin)
                         <select name="branch" class="form-select form-select-sm rounded-3 border-primary">
-                            <option value="TODOS" {{ $selectedBranch == 'TODOS' ? 'selected' : '' }}>-- TODAS LAS SUCURSALES --</option>
+                            <option value="TODOS" {{ (empty($selectedBranch) || $selectedBranch == 'TODOS') ? 'selected' : '' }}>-- TODAS LAS SUCURSALES --</option>
                             @foreach($branches as $b)
-                                <option value="{{ $b->name }}" {{ $selectedBranch == $b->name ? 'selected' : '' }}>{{ $b->name }}</option>
+                                <option value="{{ $b->name }}" {{ $selectedBranch == $b->name ? 'selected' : '' }}>
+                                    {{ $b->name }}
+                                </option>
                             @endforeach
                         </select>
                     @else
@@ -131,7 +133,7 @@
                                 <th>Factura</th>
                                 <th class="text-end">Total</th>
                                 <th class="text-center">Artículos</th>
-                                @if(in_array($userRole, [1,2]))
+                                @if($isAdmin)
                                     <th class="text-center">Acciones</th>
                                 @endif
                             </tr>
@@ -148,7 +150,7 @@
                                     <td><span class="badge bg-light text-dark border">{{ $v->venta_sucursal }}</span></td>
                                     <td><span class="badge bg-info-subtle text-info border border-info-subtle">{{ $v->venta_tipopago }}</span></td>
                                     <td>
-                                        @if(in_array(strtoupper($v->venta_factura), ['SI', '1']))
+                                        @if(in_array(strtoupper($v->venta_factura ?? ''), ['SI', '1']))
                                             <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="fa-solid fa-check me-1"></i>SI</span>
                                         @else
                                             <span class="badge bg-light text-muted border">NO</span>
@@ -160,7 +162,7 @@
                                             Ver ({{ count($v->details) }})
                                         </button>
                                     </td>
-                                    @if(in_array($userRole, [1,2]))
+                                    @if($isAdmin)
                                         <td class="text-center">
                                             @if($tab !== 'canceladas')
                                                 <form action="{{ route('sales.consultation.destroy-sale', $v->venta_id) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de cancelar esta venta?');">
@@ -206,7 +208,7 @@
 
                             @empty
                                 <tr>
-                                    <td colspan="{{ in_array($userRole, [1,2]) ? '9' : '8' }}" class="text-center py-4 text-muted">
+                                    <td colspan="{{ $isAdmin ? '9' : '8' }}" class="text-center py-4 text-muted">
                                         <i class="fa-solid fa-circle-info me-1"></i> No se encontraron ventas para los criterios seleccionados.
                                     </td>
                                 </tr>
@@ -223,7 +225,7 @@
                                 <th>Fecha / Hora Abono</th>
                                 <th>Sucursal</th>
                                 <th class="text-end">Monto Abonado</th>
-                                @if(in_array($userRole, [1,2]))
+                                @if($isAdmin)
                                     <th class="text-center">Acciones</th>
                                 @endif
                             </tr>
@@ -232,11 +234,11 @@
                             @forelse($records as $a)
                                 <tr>
                                     <td class="fw-bold text-info">#{{ $a->abono_id ?? $a->id }}</td>
-                                    <td class="fw-bold text-primary">Venta #{{ $a->venta_id }}</td>
+                                    <td class="fw-bold text-primary">Venta #{{ $a->abono_venta ?? $a->venta_id }}</td>
                                     <td>{{ $a->abono_fecha ?? $a->created_at }}</td>
                                     <td><span class="badge bg-light text-dark border">{{ $a->abono_sucursal ?? 'MATRIZ' }}</span></td>
                                     <td class="text-end fw-bold text-success fs-6">+${{ number_format($a->abono_cantidad, 2) }}</td>
-                                    @if(in_array($userRole, [1,2]))
+                                    @if($isAdmin)
                                         <td class="text-center">
                                             <form action="{{ route('sales.consultation.destroy-abono', $a->abono_id ?? $a->id) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de borrar este abono? El saldo pendiente de la venta será recalculado.');">
                                                 @csrf
@@ -250,7 +252,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ in_array($userRole, [1,2]) ? '6' : '5' }}" class="text-center py-4 text-muted">
+                                    <td colspan="{{ $isAdmin ? '6' : '5' }}" class="text-center py-4 text-muted">
                                         <i class="fa-solid fa-circle-info me-1"></i> No hay abonos registrados en el rango de fechas seleccionado.
                                     </td>
                                 </tr>

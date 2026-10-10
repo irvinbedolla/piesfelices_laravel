@@ -10,7 +10,7 @@ class Expense extends Model
 
     protected $fillable = [
         'concepto',
-        'cantida',
+        'cantidad',
         'fecha',
         'sucursal',
         'tipo',

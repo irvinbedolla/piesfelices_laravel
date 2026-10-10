@@ -148,6 +148,8 @@ Route::middleware('auth')->group(function () {
 
 
     Route::resource('branches', BranchController::class)->only(['index', 'store', 'update']);
-
+    Route::get('/loans/{id}/payments', [ExpenseController::class, 'getPayments'])->name('loans.payments');
+    //Route::get('/appointments/customer/{customerId}', [AppointmentController::class, 'getCustomerAppointments'])->name('appointments.customer');
+    Route::get('/customer-appointments-history/{customerId}', [AppointmentController::class, 'getCustomerAppointments'])->name('appointments.customer');
     
 require __DIR__.'/auth.php';

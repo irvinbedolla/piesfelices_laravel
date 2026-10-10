@@ -56,9 +56,16 @@ class Sale extends Model
         return $this->hasMany(SaleDetail::class, 'venta_id', 'venta_id');
     }
 
-    // Relación con la nueva tabla de abonos
+    // Relación con los abonos
+    public function abonos()
+    {
+        // hasMany(ModeloAsociado, 'llave_foranea_en_tabla_abonos', 'llave_local_en_tabla_ventas')
+        return $this->hasMany(CreditPayment::class, 'abono_venta', 'venta_id');
+    }
+
+    // Si tu vista o controlador llama a la relación como payments():
     public function payments()
     {
-        return $this->hasMany(CreditPayment::class, 'venta_id', 'venta_id');
+        return $this->hasMany(CreditPayment::class, 'abono_venta', 'venta_id');
     }
 }

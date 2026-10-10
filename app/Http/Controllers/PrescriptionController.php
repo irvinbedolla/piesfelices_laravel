@@ -10,55 +10,71 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class PrescriptionController extends Controller
 {
-    /**
-     * Listado de Recetas / Expedientes con filtro por sucursal
-     */
+
     public function index(Request $request)
     {
-        $user = Auth::user();
-        $branches = Branch::all();
-        $selectedBranch = $request->get('branch', $user->branch?->name ?? 'MATRIZ');
+        // Obtener todas las sucursales para el select
+        $branches = Branch::orderBy('name', 'asc')->get();
 
-        $prescriptions = Prescription::when($selectedBranch && $selectedBranch !== 'TODOS', function ($q) use ($selectedBranch) {
-            $q->where('branch_name', $selectedBranch);
-        })->latest()->paginate(25);
+        // Determinar la sucursal activa seleccionada por ID (o la del usuario autenticado por defecto)
+        $selectedBranchId = $request->get('branch_id', Auth::user()->branch_id ?? $branches->first()?->id);
 
-        return view('prescriptions.index', compact('prescriptions', 'branches', 'selectedBranch'));
+        // Consultar recetas filtrando por branch_id
+        $prescriptions = Prescription::when($selectedBranchId, function ($q) use ($selectedBranchId) {
+            $q->where('branch_id', $selectedBranchId);
+        })->latest('id')->paginate(10);
+
+        return view('prescriptions.index', compact('prescriptions', 'branches', 'selectedBranchId'));
     }
-
-    /**
-     * Formulario para Generar Nueva Receta
-     */
+    
     public function create()
     {
-        return view('prescriptions.create');
+        $user = Auth::user();
+
+        // Si es Admin (ajusta según cómo manejes tus roles, e.g. $user->role_id == 1 o $user->role->name == 'Administrador')
+        if ($user->role_id == 1 || $user->role?->name == 'Administrador') {
+            $branches = Branch::orderBy('name', 'asc')->get();
+        } else {
+            // Solo obtiene la sucursal asignada al usuario
+            $branches = Branch::where('id', $user->branch_id)->get();
+        }
+
+        return view('prescriptions.create', compact('branches'));
     }
 
     /**
-     * Guardar Nueva Receta
+     * Guarda la nueva receta
      */
     public function store(Request $request)
     {
+        $user = Auth::user();
+        $isAdmin = ($user->role_id == 1 || $user->role?->name == 'Administrador');
+
+        // Si es usuario normal, forzamos branch_id al de su cuenta
+        if (!$isAdmin) {
+            $request->merge(['branch_id' => $user->branch_id]);
+        }
+
         $request->validate([
-            'patient_name'     => 'required|string|max:255',
-            'diagnosis'        => 'required|string|max:255',
-            'indications'      => 'required|string',
-            'next_appointment' => 'nullable|date',
+            'patient_name' => 'required|string|max:255',
+            'diagnosis'    => 'required|string',
+            'indications'  => 'required|string',
+            'branch_id'    => 'required|exists:branches,id',
         ]);
 
-        $user = Auth::user();
-
-        Prescription::create([
+        $prescription = Prescription::create([
             'patient_name'     => $request->patient_name,
             'diagnosis'        => $request->diagnosis,
             'indications'      => $request->indications,
             'next_appointment' => $request->next_appointment,
-            'branch_name'      => $user->branch?->name ?? 'MATRIZ',
-            'user_id'          => $user->id,
+            'branch_id'        => $request->branch_id,
+            //'user_id'          => $user->id,
         ]);
 
-        return redirect()->route('prescriptions.index')->with('success', 'Receta guardada con éxito.');
+        return redirect()->route('prescriptions.index', ['branch_id' => $request->branch_id])
+            ->with('success', 'Receta registrada correctamente.');
     }
+
 
     /**
      * Formulario de Edición
@@ -67,7 +83,12 @@ class PrescriptionController extends Controller
     {
         $prescription = Prescription::findOrFail($id);
         $user = Auth::user();
-
+        // Cargar las sucursales según el rol del usuario
+        if ($user->role_id == 1 || $user->role?->name == 'Administrador') {
+            $branches = Branch::orderBy('name', 'asc')->get();
+        } else {
+            $branches = Branch::where('id', $user->branch_id)->get();
+        }
         return view('prescriptions.edit', compact('prescription', 'user'));
     }
 
@@ -77,6 +98,14 @@ class PrescriptionController extends Controller
     public function update(Request $request, $id)
     {
         $prescription = Prescription::findOrFail($id);
+
+        $user = Auth::user();
+        $isAdmin = ($user->role_id == 1 || $user->role?->name == 'Administrador');
+
+        // Si no es admin, forzar el branch_id original o el del usuario
+        if (!$isAdmin) {
+            $request->merge(['branch_id' => $prescription->branch_id]);
+        }
 
         $request->validate([
             'patient_name'     => 'required|string|max:255',
@@ -92,18 +121,20 @@ class PrescriptionController extends Controller
             'next_appointment' => $request->next_appointment,
         ]);
 
-        return redirect()->route('prescriptions.index')->with('success', 'Receta actualizada con éxito.');
+        return redirect()->route('prescriptions.index', ['branch_id' => $prescription->branch_id])
+            ->with('success', 'Receta actualizada correctamente.');
     }
 
     /**
      * Eliminar Receta
      */
-    public function destroy($id)
+    public function destroy(Prescription $prescription)
     {
-        $prescription = Prescription::findOrFail($id);
+        $branchId = $prescription->branch_id;
         $prescription->delete();
 
-        return redirect()->route('prescriptions.index')->with('success', 'Receta eliminada.');
+        return redirect()->route('prescriptions.index', ['branch_id' => $branchId])
+            ->with('success', 'Receta eliminada correctamente.');
     }
 
     /**

@@ -18,17 +18,20 @@ class SalesConsultationController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $userRole = $user->tipo_seccion ?? 2;
+        $userRole = $user->role_id ?? $user->type ?? 2;
         $userBranch = $user->branch?->name ?? $user->branch_name ?? 'MATRIZ';
 
         $branches = Branch::all();
         $tab = $request->get('tab', 'general');
         $search = trim($request->get('search'));
-        $selectedBranch = $request->get('branch');
-        $fecha1 = $request->get('fecha1', date('Y-m-01'));
-        $fecha2 = $request->get('fecha2', date('Y-m-d'));
+        
+        // Estandarizar la captura del valor de sucursal
+        $selectedBranch = $request->get('branch', $request->get('sucursal'));
 
-        if (!in_array($userRole, [0, 3])) {
+        // Normalizar permisos (Se asume [0, 3] o [1, 2] segun la logica global de tu app)
+        $isAdmin = in_array($userRole, [0, 1, 3]);
+
+        if (!$isAdmin) {
             $selectedBranch = $userBranch;
         }
 
@@ -43,6 +46,9 @@ class SalesConsultationController extends Controller
 
         if ($tab !== 'abonos') {
             $query = Sale::with(['details', 'payments']);
+
+            $fecha1 = $request->get('fecha1', date('Y-m-01'));
+            $fecha2 = $request->get('fecha2', date('Y-m-d'));
 
             if (!empty($fecha1) && !empty($fecha2)) {
                 $query->whereBetween('venta_fecha', [$fecha1, $fecha2]);
@@ -65,6 +71,7 @@ class SalesConsultationController extends Controller
                 $query->where('venta_tipo', '!=', 3);
             }
 
+            // Aplicar el filtro estricto por el nombre exacto de la sucursal
             if (!empty($selectedBranch) && $selectedBranch !== 'TODOS') {
                 $query->where('venta_sucursal', $selectedBranch);
             }
@@ -105,6 +112,9 @@ class SalesConsultationController extends Controller
                              ->appends($request->all());
 
         } else {
+            $fecha1 = $request->get('fecha1', date('Y-m-01'));
+            $fecha2 = $request->get('fecha2', date('Y-m-d'));
+
             $dateColAbono = Schema::hasColumn('abonos', 'abono_fecha') ? 'abono_fecha' : 'created_at';
             $query = CreditPayment::query();
 
@@ -120,7 +130,7 @@ class SalesConsultationController extends Controller
 
             if (!empty($search)) {
                 $query->where(function($q) use ($search) {
-                    $q->where('venta_id', 'LIKE', "%{$search}%")
+                    $q->where('abono_venta', 'LIKE', "%{$search}%")
                       ->orWhere('abono_cantidad', 'LIKE', "%{$search}%");
                 });
             }
@@ -134,50 +144,50 @@ class SalesConsultationController extends Controller
 
         return view('sales_consultation.index', compact(
             'records', 'tab', 'branches', 'selectedBranch', 'search', 
-            'fecha1', 'fecha2', 'userRole', 'userBranch', 'summary'
+            'fecha1', 'fecha2', 'userRole', 'userBranch', 'summary', 'isAdmin'
         ));
     }
 
     /**
-     * Cancelar/Borrar Venta (Borrado Lógico: venta_tipo = 3)
+     * Cancelar/Borrar Venta
      */
     public function destroySale($id)
     {
         $user = Auth::user();
-        $userRole = $user->tipo_seccion ?? 2;
+        $userRole = $user->tipo_seccion ?? $user->type ?? 2;
 
-        if (!in_array($userRole, [0, 3])) {
+        if (!in_array($userRole, [0, 1, 3])) {
             return redirect()->back()->with('error', 'No tienes permisos para cancelar o borrar ventas.');
         }
 
         $sale = Sale::findOrFail($id);
-        $sale->update(['venta_tipo' => 3]); // 3 = Cancelado
+        $sale->update(['venta_tipo' => 3]);
 
         return redirect()->back()->with('success', "Venta #{$id} cancelada correctamente.");
     }
 
     /**
-     * Borrar Abono y Revertir Saldo de la Venta a Crédito
+     * Borrar Abono y Revertir Saldo
      */
     public function destroyAbono($id)
     {
         $user = Auth::user();
-        $userRole = $user->tipo_seccion ?? 2;
+        $userRole = $user->tipo_seccion ?? $user->type ?? 2;
 
-        if (!in_array($userRole, [0, 3])) {
+        if (!in_array($userRole, [0, 1, 3])) {
             return redirect()->back()->with('error', 'No tienes permisos para eliminar abonos.');
         }
 
         DB::transaction(function () use ($id) {
             $abono = CreditPayment::findOrFail($id);
-            $sale = Sale::find($abono->venta_id);
+            $saleId = $abono->abono_venta ?? $abono->venta_id;
+            $sale = Sale::find($saleId);
 
             if ($sale) {
                 $montoAbono = (float) $abono->abono_cantidad;
                 $nuevoAbonoAcumulado = max(0, $sale->venta_abono - $montoAbono);
                 $nuevoRestante = $sale->venta_total - $nuevoAbonoAcumulado;
 
-                // Si aún se debe algo, el tipo regresa a 2 (CRÉDITO PENDIENTE)
                 $nuevoEstatus = ($nuevoRestante > 0) ? 2 : $sale->venta_tipo;
 
                 $sale->update([

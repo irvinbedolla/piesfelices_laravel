@@ -6,7 +6,7 @@
                 <span class="badge bg-light text-dark border fs-6">Sucursal: {{ $prescription->branch_name }}</span>
             </div>
 
-            <form action="{{ route('prescriptions.update', $prescription->id) }}" method="POST" data-loading-text="Cargando.">
+            <form action="{{ route('prescriptions.update', $prescription->id) }}" method="POST" data-loading-text="Actualizando...">
                 @csrf
                 @method('PUT')
 
@@ -18,7 +18,7 @@
 
                     <div class="col-12 col-md-4">
                         <label class="form-label fw-semibold">Próxima Cita</label>
-                        <input type="date" name="next_appointment" value="{{ old('next_appointment', $prescription->next_appointment) }}" class="form-control rounded-3">
+                        <input type="date" name="next_appointment" value="{{ old('next_appointment', $prescription->next_appointment) }}" class="form-control rounded-3" required>
                     </div>
 
                     <div class="col-12">
@@ -32,7 +32,9 @@
                     </div>
 
                     <div class="col-12 d-flex justify-content-end gap-2 mt-4">
-                        <a href="{{ route('prescriptions.index') }}" class="btn btn-secondary rounded-pill px-4">Cancelar</a>
+                        <a href="{{ route('prescriptions.index', ['branch_id' => $prescription->branch_id]) }}" class="btn btn-secondary rounded-pill px-4">
+                            Regresar
+                        </a>
                         <button type="submit" class="btn btn-primary rounded-pill px-4">Actualizar Receta</button>
                     </div>
                 </div>

@@ -15,15 +15,18 @@
             </div>
 
             {{-- Filtro por Sucursal --}}
-            <form method="GET" data-loading-text="Cargando." action="{{ route('prescriptions.index') }}" class="row g-3 mb-4">
-                <div class="col-12 col-md-4">
-                    <label class="form-label extra-small fw-bold text-muted">Seleccionar Sucursal:</label>
-                    <select name="branch" onchange="this.form.submit()" class="form-select rounded-3">
-                        <option value="TODOS" {{ $selectedBranch == 'TODOS' ? 'selected' : '' }}>-- TODAS LAS SUCURSALES --</option>
-                        @foreach($branches as $b)
-                            <option value="{{ $b->name }}" {{ $selectedBranch == $b->name ? 'selected' : '' }}>{{ $b->name }}</option>
-                        @endforeach
-                    </select>
+            <form method="GET" action="{{ route('prescriptions.index') }}" class="mb-4">
+                <label class="form-label fw-bold text-muted small text-uppercase">Seleccionar Sucursal:</label>
+                <div class="row g-2 align-items-center">
+                    <div class="col-12 col-md-4">
+                        <select name="branch_id" class="form-select rounded-pill" onchange="this.form.submit()">
+                            @foreach($branches as $b)
+                                <option value="{{ $b->id }}" {{ $selectedBranchId == $b->id ? 'selected' : '' }}>
+                                    {{ $b->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
                 </div>
             </form>
 
@@ -60,20 +63,40 @@
                                         <span class="text-muted small">N/A</span>
                                     @endif
                                 </td>
-                                <td class="text-end">
-                                    <a href="{{ route('prescriptions.pdf', $p->id) }}" target="_blank" class="btn btn-sm btn-danger rounded-3" title="Descargar PDF">
-                                        <i class="fa-solid fa-file-pdf"></i> PDF
-                                    </a>
-                                    <a href="{{ route('prescriptions.edit', $p->id) }}" class="btn btn-sm btn-primary rounded-3" title="Editar">
-                                        <i class="fa-solid fa-pen-to-square"></i>
-                                    </a>
-                                    <form action="{{ route('prescriptions.destroy', $p->id) }}" method="POST" data-loading-text="Cargando." class="d-inline" onsubmit="return confirm('¿Seguro que deseas borrar esta receta?')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn btn-sm btn-outline-danger rounded-3" title="Borrar">
-                                            <i class="fa-solid fa-trash"></i>
-                                        </button>
-                                    </form>
+                                <td class="align-middle text-center">
+                                    <div class="d-flex align-items-center justify-content-center gap-1 flex-nowrap">
+                                        
+                                        {{-- Botón PDF --}}
+                                        <a href="{{ route('prescriptions.pdf', $p->id) }}" 
+                                        class="btn btn-sm btn-outline-danger rounded-pill px-2 py-1 d-inline-flex align-items-center gap-1 lh-1" 
+                                        target="_blank">
+                                            <i class="bi bi-file-earmark-pdf"></i>
+                                            <span class="small">PDF</span>
+                                        </a>
+
+                                        {{-- Botón Editar --}}
+                                        <a href="{{ route('prescriptions.edit', $p->id) }}" 
+                                        class="btn btn-sm btn-outline-primary rounded-pill px-2 py-1 d-inline-flex align-items-center gap-1 lh-1">
+                                            <i class="bi bi-pencil"></i>
+                                            <span class="small">Editar</span>
+                                        </a>
+
+                                        {{-- Botón Eliminar --}}
+                                        <form id="delete-form-{{ $p->id }}" 
+                                            action="{{ route('prescriptions.destroy', $p->id) }}" 
+                                            method="POST" 
+                                            class="m-0 p-0 d-inline">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1 d-inline-flex align-items-center gap-1 lh-1" 
+                                                    onclick="confirmDelete({{ $p->id }})">
+                                                <i class="bi bi-trash"></i>
+                                                <span class="small">Eliminar</span>
+                                            </button>
+                                        </form>
+
+                                    </div>
                                 </td>
                             </tr>
                         @empty
@@ -92,3 +115,15 @@
         </div>
     </div>
 </x-app-layout>
+
+<script>
+    function confirmDelete(id) {
+        if (confirm('¿Estás seguro de eliminar esta receta?')) {
+            // Muestra el loader solo si el usuario hizo clic en Aceptar
+            if (typeof showLoader === 'function') {
+                showLoader();
+            }
+            document.getElementById('delete-form-' + id).submit();
+        }
+    }
+</script>

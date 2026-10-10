@@ -58,7 +58,6 @@
                 <th>Contacto</th>
                 <th>Teléfono</th>
                 <th>Ciudad</th>
-                <th>Email</th>
             </tr>
         </thead>
         <tbody>
@@ -69,7 +68,6 @@
                     <td>{{ $s->contact_name ?? 'N/A' }}</td>
                     <td>{{ $s->phone ?? 'N/A' }}</td>
                     <td>{{ $s->city ?? 'N/A' }}</td>
-                    <td>{{ $s->email ?? 'N/A' }}</td>
                 </tr>
             @endforeach
         </tbody>

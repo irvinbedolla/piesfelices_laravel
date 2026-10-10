@@ -49,10 +49,10 @@ class Product extends Model
     /**
      * Relación con las sucursales y su stock individual
      */
-    public function branches(): BelongsToMany
+    public function branches()
     {
         return $this->belongsToMany(Branch::class, 'branch_product')
-                    ->withPivot('stock_current', 'stock_min')
+                    ->withPivot(['stock_current', 'stock_min'])
                     ->withTimestamps();
     }
 
