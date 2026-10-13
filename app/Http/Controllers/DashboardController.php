@@ -18,6 +18,11 @@ class DashboardController extends Controller
         $userRole = $user->tipo_seccion ?? 2;
         $userBranch = $user->branch?->name ?? $user->branch_name ?? 'MATRIZ';
 
+        // Verificación segura de rol Administrador
+        $isAdmin = method_exists($user, 'isAdmin') 
+            ? $user->isAdmin() 
+            : in_array((int)($user->tipo_seccion ?? 2), [0, 3]);
+
         // Detección segura de columnas en 'appointments'
         $dateCol = 'created_at';
         if (Schema::hasColumn('appointments', 'cita_fecha')) {
@@ -39,15 +44,22 @@ class DashboardController extends Controller
 
         $appointmentsQuery = Appointment::whereDate($dateCol, date('Y-m-d'));
 
-        if (!$user->isAdmin()) {
-            $appointmentsQuery->where('sucursal', $userBranch);
+        // Filtrado por sucursal solo para usuarios no administradores
+        if (!$isAdmin) {
+            if (Schema::hasColumn('appointments', 'sucursal')) {
+                $appointmentsQuery->where('sucursal', $userBranch);
+            } elseif (Schema::hasColumn('appointments', 'branch_id')) {
+                $appointmentsQuery->where('branch_id', $user->branch_id);
+            } elseif (Schema::hasColumn('appointments', 'sucursal_id')) {
+                $appointmentsQuery->where('sucursal_id', $user->sucursal_id);
+            }
         }
 
         $upcomingAppointments = $appointmentsQuery->orderBy($timeCol, 'asc')
             ->take(10)
             ->get();
 
-        return view('dashboard', compact('userRole', 'userBranch', 'upcomingAppointments'));
+        return view('dashboard', compact('userRole', 'userBranch', 'upcomingAppointments', 'isAdmin'));
     }
 
     /**
@@ -58,7 +70,9 @@ class DashboardController extends Controller
         try {
             $user = Auth::user();
             $userBranch = $user->branch?->name ?? $user->branch_name ?? 'MATRIZ';
-            $isAdmin = method_exists($user, 'isAdmin') ? $user->isAdmin() : in_array((int)($user->tipo_seccion ?? 2), [0, 3]);
+            $isAdmin = method_exists($user, 'isAdmin') 
+                ? $user->isAdmin() 
+                : in_array((int)($user->tipo_seccion ?? 2), [0, 3]);
 
             // -------------------------------------------------------------
             // 1. TOP 10 ARTÍCULOS MÁS VENDIDOS DEL MES ACTUAL
@@ -71,7 +85,11 @@ class DashboardController extends Controller
                 ->whereYear('ventas.venta_fecha', date('Y'));
 
             if (!$isAdmin) {
-                $topProductsQuery->where('ventas.venta_sucursal', $userBranch);
+                if (Schema::hasColumn('ventas', 'venta_sucursal')) {
+                    $topProductsQuery->where('ventas.venta_sucursal', $userBranch);
+                } elseif (Schema::hasColumn('ventas', 'sucursal_id')) {
+                    $topProductsQuery->where('ventas.sucursal_id', $user->sucursal_id);
+                }
             }
 
             $topProducts = $topProductsQuery->groupBy('venta_producto.nombre')
@@ -96,7 +114,11 @@ class DashboardController extends Controller
                 ->whereYear($dateCol, date('Y'));
 
             if (!$isAdmin) {
-                $citasQuery->where('sucursal', $userBranch);
+                if (Schema::hasColumn('appointments', 'sucursal')) {
+                    $citasQuery->where('sucursal', $userBranch);
+                } elseif (Schema::hasColumn('appointments', 'branch_id')) {
+                    $citasQuery->where('branch_id', $user->branch_id);
+                }
             }
 
             $citasMesRaw = $citasQuery->groupBy('mes')->pluck('total', 'mes')->toArray();
@@ -139,7 +161,6 @@ class DashboardController extends Controller
             ]);
 
         } catch (\Throwable $e) {
-            // Retornar fallback estructurado en caso de error de SQL
             return response()->json([
                 'error'           => $e->getMessage(),
                 'top_products'    => [],

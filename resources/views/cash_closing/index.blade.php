@@ -5,6 +5,12 @@
             <h4 class="fw-bold text-dark m-0">
                 <i class="fa-solid fa-vault me-2 text-primary"></i>Cierres de Caja & Reportes
             </h4>
+            
+            @if(!$canAccessAll)
+                <span class="badge bg-secondary-subtle text-secondary border rounded-pill px-3 py-2">
+                    <i class="fa-solid fa-hospital me-1"></i> Sucursal: {{ $userBranchName }}
+                </span>
+            @endif
         </div>
 
         {{-- TARJETAS / PESTAÑAS DE REPORTES --}}
@@ -26,16 +32,22 @@
                     <form action="{{ route('cash-closing.daily') }}" method="GET" data-loading-text="Cargando." target="_blank">
                         <div class="mb-2">
                             <label class="form-label extra-small fw-bold text-muted">Fecha Inicial</label>
-                            <input type="date" name="fecha1" value="{{ date('Y-m-d') }}" class="form-control form-control-sm rounded-3" required>
+                            <input type="date" name="fecha1" value="{{ date('Y-m-d') }}" 
+                                   @if(!$canAccessAll) min="{{ date('Y-m-d') }}" max="{{ date('Y-m-d') }}" @endif 
+                                   class="form-control form-control-sm rounded-3" required>
                         </div>
                         <div class="mb-2">
                             <label class="form-label extra-small fw-bold text-muted">Fecha Final</label>
-                            <input type="date" name="fecha2" value="{{ date('Y-m-d') }}" class="form-control form-control-sm rounded-3" required>
+                            <input type="date" name="fecha2" value="{{ date('Y-m-d') }}" 
+                                   @if(!$canAccessAll) min="{{ date('Y-m-d') }}" max="{{ date('Y-m-d') }}" @endif 
+                                   class="form-control form-control-sm rounded-3" required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label extra-small fw-bold text-muted">Sucursal</label>
                             <select name="sucursal" class="form-select form-select-sm rounded-3">
-                                <option value="TODOS">Todas las Sucursales</option>
+                                @if($canAccessAll)
+                                    <option value="TODOS">Todas las Sucursales</option>
+                                @endif
                                 @foreach($branches as $b)
                                     <option value="{{ $b->name }}">{{ $b->name }}</option>
                                 @endforeach
@@ -65,8 +77,12 @@
                         <div class="mb-2">
                             <label class="form-label extra-small fw-bold text-muted">Rango de Fechas</label>
                             <div class="input-group input-group-sm mb-1">
-                                <input type="date" name="fecha1" value="{{ date('Y-m-d') }}" class="form-control rounded-3" required>
-                                <input type="date" name="fecha2" value="{{ date('Y-m-d') }}" class="form-control rounded-3" required>
+                                <input type="date" name="fecha1" value="{{ date('Y-m-d') }}" 
+                                       @if(!$canAccessAll) min="{{ date('Y-m-d') }}" max="{{ date('Y-m-d') }}" @endif 
+                                       class="form-control rounded-3" required>
+                                <input type="date" name="fecha2" value="{{ date('Y-m-d') }}" 
+                                       @if(!$canAccessAll) min="{{ date('Y-m-d') }}" max="{{ date('Y-m-d') }}" @endif 
+                                       class="form-control rounded-3" required>
                             </div>
                         </div>
                         
@@ -103,13 +119,19 @@
                     <form action="{{ route('cash-closing.commissions') }}" method="GET" data-loading-text="Cargando." target="_blank">
                         <div class="mb-2">
                             <div class="input-group input-group-sm mb-1">
-                                <input type="date" name="fecha1" value="{{ date('Y-m-d') }}" class="form-control rounded-3" required>
-                                <input type="date" name="fecha2" value="{{ date('Y-m-d') }}" class="form-control rounded-3" required>
+                                <input type="date" name="fecha1" value="{{ date('Y-m-d') }}" 
+                                       @if(!$canAccessAll) min="{{ date('Y-m-d') }}" max="{{ date('Y-m-d') }}" @endif 
+                                       class="form-control rounded-3" required>
+                                <input type="date" name="fecha2" value="{{ date('Y-m-d') }}" 
+                                       @if(!$canAccessAll) min="{{ date('Y-m-d') }}" max="{{ date('Y-m-d') }}" @endif 
+                                       class="form-control rounded-3" required>
                             </div>
                         </div>
                         <div class="mb-2">
                             <select name="sucursal" class="form-select form-select-sm rounded-3">
-                                <option value="TODOS">Todas las Sucursales</option>
+                                @if($canAccessAll)
+                                    <option value="TODOS">Todas las Sucursales</option>
+                                @endif
                                 @foreach($branches as $b)
                                     <option value="{{ $b->name }}">{{ $b->name }}</option>
                                 @endforeach

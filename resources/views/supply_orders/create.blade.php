@@ -98,6 +98,18 @@
                     </table>
                 </div>
 
+                {{-- BLOQUE DE PAGINACIÓN DE LA TABLA --}}
+                @if(method_exists($products, 'links') && $products->hasPages())
+                    <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top flex-wrap gap-2">
+                        <div class="small text-muted">
+                            Mostrando {{ $products->firstItem() }} a {{ $products->lastItem() }} de {{ $products->total() }} registros
+                        </div>
+                        <div>
+                            {{ $products->appends(request()->query())->links() }}
+                        </div>
+                    </div>
+                @endif
+
                 <div class="mb-3 mt-4">
                     <label class="form-label fw-bold text-dark">Observaciones o Notas de la Orden:</label>
                     <textarea name="notes" class="form-control rounded-3" rows="2" placeholder="Escribe detalles adicionales sobre el pedido..."></textarea>

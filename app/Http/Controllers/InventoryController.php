@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\Branch;
+use App\Models\Supplier;
 use App\Models\InventoryMovement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,11 +24,18 @@ class InventoryController extends Controller
         $branches = Branch::where('status', true)->get();
         $matrixBranch = Branch::getMatrixBranch();
 
-        // 1. Determinar sucursal activa
-        if ($user->type == 1 && $user->branch_id) {
-            $selectedBranchId = $user->branch_id;
+        // Determinar el tipo de usuario (priorizando tipo_seccion, type o rol por defecto 2)
+        $userType = (int) ($user->role_id ?? $user->role_id ?? 2);
+
+        // -------------------------------------------------------------
+        // 1. DETERMINAR SUCURSAL ACTIVA SEGÚN EL TIPO DE USUARIO
+        // -------------------------------------------------------------
+        if ($userType === 2) {
+            // Tipo 2 (Admin de Centro): Forzado estrictamente a su sucursal asignada
+            $selectedBranchId = $user->branch_id ?? $matrixBranch?->id ?? 1;
         } else {
-            $selectedBranchId = $request->get('branch_id', $matrixBranch?->id);
+            // Tipo 1 (Admin Global) y Tipo 3 (Inventario): Pueden consultar cualquier sucursal
+            $selectedBranchId = $request->get('branch_id', $user->branch_id ?? $matrixBranch?->id ?? 1);
         }
 
         $selectedType = $request->get('type');
@@ -91,9 +99,75 @@ class InventoryController extends Controller
             ];
         });
 
+        // -------------------------------------------------------------
+        // 7. MÉTRICAS FINANCIERAS Y STOCK (EXCLUSIVO ADMINISTRADOR)
+        // -------------------------------------------------------------
+        $totalArticulos   = 0;
+        $totalPiezasStock = 0;
+        $inversionTotal   = 0;
+        $gananciaEstimada = 0;
+
+        // Variables por categoría
+        $statsByType = [
+            'GENERAL'     => ['pieces' => 0, 'investment' => 0],
+            'CALZADO'     => ['pieces' => 0, 'investment' => 0],
+            'MEDICAMENTO' => ['pieces' => 0, 'investment' => 0],
+        ];
+
+        // Solo el Tipo 1 se considera Administrador Financiero completo
+        $isAdmin = method_exists($user, 'isAdmin') 
+            ? $user->isAdmin() 
+            : ($userType === 1);
+
+        if ($isAdmin) {
+            $totalArticulos = Product::whereHas('branches', function ($q) use ($selectedBranchId) {
+                $q->where('branch_id', $selectedBranchId);
+            })->count();
+
+            // Stats Globales de la sucursal activa
+            $stats = DB::table('branch_product')
+                ->join('products', 'branch_product.product_id', '=', 'products.id')
+                ->where('branch_product.branch_id', $selectedBranchId)
+                ->select(
+                    DB::raw('SUM(branch_product.stock_current) as total_stock'),
+                    DB::raw('SUM(branch_product.stock_current * COALESCE(products.cost_price, 0)) as costo_total'),
+                    DB::raw('SUM(branch_product.stock_current * COALESCE(products.sale_price, 0)) as venta_total')
+                )
+                ->first();
+
+            $totalPiezasStock = $stats->total_stock ?? 0;
+            $inversionTotal   = $stats->costo_total ?? 0;
+            $valorVentaTotal  = $stats->venta_total ?? 0;
+            $gananciaEstimada = max(0, $valorVentaTotal - $inversionTotal);
+
+            // Stats Desglosadas por Tipo de Producto (GENERAL, CALZADO, MEDICAMENTO)
+            $byTypeQuery = DB::table('branch_product')
+                ->join('products', 'branch_product.product_id', '=', 'products.id')
+                ->where('branch_product.branch_id', $selectedBranchId)
+                ->select(
+                    'products.type',
+                    DB::raw('SUM(branch_product.stock_current) as pieces'),
+                    DB::raw('SUM(branch_product.stock_current * COALESCE(products.cost_price, 0)) as investment')
+                )
+                ->groupBy('products.type')
+                ->get();
+
+            foreach ($byTypeQuery as $row) {
+                $typeKey = strtoupper($row->type);
+                if (isset($statsByType[$typeKey])) {
+                    $statsByType[$typeKey]['pieces']     = (int) $row->pieces;
+                    $statsByType[$typeKey]['investment'] = (float) $row->investment;
+                }
+            }
+
+        }
+        $suppliers = Supplier::all();
+
         return view('inventory.index', compact(
             'products', 'branches', 'matrixBranch', 'selectedBranchId', 
-            'selectedType', 'onlyLowStock', 'productsJson', 'user', 'perPage', 'sortBy', 'sortOrder'
+            'selectedType', 'onlyLowStock', 'productsJson', 'user', 'userType', 
+            'perPage', 'sortBy', 'sortOrder', 'totalArticulos', 'totalPiezasStock', 
+            'inversionTotal', 'gananciaEstimada', 'isAdmin', 'statsByType'
         ));
     }
 
@@ -110,31 +184,57 @@ class InventoryController extends Controller
             'initial_stock' => 'required|integer|min:0',
             'stock_min'     => 'required|integer|min:1',
             'image'         => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'barcode'       => 'nullable|string|max:100',
+            //'category_id'   => 'nullable|exists:categories,id', // Opcional si agregas select
+            'supplier_id'   => 'nullable|exists:suppliers,id',  // Opcional si agregas select
+            'model'         => 'nullable|string|max:100',
+            'color'         => 'nullable|string|max:100',
+            'page_number'   => 'nullable|integer',
+            'substance'     => 'nullable|string|max:255',
         ]);
 
         try {
             DB::transaction(function () use ($request) {
                 $matrixBranch = Branch::getMatrixBranch();
 
+                // Determinar la categoría en el backend como respaldo si no viniera en el request
+                $categoryId = match(strtoupper($request->type)) {
+                    'CALZADO'     => 3,
+                    'MEDICAMENTO' => 2,
+                    default       => 4,
+                };
+
                 $imagePath = null;
                 if ($request->hasFile('image')) {
                     $imagePath = $request->file('image')->store('products', 'public');
                 }
 
+                $productType = strtoupper(trim($request->type));
+                $isFootwear = ($productType === 'CALZADO');
+                $isMedicine = ($productType === 'MEDICAMENTO');
+
                 $product = Product::create([
-                    'name'        => $request->name,
-                    'type'        => $request->type,
-                    'barcode'     => $request->barcode,
+                    'name'        => trim($request->name),
+                    'type'        => $productType,
+                    'barcode'     => $request->filled('barcode') ? trim($request->barcode) : null,
                     'cost_price'  => $request->cost_price,
                     'sale_price'  => $request->sale_price,
-                    'model'       => $request->type === 'CALZADO' ? $request->model : null,
+                    
+                    // ASIGNACIÓN DE LOS 3 CAMPOS DE LA IMAGEN:
+                    'category_id' => $request->get('category_id', $categoryId),
+                    'supplier_id' => $request->get('supplier_id', null),
+                    'branch_id'   => $request->get('branch_id', $matrixBranch?->id ?? 1),
+
+                   'model'       => $request->type === 'CALZADO' ? $request->model : null,
                     'color'       => $request->type === 'CALZADO' ? $request->color : null,
                     'page_number' => $request->type === 'CALZADO' ? $request->page_number : null,
                     'substance'   => $request->type === 'MEDICAMENTO' ? $request->substance : null,
+                    
                     'image'       => $imagePath,
+                    'status'      => true,
                 ]);
 
-                // Asignar stock en Matriz Central
+                // Asignar stock pivote en Matriz Central
                 DB::table('branch_product')->insert([
                     'product_id'    => $product->id,
                     'branch_id'     => $matrixBranch->id,
@@ -360,6 +460,10 @@ class InventoryController extends Controller
             'quantity'   => 'required|integer|min:1',
             'notes'      => 'required|string|max:255',
         ]);
+
+        if ($request->type === 'ENTRADA' && !in_array($userType, [1, 3])) {
+            return redirect()->back()->with('error', 'No tienes permisos para agregar artículos al inventario general.');
+        }
 
         try {
             DB::transaction(function () use ($request) {

@@ -24,4 +24,12 @@ class SaleDetail extends Model
         // Indicamos que la relación se conecta mediante 'venta_id'
         return $this->belongsTo(Sale::class, 'venta_id', 'venta_id');
     }
+
+    /**
+     * Relación con el modelo Product
+     */
+    public function product()
+    {
+        return $this->belongsTo(Product::class, 'producto_id', 'id');
+    }
 }

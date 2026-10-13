@@ -57,6 +57,17 @@
                 </div>
 
                 <div class="col-md-6">
+                    <label class="form-label fw-semibold">Sucursal Asignada (*)</label>
+                    <select name="branch_name" class="form-select rounded-3" required>
+                        @foreach($branches as $b)
+                            <option value="{{ $b->name }}" {{ old('branch_name', $user->branch_name) === $b->name ? 'selected' : '' }}>
+                                {{ $b->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="col-md-6">
                     <label class="form-label fw-semibold">Estado (*)</label>
                     <select name="status" class="form-select rounded-3" required>
                         <option value="activo" {{ $user->status === 'activo' ? 'selected' : '' }}>Activo</option>
@@ -64,8 +75,9 @@
                     </select>
                 </div>
 
-                <div class="col-md-12 mt-3">
+                <div class="col-md-6 mt-3">
                     <div class="form-check form-switch">
+                        <br>
                         <input class="form-check-input" type="checkbox" name="is_doctor" id="is_doctor" value="1" {{ $user->is_doctor ? 'checked' : '' }}>
                         <label class="form-check-label fw-semibold" for="is_doctor">¿Es Podólogo / Médico?</label>
                     </div>

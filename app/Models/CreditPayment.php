@@ -9,9 +9,16 @@ class CreditPayment extends Model
     protected $table = 'abonos';
     protected $primaryKey = 'abono_id';
 
-    protected $guarded = [];
+    protected $fillable = [
+        'abono_venta',      // Columna FK correcta en la tabla abonos
+        'abono_cantidad',
+        'abono_fecha',
+        'abono_sucursal',
+    ];
 
-    // Relación inversa con la venta
+    public $timestamps = true;
+
+    // Relación con la Venta
     public function sale()
     {
         return $this->belongsTo(Sale::class, 'abono_venta', 'venta_id');

@@ -32,52 +32,72 @@ class SupplyOrderController extends Controller
 
         $selectedBranch = Branch::find($selectedBranchId);
 
-        // Obtener los productos en la sucursal seleccionada
+        // Cantidad de productos a mostrar por página
+        $perPage = $request->get('per_page', 10);
+
+        // Obtener los productos en la sucursal seleccionada paginados
         $products = Product::whereHas('branches', function ($q) use ($selectedBranchId) {
             $q->where('branch_id', $selectedBranchId);
         })->with(['branches' => function ($q) use ($selectedBranchId) {
             $q->where('branch_id', $selectedBranchId);
-        }])->orderBy('name', 'asc')->get();
+        }])
+        ->orderBy('name', 'asc')
+        ->paginate($perPage)
+        ->withQueryString(); // Mantiene branch_id y demás parámetros al cambiar de página
 
-        return view('supply_orders.create', compact(
+        return view('supply_orders.pdf', compact(
             'branches', 'selectedBranch', 'selectedBranchId', 'products', 'user'
         ));
     }
 
     public function store(Request $request)
     {
-        // 1. Validar la solicitud
         $request->validate([
-            'branch_id' => 'required',
-            'products'  => 'required|array',
+            'branch_id' => 'required|exists:branches,id',
+            'items'     => 'required|array',
+            'notes'     => 'nullable|string|max:1000',
         ]);
 
-        // 2. Crear el registro principal de la orden
-        $order = SupplyOrder::create([
-            'branch_id' => $request->branch_id,
-            'notes'     => $request->notes,
-            'user_id'   => auth()->id(),
-            'status'    => 'PENDIENTE',
-        ]);
+        // Filtrar únicamente los productos cuya casilla fue marcada
+        $selectedItems = array_filter($request->items, function ($item) {
+            return isset($item['selected']) && $item['selected'] == '1';
+        });
 
-        // 3. Adjuntar/Guardar los productos seleccionados y sus cantidades
-        foreach ($request->products as $productId) {
-            $qty = $request->quantity[$productId] ?? 1;
-            $stockActual = $request->stock_actual[$productId] ?? 0;
-
-            $order->items()->create([
-                'product_id'         => $productId,
-                'quantity_requested' => $qty,         // <--- Nombre exacto de la columna en BD
-                'stock_at_request'   => $stockActual,
-            ]);
+        if (empty($selectedItems)) {
+            return redirect()->back()->with('error', 'Debes seleccionar al menos un producto para generar la orden de surtido.');
         }
 
-        // 4. Cargar relaciones para la vista PDF
-        $order->load(['branch', 'user', 'items.product']);
+        DB::transaction(function () use ($request, $selectedItems, &$order) {
+            // 1. Crear el encabezado de la Orden
+            $order = SupplyOrder::create([
+                'user_id'    => auth()->id(),
+                'branch_id'  => $request->branch_id,
+                'status'     => 'PENDIENTE',
+                'notes'      => $request->notes,
+                'created_at' => now(),
+            ]);
 
-        // 5. Generar y retornar el PDF directamente (esto es lo que abre el documento en la nueva pestaña)
-        $pdf = Pdf::loadView('supply_orders.pdf', compact('order'));
-        return $pdf->setPaper('letter', 'portrait')->stream("Orden_Surtido_#{$order->id}.pdf");
+            // 2. Insertar solo los ítems seleccionados con la cantidad definida por el usuario
+            foreach ($selectedItems as $item) {
+                $productId = $item['product_id'];
+                $quantity  = max(1, (int) $item['quantity']);
+
+                // Obtener el stock actual de la sucursal
+                $pivot = DB::table('branch_product')
+                    ->where('product_id', $productId)
+                    ->where('branch_id', $request->branch_id)
+                    ->first();
+
+                $order->items()->create([
+                    'product_id'         => $productId,
+                    'current_stock'      => $pivot ? $pivot->stock_current : 0,
+                    'suggested_quantity' => $quantity,
+                ]);
+            }
+        });
+
+        // Abrir el PDF generado
+        return redirect()->route('supply-orders.pdf', $order->id);
     }
 
     /**

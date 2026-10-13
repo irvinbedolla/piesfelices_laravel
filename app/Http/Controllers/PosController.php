@@ -42,8 +42,8 @@ class PosController extends Controller
                     'nombre_cliente'   => 'Cliente General',
                     'venta_total'      => 0,
                     'venta_sucursal'   => $userBranchName,
-                    'venta_fecha'      => date('Y-m-d'),
-                    'venta_hora'       => date('H:i:s'),
+                    'venta_fecha'      => now()->format('Y-m-d'), // Fecha actual por defecto
+                    'venta_hora'       => now()->format('H:i:s'),
                     'venta_tipopago'   => 'Efectivo',
                     'venta_tipo'       => '1',
                     'venta_descuento'  => 0,
@@ -57,13 +57,22 @@ class PosController extends Controller
 
         $sale = Sale::with(['items', 'customer', 'seller'])->findOrFail($id);
 
-        $currentBranch = Branch::where('name', $sale->venta_sucursal)->first();
-        $activeBranchId = $currentBranch ? $currentBranch->id : $userBranchId;
+        if (!$user->isAdmin()) {
+            $sale->update(['venta_fecha' => now()->format('Y-m-d')]);
+            $sale->venta_fecha = now()->format('Y-m-d');
+        }
 
-        $customers = Customer::where('sucursal', $sale->venta_sucursal)->get();
+        // Obtener la sucursal real ligada al vendedor de la venta
+        $sellerUser = User::find($sale->venta_idempleado) ?? $user;
+        $activeBranchId = $sellerUser->branch_id 
+            ?? $sellerUser->sucursal_id 
+            ?? Branch::where('name', $sale->venta_sucursal)->value('id') 
+            ?? $userBranchId;
+
+        $customers = Customer::all();
         $sellers   = User::all();
 
-        // Cargar productos disponibles (> 0) en la sucursal activa
+        // Cargar productos disponibles (> 0) en la sucursal del VENDEDOR ASIGNADO
         $products = Product::whereHas('branches', function ($q) use ($activeBranchId) {
             $q->where('branch_id', $activeBranchId)
               ->where('branch_product.stock_current', '>', 0);
@@ -83,19 +92,19 @@ class PosController extends Controller
             $sale = Sale::findOrFail($saleId);
             $productId = $request->product_id;
 
-            // SI ES UN SERVICIO O NO TIENE PRODUCT_ID -> DERIVAR A SERVICIO
             if ($request->has('is_service') || !$productId) {
                 return $this->addService($request, $saleId);
             }
 
-            // SI ES UN PRODUCTO FÍSICO -> CONSULTAR STOCK ESPECÍFICO DE LA SUCURSAL
             $product = Product::findOrFail($productId);
             
-            // Obtener el ID de la sucursal asociada al nombre guardado en la venta
-            $branch = Branch::where('name', $sale->venta_sucursal)->first();
-            $branchId = $branch ? $branch->id : (Auth::user()->branch_id ?? 1);
+            // Obtener la sucursal correspondiente al VENDEDOR ASIGNADO A LA VENTA
+            $sellerUser = User::find($sale->venta_idempleado);
+            $branchId = $sellerUser?->branch_id 
+                ?? $sellerUser?->sucursal_id 
+                ?? Branch::where('name', $sale->venta_sucursal)->value('id') 
+                ?? 1;
 
-            // Consultar stock en la tabla pivote branch_product
             $pivot = DB::table('branch_product')
                 ->where('product_id', $productId)
                 ->where('branch_id', $branchId)
@@ -103,7 +112,6 @@ class PosController extends Controller
 
             $stockDisponible = $pivot ? $pivot->stock_current : 0;
 
-            // Cantidad actual agregada en el carrito (usando solo producto_id)
             $existingItem = $sale->items()
                 ->where('producto_id', $productId)
                 ->first();
@@ -186,11 +194,14 @@ class PosController extends Controller
             $newQty = max(1, (int) $request->cantidad);
             $productId = $item->product_id ?? $item->producto_id;
 
-            // Si es un producto físico, validamos stock
             if ($productId && $productId > 0) {
                 $sale = Sale::findOrFail($item->venta_id);
-                $branch = Branch::where('name', $sale->venta_sucursal)->first();
-                $branchId = $branch ? $branch->id : (Auth::user()->branch_id ?? 1);
+                $sellerUser = User::find($sale->venta_idempleado);
+                
+                $branchId = $sellerUser?->branch_id 
+                    ?? $sellerUser?->sucursal_id 
+                    ?? Branch::where('name', $sale->venta_sucursal)->value('id') 
+                    ?? 1;
 
                 $pivot = DB::table('branch_product')
                     ->where('product_id', $productId)
@@ -232,16 +243,16 @@ class PosController extends Controller
     }
 
     /**
-     * Actualizar Encabezado (Cliente, Descuento, Tipo de Pago, etc.)
+     * Actualizar Encabezado (Cliente, Descuento, Vendedor, etc.)
      */
     public function updateHeader(Request $request, $saleId)
     {
         $sale = Sale::findOrFail($saleId);
+        $user = Auth::user();
 
-        $sale->update($request->only([
+        $fields = $request->only([
             'venta_idcliente',
             'nombre_cliente',
-            'venta_idempleado',
             'venta_tipopago',
             'venta_tipo',
             'venta_descuento',
@@ -249,8 +260,36 @@ class PosController extends Controller
             'numero_factura',
             'venta_cfdi',
             'venta_tipo_factura',
-        ]));
+        ]);
 
+        // RESTRICCIÓN PARA CAMBIAR EMPLEADO / VENDEDOR (SÓLO ADMIN)
+        if ($request->has('venta_idempleado')) {
+            if ($user->isAdmin()) {
+                $newSellerId = intval($request->venta_idempleado);
+                $fields['venta_idempleado'] = $newSellerId;
+
+                // Al cambiar vendedor, sincronizar automáticamente la sucursal de la venta a la sucursal del nuevo vendedor
+                $newSeller = User::find($newSellerId);
+                if ($newSeller) {
+                    $branchName = Branch::find($newSeller->branch_id ?? $newSeller->sucursal_id)?->name 
+                        ?? $newSeller->sucursal 
+                        ?? $sale->venta_sucursal;
+                        
+                    $fields['venta_sucursal'] = $branchName;
+                }
+            }
+        }
+
+        // Permitir cambio de fecha únicamente a administradores
+        if ($request->has('venta_fecha')) {
+            if ($user->isAdmin()) {
+                $fields['venta_fecha'] = $request->venta_fecha;
+            } else {
+                $fields['venta_fecha'] = now()->format('Y-m-d');
+            }
+        }
+
+        $sale->update($fields);
         $this->recalculateTotal($saleId);
 
         return response()->json(['success' => true]);
@@ -265,19 +304,26 @@ class PosController extends Controller
             $redirectUrl = DB::transaction(function () use ($request, $saleId) {
                 $sale = Sale::with('items')->findOrFail($saleId);
                 $receivedAmount = (float) $request->get('abono', 0);
+                $user = Auth::user();
                 
-                $branch = Branch::where('name', $sale->venta_sucursal)->first();
-                $branchId = $branch ? $branch->id : (Auth::user()->branch_id ?? 1);
+                // Obtener sucursal del VENDEDOR de la venta
+                $sellerUser = User::find($sale->venta_idempleado) ?? $user;
+                $branchId = $sellerUser->branch_id 
+                    ?? $sellerUser->sucursal_id 
+                    ?? Branch::where('name', $sale->venta_sucursal)->value('id') 
+                    ?? 1;
+
+                $branchName = Branch::where('id', $branchId)->value('name') ?? $sellerUser->sucursal ?? $sale->venta_sucursal;
 
                 if ($sale->items->count() === 0) {
                     throw new \Exception("No hay productos ni servicios en el carrito.");
                 }
 
-                // Descontar inventario solo de productos físicos
+                // Descontar inventario solo de productos físicos de la sucursal del vendedor
                 foreach ($sale->items as $item) {
                     $pId = $item->product_id ?? $item->producto_id;
                     if (!$pId || $pId == 0) {
-                        continue; // Omitir servicios
+                        continue;
                     }
 
                     $pivot = DB::table('branch_product')
@@ -297,7 +343,10 @@ class PosController extends Controller
                     DB::table('branch_product')
                         ->where('product_id', $pId)
                         ->where('branch_id', $branchId)
-                        ->update(['stock_current' => $newStock, 'updated_at' => now()]);
+                        ->update([
+                            'stock_current' => $newStock, 
+                            'updated_at'    => now()
+                        ]);
 
                     InventoryMovement::create([
                         'product_id'     => $pId,
@@ -308,14 +357,19 @@ class PosController extends Controller
                         'previous_stock' => $prevStock,
                         'new_stock'      => $newStock,
                         'reference'      => "Venta #{$sale->venta_id}",
-                        'notes'          => "Venta procesada en POS",
+                        'notes'          => "Venta procesada en POS para vendedor: {$sellerUser->name}",
                     ]);
                 }
 
+                $finalDate = ($user->isAdmin() && !empty($sale->venta_fecha)) 
+                    ? $sale->venta_fecha 
+                    : now()->format('Y-m-d');
+
                 $sale->update([
-                    'venta_abono' => $sale->venta_tipo == '1' ? $sale->venta_total : $receivedAmount,
-                    'venta_fecha' => date('Y-m-d'),
-                    'venta_hora'  => date('H:i:s'),
+                    'venta_sucursal' => $branchName,
+                    'venta_abono'    => $sale->venta_tipo == '1' ? $sale->venta_total : $receivedAmount,
+                    'venta_fecha'    => $finalDate,
+                    'venta_hora'     => now()->format('H:i:s'),
                 ]);
 
                 return route('pos.ticket', $sale->venta_id);
@@ -392,6 +446,33 @@ class PosController extends Controller
         return response()->json([
             'success'      => true,
             'next_invoice' => $nextInvoice
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'nombre'   => 'required|string|max:255',
+            'telefono' => 'nullable|string|max:20',
+            'sucursal' => 'nullable|string|max:255',
+        ]);
+
+        $nextId = (DB::table('clientes')->max('cliente_id') ?? 0) + 1;
+
+        $clienteId = DB::table('clientes')->insertGetId([
+            'cliente_id' => $nextId,
+            'nombre'     => $validated['nombre'],
+            'telefono'   => $validated['telefono'] ?? null,
+            'sucursal'   => $validated['sucursal'] ?? 'MATRIZ',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'success'    => true,
+            'cliente_id' => $nextId,
+            'nombre'     => $validated['nombre'],
+            'message'    => 'Cliente registrado correctamente'
         ]);
     }
 }

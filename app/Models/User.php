@@ -14,16 +14,17 @@ class User extends Authenticatable
     use HasFactory, Notifiable, SoftDeletes;
 
     protected $fillable = [
-        'employee_id',
         'username',
         'email',
         'password',
+        'employee_id',
         'user_type',      // 0: Admin, 1: Operador
         'branch_name',    // Sucursal asignada
         'role_id',        // <-- Rol asignado
         'has_permission', // boolean
         'status',         // activo / inactivo
         'is_doctor',      // boolean
+        'branch_id',
     ];
 
     protected $hidden = [

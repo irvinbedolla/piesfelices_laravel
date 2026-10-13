@@ -5,47 +5,89 @@
         <div class="card border-0 shadow-sm rounded-4 p-3 mb-3">
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
                 
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <h4 class="fw-bold m-0 text-primary me-3">
-                        <i class="fa-solid fa-cart-shopping me-2"></i>Venta #{{ $sale->venta_id }}
-                    </h4>
+                <div class="w-100">
+                    <!-- Encabezado con número de venta -->
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h4 class="fw-bold m-0 text-primary">
+                            <i class="fa-solid fa-cart-shopping me-2"></i>Venta #{{ $sale->venta_id }}
+                        </h4>
+                    </div>
 
-                    {{-- Botón Seleccionar Cliente --}}
-                    <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold" data-bs-toggle="modal" data-bs-target="#customerModal">
-                        <i class="fa-solid fa-user me-1 text-primary"></i> 
-                        {{ $sale->customer->nombre ?? $sale->nombre_cliente ?: 'Cliente General' }}
-                    </button>
+                    <!-- Grilla de Botones Responsiva -->
+                    <div class="row g-2">
+                        
+                        {{-- Botón Vendedor (Solo administradores pueden reasignar) --}}
+                        <div class="col-6 col-sm-auto">
+                            @if(auth()->user()->isAdmin())
+                                <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate" data-bs-toggle="modal" data-bs-target="#sellerModal">
+                                    <i class="fa-solid fa-id-badge me-1 text-success"></i> 
+                                    {{ $sale->seller->name ?? $sale->seller->username ?? 'Empleado' }}
+                                </button>
+                            @else
+                                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill fw-semibold w-100 text-truncate" disabled>
+                                    <i class="fa-solid fa-id-badge me-1 text-secondary"></i> 
+                                    {{ $sale->seller->name ?? $sale->seller->username ?? auth()->user()->name }}
+                                </button>
+                            @endif
+                        </div>
 
-                    {{-- Botón Vendedor --}}
-                    <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold" data-bs-toggle="modal" data-bs-target="#sellerModal">
-                        <i class="fa-solid fa-id-badge me-1 text-success"></i> 
-                        {{ $sale->seller->name ?? 'Empleado' }}
-                    </button>
+                        {{-- Botón Seleccionar Cliente --}}
+                        <div class="col-6 col-sm-auto">
+                            <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate" data-bs-toggle="modal" data-bs-target="#customerModal">
+                                <i class="fa-solid fa-user me-1 text-primary"></i> 
+                                {{ $sale->customer->nombre ?? $sale->nombre_cliente ?: 'Cliente General' }}
+                            </button>
+                        </div>
 
-                    {{-- Botón Tipo Pago --}}
-                    <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold" data-bs-toggle="modal" data-bs-target="#paymentTypeModal">
-                        <i class="fa-solid fa-credit-card me-1 text-info"></i> {{ $sale->venta_tipopago }}
-                    </button>
+                        {{-- BOTÓN CAMBIAR FECHA (EXCLUSIVO ADMINISTRADOR) --}}
+                        <div class="col-6 col-sm-auto">
+                            @if(auth()->user()->isAdmin())
+                                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill fw-semibold w-100 text-truncate" data-bs-toggle="modal" data-bs-target="#saleDateModal">
+                                    <i class="fa-solid fa-calendar-day me-1"></i> Fecha: {{ Carbon\Carbon::parse($sale->venta_fecha)->format('d/m/Y') }}
+                                </button>
+                            @else
+                                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill fw-semibold w-100 text-truncate" disabled>
+                                    <i class="fa-solid fa-calendar-day me-1"></i> Fecha: {{ Carbon\Carbon::parse($sale->venta_fecha)->format('d/m/Y') }}
+                                </button>
+                            @endif
+                        </div>
 
-                    {{-- Botón Tipo Venta (Contado/Crédito) --}}
-                    <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold" data-bs-toggle="modal" data-bs-target="#saleTypeModal">
-                        <i class="fa-solid fa-tags me-1 text-warning"></i> {{ $sale->venta_tipo == '1' ? 'Contado' : 'Crédito' }}
-                    </button>
+                        {{-- BOTÓN AGREGAR SERVICIO --}}
+                        <div class="col-6 col-sm-auto">
+                            <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate" data-bs-toggle="modal" data-bs-target="#serviceModal">
+                                <i class="fa-solid fa-screwdriver-wrench me-1 text-primary"></i> Servicio
+                            </button>
+                        </div>
 
-                    {{-- Botón Descuento --}}
-                    <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold" data-bs-toggle="modal" data-bs-target="#discountModal">
-                        <i class="fa-solid fa-percent me-1 text-danger"></i> Desc: ${{ number_format($sale->venta_descuento, 2) }}
-                    </button>
+                        {{-- Botón Tipo Pago --}}
+                        <div class="col-6 col-sm-auto">
+                            <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate" data-bs-toggle="modal" data-bs-target="#paymentTypeModal">
+                                <i class="fa-solid fa-credit-card me-1 text-info"></i> {{ $sale->venta_tipopago }}
+                            </button>
+                        </div>
 
-                    {{-- BOTÓN AGREGAR SERVICIO --}}
-                    <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold" data-bs-toggle="modal" data-bs-target="#serviceModal">
-                        <i class="fa-solid fa-screwdriver-wrench me-1 text-primary"></i> Servicio
-                    </button>
+                        {{-- Botón Tipo Venta --}}
+                        <div class="col-6 col-sm-auto">
+                            <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate" data-bs-toggle="modal" data-bs-target="#saleTypeModal">
+                                <i class="fa-solid fa-tags me-1 text-warning"></i> {{ $sale->venta_tipo == '1' ? 'Contado' : 'Crédito' }}
+                            </button>
+                        </div>
 
-                    {{-- BOTÓN FACTURA --}}
-                    <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold" data-bs-toggle="modal" data-bs-target="#invoiceModal">
-                        <i class="fa-solid fa-file-invoice me-1 text-danger"></i> Factura: {{ $sale->venta_factura }}
-                    </button>
+                        {{-- BOTÓN FACTURA --}}
+                        <div class="col-6 col-sm-auto">
+                            <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate" data-bs-toggle="modal" data-bs-target="#invoiceModal">
+                                <i class="fa-solid fa-file-invoice me-1 text-danger"></i> Factura: {{ $sale->venta_factura }}
+                            </button>
+                        </div>
+
+                        {{-- Botón Descuento --}}
+                        <div class="col-6 col-sm-auto">
+                            <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate" data-bs-toggle="modal" data-bs-target="#discountModal">
+                                <i class="fa-solid fa-percent me-1 text-danger"></i> Desc: ${{ number_format($sale->venta_descuento, 2) }}
+                            </button>
+                        </div>
+
+                    </div>
                 </div>
 
                 {{-- Escáner Código de Barras --}}
@@ -60,22 +102,19 @@
         {{-- CONTENIDO DIVIDIDO: CATÁLOGO VS CARRITO --}}
         <div class="row g-3">
             
-            {{-- LADO IZQUIERDO: CATÁLOGO DE PRODUCTOS EN SUCURSAL --}}
+            {{-- LADO IZQUIERDO: CATÁLOGO DE PRODUCTOS EN SUCURSAL DEL VENDEDOR --}}
             <div class="col-12 col-lg-6">
                 <div class="card border-0 shadow-sm rounded-4 p-3 h-100">
                     <div class="mb-3">
                         <input type="text" id="searchCatalog" class="form-control rounded-pill" placeholder="Buscar por nombre, código o modelo...">
                     </div>
 
-                    {{-- LADO IZQUIERDO: CATÁLOGO DE PRODUCTOS DE LA SUCURSAL --}}
                     <div class="row g-2 overflow-auto" style="max-height: 550px;" id="catalogGrid">
                         @forelse($products as $p)
                             @php
-                                // Obtener el pivot específico de la sucursal filtrada
                                 $pivot = $p->branches->first()?->pivot;
                                 $stock = $pivot ? $pivot->stock_current : 0;
                             @endphp
-                            
                             <div class="col-6 col-md-4 catalog-item" data-name="{{ strtolower($p->name) }}" data-code="{{ strtolower($p->barcode ?? '') }}">
                                 <div class="card h-100 border-0 shadow-sm rounded-3 text-center p-2 hover-card cursor-pointer add-to-cart-btn" data-id="{{ $p->id }}">
                                     <div class="fw-bold text-dark text-truncate small mb-1">{{ $p->name }}</div>
@@ -89,7 +128,7 @@
                         @empty
                             <div class="col-12 text-center py-5 text-muted">
                                 <i class="fa-solid fa-boxes-stacked fa-2x mb-2 d-block"></i>
-                                No hay artículos con existencias disponibles en esta sucursal.
+                                No hay artículos con existencias disponibles en la sucursal del vendedor seleccionado ({{ $sale->venta_sucursal }}).
                             </div>
                         @endforelse
                     </div>
@@ -190,6 +229,13 @@
                         <label class="form-label fw-bold">Cambio ($):</label>
                         <input type="text" id="changeOutput" class="form-control form-control-lg text-center fw-bold bg-light text-primary rounded-3" value="$0.00" readonly>
                     </div>
+
+                    <div class="form-check form-switch d-flex align-items-center justify-content-center gap-2 mb-3 fs-6">
+                        <input class="form-check-input" type="checkbox" id="printTicketCheck" style="cursor: pointer; width: 2.5em; height: 1.25em;">
+                        <label class="form-check-label fw-bold text-dark" for="printTicketCheck" style="cursor: pointer;">
+                            <i class="fa-solid fa-print me-1 text-primary"></i> Imprimir Ticket al finalizar
+                        </label>
+                    </div>
                 </div>
                 <div class="modal-footer border-0 pt-0">
                     <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
@@ -213,8 +259,6 @@
                 </div>
                 
                 <div class="modal-body py-3">
-                    
-                    {{-- FORMULARIO DE REGISTRO RÁPIDO DE CLIENTE --}}
                     <div class="card border-0 bg-light p-3 rounded-4 mb-3">
                         <h6 class="fw-bold text-dark small mb-2"><i class="fa-solid fa-user-plus me-1 text-success"></i> Registro Rápido</h6>
                         <div class="row g-2">
@@ -232,7 +276,6 @@
                         </div>
                     </div>
 
-                    {{-- BUSCADOR EN VIVO DE CLIENTES --}}
                     <div class="mb-3">
                         <div class="input-group input-group-sm">
                             <span class="input-group-text bg-white border-end-0 rounded-start-pill ps-3">
@@ -242,7 +285,6 @@
                         </div>
                     </div>
 
-                    {{-- TABLA DE CLIENTES DE LA SUCURSAL --}}
                     <div class="table-responsive" style="max-height: 280px;">
                         <table class="table table-hover align-middle mb-0" id="customersPosTable">
                             <thead class="table-light">
@@ -253,7 +295,6 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {{-- OPCIÓN CLIENTE GENERAL / MOSTRADOR --}}
                                 <tr>
                                     <td>
                                         <strong class="text-dark d-block">Cliente General / Público</strong>
@@ -282,51 +323,52 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="3" class="text-center py-3 text-muted">No hay clientes registrados para esta sucursal.</td>
+                                        <td colspan="3" class="text-center py-3 text-muted">No hay clientes registrados.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
                         </table>
                     </div>
-
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL SELECCIONAR EMPLEADO VENDEDOR (#sellerModal) -->
-    <div class="modal fade" id="sellerModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg rounded-4">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold text-dark">
-                        <i class="fa-solid fa-id-badge text-success me-2"></i>Seleccionar Empleado Vendedor
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body py-3">
-                    <div class="mb-3">
-                        <input type="text" id="searchSellerInput" class="form-control form-control-sm rounded-pill" placeholder="Buscar empleado...">
+    <!-- MODAL SELECCIONAR EMPLEADO VENDEDOR (#sellerModal - EXCLUSIVO ADMIN) -->
+    @if(auth()->user()->isAdmin())
+        <div class="modal fade" id="sellerModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg rounded-4">
+                    <div class="modal-header border-0 pb-0">
+                        <h5 class="modal-title fw-bold text-dark">
+                            <i class="fa-solid fa-id-badge text-success me-2"></i>Seleccionar Empleado Vendedor
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
-                    <div class="list-group rounded-3 shadow-sm overflow-auto" style="max-height: 250px;" id="sellersList">
-                        @foreach($sellers as $s)
-                            @php
-                                $sellerName = $s->name ?? $s->username ?? 'Empleado #' . $s->id;
-                            @endphp
-                            <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center assign-seller-btn" data-id="{{ $s->id }}" data-name="{{ $sellerName }}">
-                                <span class="fw-semibold text-dark">
-                                    <i class="fa-solid fa-user-circle me-2 text-secondary"></i>{{ $sellerName }}
-                                </span>
-                                @if($sale->venta_idempleado == $s->id)
-                                    <span class="badge bg-success rounded-pill">Activo</span>
-                                @endif
-                            </button>
-                        @endforeach
+                    <div class="modal-body py-3">
+                        <div class="mb-3">
+                            <input type="text" id="searchSellerInput" class="form-control form-control-sm rounded-pill" placeholder="Buscar empleado...">
+                        </div>
+                        <div class="list-group rounded-3 shadow-sm overflow-auto" style="max-height: 250px;" id="sellersList">
+                            @foreach($sellers as $s)
+                                @php
+                                    $sellerName = $s->name ?? $s->username ?? 'Empleado #' . $s->id;
+                                @endphp
+                                <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center assign-seller-btn" data-id="{{ $s->id }}" data-name="{{ $sellerName }}">
+                                    <span class="fw-semibold text-dark">
+                                        <i class="fa-solid fa-user-circle me-2 text-secondary"></i>{{ $sellerName }}
+                                    </span>
+                                    @if($sale->venta_idempleado == $s->id)
+                                        <span class="badge bg-success rounded-pill">Activo</span>
+                                    @endif
+                                </button>
+                            @endforeach
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    @endif
 
     <!-- MODAL TIPO DE PAGO (#paymentTypeModal) -->
     <div class="modal fade" id="paymentTypeModal" tabindex="-1" aria-hidden="true">
@@ -425,6 +467,61 @@
         </div>
     </div>
 
+    <!-- MODAL FACTURACIÓN (#invoiceModal) -->
+    <div class="modal fade" id="invoiceModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-dark">
+                        <i class="fa-solid fa-file-invoice text-danger me-2"></i>Datos de Facturación
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body py-3">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">¿Requiere Factura?</label>
+                        <select id="invoiceRequiredSelect" class="form-select rounded-3">
+                            <option value="NO" {{ $sale->venta_factura == 'NO' ? 'selected' : '' }}>NO</option>
+                            <option value="SI" {{ $sale->venta_factura == 'SI' ? 'selected' : '' }}>SI</option>
+                        </select>
+                    </div>
+
+                    <div id="invoiceFieldsContainer" class="{{ $sale->venta_factura == 'SI' ? '' : 'd-none' }}">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Número / Folio de Factura</label>
+                            <input type="text" id="invoiceNumberInput" class="form-control rounded-3" value="{{ $sale->numero_factura }}" placeholder="Ej. A-1001">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Uso de CFDI</label>
+                            <select id="invoiceCfdiSelect" class="form-select rounded-3">
+                                <option value="G03" {{ $sale->venta_cfdi == 'G03' ? 'selected' : '' }}>G03 - Gastos en general</option>
+                                <option value="P01" {{ $sale->venta_cfdi == 'P01' ? 'selected' : '' }}>P01 - Por definir</option>
+                                <option value="S01" {{ $sale->venta_cfdi == 'S01' ? 'selected' : '' }}>S01 - Sin efectos fiscales</option>
+                                <option value="D01" {{ $sale->venta_cfdi == 'D01' ? 'selected' : '' }}>D01 - Honorarios médicos, dentales y gastos hospitalarios</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Tipo de Factura</label>
+                            <select id="invoiceTypeSelect" class="form-select rounded-3">
+                                <option value="Ingreso" {{ $sale->venta_tipo_factura == 'Ingreso' ? 'selected' : '' }}>Ingreso</option>
+                                <option value="PPD" {{ $sale->venta_tipo_factura == 'PPD' ? 'selected' : '' }}>PPD - Pago en parcialidades o diferido</option>
+                                <option value="PUE" {{ $sale->venta_tipo_factura == 'PUE' ? 'selected' : '' }}>PUE - Pago en una sola exhibición</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" id="saveInvoiceBtn" class="btn btn-danger rounded-pill px-4 fw-semibold">
+                        Guardar Factura
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     {{-- OVERLAY / MODAL DE ESPERA AJAX --}}
     <div id="loadingOverlay" 
         class="position-fixed top-0 start-0 w-100 h-100 d-none align-items-center justify-content-center bg-dark bg-opacity-50" 
@@ -438,13 +535,53 @@
         </div>
     </div>
 
+    <!-- MODAL CAMBIAR FECHA DE VENTA (#saleDateModal - EXCLUSIVO ADMIN) -->
+    @if(auth()->user()->isAdmin())
+        <div class="modal fade" id="saleDateModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-sm">
+                <div class="modal-content border-0 shadow-lg rounded-4">
+                    <div class="modal-header border-0 pb-0">
+                        <h6 class="modal-title fw-bold text-dark">
+                            <i class="fa-solid fa-calendar-days text-danger me-2"></i>Cambiar Fecha de Venta
+                        </h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body py-3">
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Fecha de Emisión</label>
+                            <input type="date" id="saleDateInput" class="form-control rounded-3 text-center fw-bold" value="{{ $sale->venta_fecha }}">
+                        </div>
+                        <button type="button" id="saveSaleDateBtn" class="btn btn-danger w-100 rounded-pill fw-semibold">
+                            Guardar Nueva Fecha
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
     {{-- SCRIPTS JS AJAX DE CONTROL DEL POS --}}
     <script>
-       
+        function showLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                overlay.classList.remove('d-none');
+                overlay.classList.add('d-flex');
+            }
+        }
+
+        function hideLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                overlay.classList.remove('d-flex');
+                overlay.classList.add('d-none');
+            }
+        }
 
         document.addEventListener('DOMContentLoaded', function () {
             const saleId = "{{ $sale->venta_id }}";
             const totalSale = parseFloat("{{ $sale->venta_total }}");
+
             // Escáner de Código de Barras
             const barcodeInput = document.getElementById('barcodeReader');
             if (barcodeInput) {
@@ -470,9 +607,9 @@
 
             // Función AJAX para agregar producto/servicio
             function addProductAjax(payload) {
-                showLoading(); // Muestra el spinner
+                showLoading();
 
-                fetch(`/pos/${saleId}/add-product`, {
+                fetch("{{ url('pos') }}/" + saleId + "/add-product", {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -483,14 +620,14 @@
                 .then(res => res.json().then(data => ({ status: res.status, body: data })))
                 .then(res => {
                     if (res.body.success) {
-                        location.reload(); // Recarga la página si todo salió bien
+                        location.reload();
                     } else {
-                        hideLoading(); // <--- Oculta la pantalla de carga si el backend retorna error
+                        hideLoading();
                         alert(res.body.message || 'Error al agregar el producto');
                     }
                 })
                 .catch(error => {
-                    hideLoading(); // <--- Oculta la pantalla de carga si la petición AJAX falla
+                    hideLoading();
                     console.error('Error AJAX:', error);
                     alert('Ocurrió un error de conexión con el servidor.');
                 });
@@ -502,7 +639,7 @@
                     const itemId = this.getAttribute('data-id');
                     const qty = this.value;
 
-                    fetch(`/pos/item/${itemId}`, {
+                    fetch(`{{ url('pos/item') }}/${itemId}`, {
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json',
@@ -526,7 +663,7 @@
             document.querySelectorAll('.remove-item-btn').forEach(btn => {
                 btn.addEventListener('click', function () {
                     const itemId = this.getAttribute('data-id');
-                    fetch(`/pos/item/${itemId}`, {
+                    fetch(`{{ url('pos/item') }}/${itemId}`, {
                         method: 'DELETE',
                         headers: {
                             'X-CSRF-TOKEN': '{{ csrf_token() }}'
@@ -556,23 +693,36 @@
             if (confirmPayBtn) {
                 confirmPayBtn.addEventListener('click', function () {
                     const received = parseFloat(receivedInput.value) || totalSale;
+                    const printTicket = document.getElementById('printTicketCheck') ? document.getElementById('printTicketCheck').checked : true;
 
-                    fetch(`/pos/${saleId}/finish`, {
+                    showLoading();
+
+                    fetch("{{ url('pos') }}/" + saleId + "/finish", {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'X-CSRF-TOKEN': '{{ csrf_token() }}'
                         },
-                        body: JSON.stringify({ abono: received })
+                        body: JSON.stringify({ 
+                            abono: received,
+                            print_ticket: printTicket
+                        })
                     })
                     .then(res => res.json())
                     .then(data => {
                         if (data.success) {
-                            window.open(data.redirect, '_blank');
-                            window.location.href = '/pos';
+                            if (printTicket && data.redirect) {
+                                window.open(data.redirect, '_blank');
+                            }
+                            window.location.href = "{{ url('pos') }}";
                         } else {
+                            hideLoading();
                             alert(data.message);
                         }
+                    })
+                    .catch(() => {
+                        hideLoading();
+                        alert('Error al procesar el cobro');
                     });
                 });
             }
@@ -593,293 +743,335 @@
                     });
                 });
             }
-        });
 
-        // 1. Filtrar tabla de clientes en vivo
-        const searchCustomerInput = document.getElementById('searchCustomerInput');
-        if (searchCustomerInput) {
-            searchCustomerInput.addEventListener('keyup', function () {
-                const q = this.value.toLowerCase();
-                document.querySelectorAll('.customer-row').forEach(row => {
-                    const name = row.getAttribute('data-name');
-                    const phone = row.getAttribute('data-phone');
-                    if (name.includes(q) || phone.includes(q)) {
-                        row.classList.remove('d-none');
-                    } else {
-                        row.classList.add('d-none');
-                    }
+            // 1. Filtrar tabla de clientes en vivo
+            const searchCustomerInput = document.getElementById('searchCustomerInput');
+            if (searchCustomerInput) {
+                searchCustomerInput.addEventListener('keyup', function () {
+                    const q = this.value.toLowerCase();
+                    document.querySelectorAll('.customer-row').forEach(row => {
+                        const name = row.getAttribute('data-name');
+                        const phone = row.getAttribute('data-phone');
+                        if (name.includes(q) || phone.includes(q)) {
+                            row.classList.remove('d-none');
+                        } else {
+                            row.classList.add('d-none');
+                        }
+                    });
                 });
-            });
-        }
+            }
 
-        // 2. Asignar cliente seleccionado a la venta activa mediante AJAX
-        document.querySelectorAll('.assign-customer-btn').forEach(btn => {
-            btn.addEventListener('click', function () {
-                const customerId = this.getAttribute('data-id');
-                const customerName = this.getAttribute('data-name');
-                showLoading();
+            // 2. Asignar cliente seleccionado
+            document.querySelectorAll('.assign-customer-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const customerId = this.getAttribute('data-id');
+                    const customerName = this.getAttribute('data-name');
+                    showLoading();
 
-                fetch(`/pos/${saleId}/header`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify({
-                        venta_idcliente: customerId,
-                        nombre_cliente: customerName
-                    })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        location.reload();
-                    } else {
-                        hideLoading();
-                        alert('Error al asignar el cliente');
-                    }
-                });
-            });
-        });
-
-        // 3. Guardado Rápido de Nuevo Cliente desde el Modal
-        const saveFastCustomerBtn = document.getElementById('saveFastCustomerBtn');
-        if (saveFastCustomerBtn) {
-            saveFastCustomerBtn.addEventListener('click', function () {
-                const name = document.getElementById('fastCustomerName').value.trim();
-                const phone = document.getElementById('fastCustomerPhone').value.trim();
-
-                if (!name) {
-                    alert('Ingresa al menos el nombre del cliente');
-                    return;
-                }
-
-                fetch('/customers', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify({
-                        nombre: name,
-                        telefono: phone,
-                        sucursal: '{{ $sale->venta_sucursal }}'
-                    })
-                })
-                .then(res => {
-                    if (res.ok) {
-                        // Asignar el nuevo cliente guardado directamente
-                        fetch(`/pos/${saleId}/header`, {
-                            method: 'PUT',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                            },
-                            body: JSON.stringify({
-                                nombre_cliente: name
-                            })
+                    fetch("{{ url('pos') }}/" + saleId + "/header", {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({
+                            venta_idcliente: customerId,
+                            nombre_cliente: customerName
                         })
-                        .then(() => location.reload());
-                    } else {
-                        alert('Ocurrió un error al registrar el cliente');
-                    }
-                });
-            });
-        }
-
-        // 1. Asignar Empleado Vendedor a la venta
-        document.querySelectorAll('.assign-seller-btn').forEach(btn => {
-            btn.addEventListener('click', function () {
-                const sellerId = this.getAttribute('data-id');
-
-                fetch(`/pos/${saleId}/header`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify({
-                        venta_idempleado: sellerId
                     })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) location.reload();
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            hideLoading();
+                            alert('Error al asignar el cliente');
+                        }
+                    });
                 });
             });
-        });
 
-        // 2. Buscador en vivo de Empleados
-        const searchSellerInput = document.getElementById('searchSellerInput');
-        if (searchSellerInput) {
-            searchSellerInput.addEventListener('keyup', function () {
-                const q = this.value.toLowerCase();
-                document.querySelectorAll('.assign-seller-btn').forEach(btn => {
-                    const name = btn.getAttribute('data-name').toLowerCase();
-                    if (name.includes(q)) {
-                        btn.classList.remove('d-none');
-                    } else {
-                        btn.classList.add('d-none');
+            // 3. Guardado Rápido de Nuevo Cliente
+            const saveFastCustomerBtn = document.getElementById('saveFastCustomerBtn');
+            if (saveFastCustomerBtn) {
+                saveFastCustomerBtn.addEventListener('click', function () {
+                    const name = document.getElementById('fastCustomerName').value.trim();
+                    const phone = document.getElementById('fastCustomerPhone').value.trim();
+
+                    if (!name) {
+                        alert('Ingresa al menos el nombre del cliente');
+                        return;
                     }
-                });
-            });
-        }
 
-        // 3. Asignar Valores de Encabezado Genéricos (Tipo de Pago / Tipo de Venta)
-        document.querySelectorAll('.set-header-btn').forEach(btn => {
-            btn.addEventListener('click', function () {
-                const field = this.getAttribute('data-field');
-                const val = this.getAttribute('data-val');
+                    showLoading();
 
-                let payload = {};
-                payload[field] = val;
-
-                fetch(`/pos/${saleId}/header`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify(payload)
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) location.reload();
-                });
-            });
-        });
-
-        // 4. Aplicar Descuento
-        const saveDiscountBtn = document.getElementById('saveDiscountBtn');
-        if (saveDiscountBtn) {
-            saveDiscountBtn.addEventListener('click', function () {
-                const discountVal = parseFloat(document.getElementById('discountInput').value) || 0;
-
-                fetch(`/pos/${saleId}/header`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify({
-                        venta_descuento: discountVal
+                    fetch("{{ url('clientes') }}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({
+                            nombre: name,
+                            telefono: phone,
+                            sucursal: '{{ $sale->venta_sucursal }}'
+                        })
                     })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) location.reload();
-                });
-            });
-        }
+                    .then(res => res.json().then(data => ({ status: res.status, data: data })))
+                    .then(res => {
+                        if (res.status === 200 || res.status === 201 || res.data.success) {
+                            const newCustomerId = res.data.cliente_id || res.data.id || 0;
 
-        // 1. LÓGICA DE AGREGAR SERVICIO
-        const saveServiceBtn = document.getElementById('saveServiceBtn');
-        if (saveServiceBtn) {
-            saveServiceBtn.addEventListener('click', function () {
-                const concept = document.getElementById('serviceConcept').value.trim();
-                const amount = parseFloat(document.getElementById('serviceAmount').value) || 0;
-
-                if (!concept || amount <= 0) {
-                    alert('Por favor ingresa un concepto válido y un monto mayor a 0');
-                    return;
-                }
-
-                showLoading();
-
-                fetch(`/pos/${saleId}/add-service`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify({ concept: concept, amount: amount })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        location.reload();
-                    } else {
-                        hideLoading(); // <--- Oculta el spinner si falla
-                        alert(data.message);
-                    }
-                })
-                .catch(() => hideLoading());
-            });
-        }
-
-        // 2. LÓGICA DE FACTURACIÓN Y CONSECUTIVO AUTOMÁTICO
-        const invoiceRequiredSelect = document.getElementById('invoiceRequiredSelect');
-        const invoiceFieldsContainer = document.getElementById('invoiceFieldsContainer');
-        const invoiceNumberInput = document.getElementById('invoiceNumberInput');
-
-        if (invoiceRequiredSelect) {
-            invoiceRequiredSelect.addEventListener('change', function () {
-                if (this.value === 'SI') {
-                    invoiceFieldsContainer.classList.remove('d-none');
-                    
-                    // Si el campo de número de factura está vacío, consultar el consecutivo en MySQL
-                    if (!invoiceNumberInput.value) {
-                        fetch(`/pos/${saleId}/next-invoice`)
-                            .then(res => res.json())
-                            .then(data => {
-                                if (data.success) {
-                                    invoiceNumberInput.value = data.next_invoice;
-                                }
+                            return fetch("{{ url('pos') }}/" + saleId + "/header", {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                },
+                                body: JSON.stringify({
+                                    venta_idcliente: newCustomerId,
+                                    nombre_cliente: name
+                                })
                             });
-                    }
-                } else {
-                    invoiceFieldsContainer.classList.add('d-none');
-                }
-            });
-        }
-
-        // 3. GUARDAR FACTURA
-        const saveInvoiceBtn = document.getElementById('saveInvoiceBtn');
-        if (saveInvoiceBtn) {
-            saveInvoiceBtn.addEventListener('click', function () {
-                const isRequired = invoiceRequiredSelect.value;
-                const numInvoice = invoiceNumberInput.value;
-                const cfdi = document.getElementById('invoiceCfdiSelect').value;
-                const invoiceType = document.getElementById('invoiceTypeSelect').value;
-
-                fetch(`/pos/${saleId}/header`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify({
-                        venta_factura: isRequired,
-                        numero_factura: isRequired === 'SI' ? numInvoice : null,
-                        venta_cfdi: isRequired === 'SI' ? cfdi : null,
-                        venta_tipo_factura: isRequired === 'SI' ? invoiceType : null
+                        } else {
+                            hideLoading();
+                            const msg = res.data.message || (res.data.errors ? Object.values(res.data.errors).flat().join('n') : 'Error al registrar cliente');
+                            alert(msg);
+                            throw new Error(msg);
+                        }
                     })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) location.reload();
+                    .then(res => {
+                        if (res) return res.json();
+                    })
+                    .then(data => {
+                        if (data && data.success) {
+                            location.reload();
+                        }
+                    })
+                    .catch(err => {
+                        hideLoading();
+                        console.error(err);
+                    });
+                });
+            }
+
+            // 4. Asignar Empleado Vendedor (AJAX REASIGNACIÓN DE SUCURSAL Y CATÁLOGO)
+            document.querySelectorAll('.assign-seller-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const sellerId = this.getAttribute('data-id');
+                    showLoading();
+
+                    fetch("{{ url('pos') }}/" + saleId + "/header", {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({
+                            venta_idempleado: sellerId
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            hideLoading();
+                            alert('Error al reasignar el vendedor');
+                        }
+                    })
+                    .catch(() => hideLoading());
                 });
             });
-        }
 
-        var saleId = "{{ $sale->venta_id }}";
-        var totalSale = parseFloat("{{ $sale->venta_total }}");
-
-        // Funciones para mostrar y ocultar el spinner de espera
-        function showLoading() {
-            const overlay = document.getElementById('loadingOverlay');
-            if (overlay) {
-                overlay.classList.remove('d-none');
-                overlay.classList.add('d-flex');
+            // 5. Buscador en vivo de Empleados
+            const searchSellerInput = document.getElementById('searchSellerInput');
+            if (searchSellerInput) {
+                searchSellerInput.addEventListener('keyup', function () {
+                    const q = this.value.toLowerCase();
+                    document.querySelectorAll('.assign-seller-btn').forEach(btn => {
+                        const name = btn.getAttribute('data-name').toLowerCase();
+                        if (name.includes(q)) {
+                            btn.classList.remove('d-none');
+                        } else {
+                            btn.classList.add('d-none');
+                        }
+                    });
+                });
             }
-        }
 
-        function hideLoading() {
-            const overlay = document.getElementById('loadingOverlay');
-            if (overlay) {
-                overlay.classList.remove('d-flex');
-                overlay.classList.add('d-none');
+            // 6. Asignar Valores de Encabezado Genéricos
+            document.querySelectorAll('.set-header-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const field = this.getAttribute('data-field');
+                    const val = this.getAttribute('data-val');
+
+                    let payload = {};
+                    payload[field] = val;
+
+                    fetch("{{ url('pos') }}/" + saleId + "/header", {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify(payload)
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) location.reload();
+                    });
+                });
+            });
+
+            // 7. Aplicar Descuento
+            const saveDiscountBtn = document.getElementById('saveDiscountBtn');
+            if (saveDiscountBtn) {
+                saveDiscountBtn.addEventListener('click', function () {
+                    const discountVal = parseFloat(document.getElementById('discountInput').value) || 0;
+
+                    fetch("{{ url('pos') }}/" + saleId + "/header", {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({
+                            venta_descuento: discountVal
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) location.reload();
+                    });
+                });
             }
-        }
+
+            // 8. LÓGICA DE AGREGAR SERVICIO
+            const saveServiceBtn = document.getElementById('saveServiceBtn');
+            if (saveServiceBtn) {
+                saveServiceBtn.addEventListener('click', function () {
+                    const concept = document.getElementById('serviceConcept').value.trim();
+                    const amount = parseFloat(document.getElementById('serviceAmount').value) || 0;
+
+                    if (!concept || amount <= 0) {
+                        alert('Por favor ingresa un concepto válido y un monto mayor a 0');
+                        return;
+                    }
+
+                    showLoading();
+
+                    fetch("{{ url('pos') }}/" + saleId + "/add-service", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({ concept: concept, amount: amount })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            hideLoading();
+                            alert(data.message);
+                        }
+                    })
+                    .catch(() => hideLoading());
+                });
+            }
+
+            // 9. LÓGICA DE FACTURACIÓN Y CONSECUTIVO AUTOMÁTICO
+            const invoiceRequiredSelect = document.getElementById('invoiceRequiredSelect');
+            const invoiceFieldsContainer = document.getElementById('invoiceFieldsContainer');
+            const invoiceNumberInput = document.getElementById('invoiceNumberInput');
+
+            if (invoiceRequiredSelect) {
+                invoiceRequiredSelect.addEventListener('change', function () {
+                    if (this.value === 'SI') {
+                        if (invoiceFieldsContainer) invoiceFieldsContainer.classList.remove('d-none');
+                        
+                        if (invoiceNumberInput && !invoiceNumberInput.value) {
+                            fetch("{{ url('pos') }}/" + saleId + "/next-invoice")
+                                .then(res => res.json())
+                                .then(data => {
+                                    if (data.success) {
+                                        invoiceNumberInput.value = data.next_invoice;
+                                    }
+                                });
+                        }
+                    } else {
+                        if (invoiceFieldsContainer) invoiceFieldsContainer.classList.add('d-none');
+                    }
+                });
+            }
+
+            // 10. GUARDAR FACTURA
+            const saveInvoiceBtn = document.getElementById('saveInvoiceBtn');
+            if (saveInvoiceBtn) {
+                saveInvoiceBtn.addEventListener('click', function () {
+                    const isRequired = invoiceRequiredSelect ? invoiceRequiredSelect.value : 'NO';
+                    const numInvoice = invoiceNumberInput ? invoiceNumberInput.value : '';
+                    const cfdi = document.getElementById('invoiceCfdiSelect') ? document.getElementById('invoiceCfdiSelect').value : null;
+                    const invoiceType = document.getElementById('invoiceTypeSelect') ? document.getElementById('invoiceTypeSelect').value : null;
+
+                    fetch("{{ url('pos') }}/" + saleId + "/header", {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({
+                            venta_factura: isRequired,
+                            numero_factura: isRequired === 'SI' ? numInvoice : null,
+                            venta_cfdi: isRequired === 'SI' ? cfdi : null,
+                            venta_tipo_factura: isRequired === 'SI' ? invoiceType : null
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) location.reload();
+                    });
+                });
+            }
+
+            // 11. CAMBIAR FECHA DE VENTA (EXCLUSIVO ADMIN)
+            const saveSaleDateBtn = document.getElementById('saveSaleDateBtn');
+            if (saveSaleDateBtn) {
+                saveSaleDateBtn.addEventListener('click', function () {
+                    const newDate = document.getElementById('saleDateInput').value;
+
+                    if (!newDate) {
+                        alert('Por favor selecciona una fecha válida');
+                        return;
+                    }
+
+                    showLoading();
+
+                    fetch("{{ url('pos') }}/" + saleId + "/header", {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({
+                            venta_fecha: newDate
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            hideLoading();
+                            alert('Ocurrió un error al actualizar la fecha');
+                        }
+                    })
+                    .catch(() => hideLoading());
+                });
+            }
+        });
     </script>
 </x-app-layout>

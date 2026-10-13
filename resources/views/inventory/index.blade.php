@@ -1,78 +1,110 @@
 <x-app-layout>
     <div class="container-fluid px-2 px-md-4 py-3" style="max-width: 100%; overflow-x: hidden;">
 
+        @php
+            // Determinación estricta usando la variable enviada por el controlador o la relación del usuario
+            $userRoleType = $userType ?? (int) (auth()->user()->tipo_seccion ?? auth()->user()->type ?? 2);
+        @endphp
+
         <div class="card border-0 shadow-sm rounded-4 p-3 mb-4">
-            {{-- FILA 1: ENCABEZADO Y ACCIONES PRINCIPALES --}}
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 pb-3 border-bottom">
+            {{-- FILA SUPERIOR: TÍTULO Y BOTONES DE ACCIÓN SECUNDARIOS --}}
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                 <div>
-                    <h5 class="fw-bold m-0 text-dark">
-                        <i class="fa-solid fa-boxes-stacked text-primary me-2"></i>Gestión de Inventario
-                    </h5>
+                    <h4 class="fw-bold m-0 text-primary">
+                        <i class="fa-solid fa-boxes-stacked me-2"></i>Gestión de Inventario
+                    </h4>
                     <small class="text-muted">Consulta y administra existencias en tiempo real</small>
                 </div>
 
-                <div class="d-flex flex-wrap gap-2">
-                    @if (in_array($user->type, [0, 3]))
-                        <button type="button" class="btn btn-success rounded-pill px-3 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#newProductModal">
-                            <i class="fa-solid fa-plus me-1"></i> Nuevo
-                        </button>
-                        <button type="button" class="btn btn-primary rounded-pill px-3 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#transferModal">
-                            <i class="fa-solid fa-arrows-rotate me-1"></i> Traspaso
+                {{-- BOTONES FILTRADOS POR ROL --}}
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    
+                    {{-- Botón + Nuevo (Tipo 1 y 3) --}}
+                    @if(in_array($userRoleType, [1, 3]))
+                        <button type="button" class="btn btn-sm btn-success rounded-pill px-3 fw-semibold" data-bs-toggle="modal" data-bs-target="#newProductModal">
+                            <i class="fa-solid fa-plus me-1"></i> + Nuevo
                         </button>
                     @endif
 
-                    <a href="{{ route('supply-orders.create', ['branch_id' => $selectedBranchId]) }}" class="btn btn-warning rounded-pill px-3 fw-semibold shadow-sm text-dark">
-                        <i class="fa-solid fa-boxes-packing me-1"></i> Orden de Surtido
-                    </a>
+                    {{-- Botón Movimiento (Tipo 1 y 3) --}}
+                    @if(in_array($userRoleType, [1, 3]))
+                        <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 fw-semibold" data-bs-toggle="modal" data-bs-target="#transferModal">
+                            <i class="fa-solid fa-rotate me-1"></i> Movimiento
+                        </button>
+                    @endif
 
-                    <a href="{{ route('inventory.movements') }}" class="btn btn-light border rounded-pill px-3 text-dark fw-semibold">
-                        <i class="fa-solid fa-list-check text-primary me-1"></i> Movimientos
-                    </a>
+                    {{-- Botón Orden de Surtido (Tipo 1, 2 y 3) --}}
+                    @if(in_array($userRoleType, [1, 2, 3]))
+                        <button type="button" class="btn btn-sm btn-warning text-dark rounded-pill px-3 fw-semibold" data-bs-toggle="modal" data-bs-target="#supplyOrderModal">
+                            <i class="fa-solid fa-boxes-packing me-1"></i> Orden de Surtido
+                        </button>
+                    @endif
+
+                    {{-- Botón Historial de Movimientos (Tipo 1 y 3) --}}
+                    @if(in_array($userRoleType, [1, 3]))
+                        <a href="{{ route('inventory.movements') }}" class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-semibold">
+                            <i class="fa-solid fa-list-check me-1"></i> Movimientos
+                        </a>
+                    @endif
+
                 </div>
             </div>
 
-            {{-- FILA 2: BARRA DE FILTROS Y EXPORTACIÓN --}}
-            <form method="GET" data-loading-text="Cargando." action="{{ route('inventory.index') }}" class="d-flex flex-wrap align-items-center justify-content-between gap-3 bg-light p-2 rounded-4">
-                <div class="d-flex flex-wrap align-items-center gap-3">
-                    {{-- Filtro Sucursal --}}
+            <hr class="my-2 opacity-25">
+
+            {{-- FILA INFERIOR: FILTROS Y SELECTOR DE SUCURSAL --}}
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-2">
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    
+                    {{-- SELECTOR DE SUCURSAL --}}
                     <div class="d-flex align-items-center gap-2">
-                        <label class="fw-bold text-secondary small text-nowrap"><i class="fa-solid fa-store text-primary me-1"></i>Sucursal:</label>
-                        <select name="branch_id" class="form-select form-select-sm rounded-pill border-0 shadow-sm px-3" onchange="this.form.submit()" {{ $user->type == 1 ? 'disabled' : '' }}>
-                            @foreach ($branches as $b)
-                                <option value="{{ $b->id }}" {{ $selectedBranchId == $b->id ? 'selected' : '' }}>
-                                    {{ $b->name }} {{ $b->is_matrix ? '(Matriz)' : '' }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <span class="fw-bold text-secondary small"><i class="fa-solid fa-store me-1 text-primary"></i>Sucursal:</span>
+                        
+                        @if(in_array($userRoleType, [1, 3]))
+                            {{-- Tipo 1 y 3: Selector desplegable para cambiar entre sucursales redirigiendo a la ruta exacta de inventario --}}
+                            <select class="form-select form-select-sm rounded-pill fw-semibold border-primary" 
+                                    onchange="window.location.href='{{ route('inventory.index') }}?branch_id=' + this.value + '&type={{ $selectedType }}&low_stock={{ $onlyLowStock ? '1' : '0' }}'">
+                                @foreach($branches as $b)
+                                    <option value="{{ $b->id }}" {{ $selectedBranchId == $b->id ? 'selected' : '' }}>
+                                        {{ $b->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        @else
+                            {{-- Tipo 2: Texto estático sin posibilidad de selección --}}
+                            <span class="badge bg-light text-dark border rounded-pill px-3 py-2 fw-semibold">
+                                {{ $branches->firstWhere('id', $selectedBranchId)?->name ?? 'Sucursal Asignada' }}
+                            </span>
+                        @endif
                     </div>
 
-                    {{-- Filtro Tipo --}}
+                    {{-- Filtro de Tipo de Producto --}}
                     <div class="d-flex align-items-center gap-2">
-                        <label class="fw-bold text-secondary small text-nowrap"><i class="fa-solid fa-filter text-primary me-1"></i>Tipo:</label>
-                        <select name="type" class="form-select form-select-sm rounded-pill border-0 shadow-sm px-3" onchange="this.form.submit()">
+                        <span class="fw-bold text-secondary small"><i class="fa-solid fa-filter me-1 text-info"></i>Tipo:</span>
+                        <select class="form-select form-select-sm rounded-pill" 
+                                onchange="window.location.href='{{ route('inventory.index') }}?branch_id={{ $selectedBranchId }}&type=' + this.value + '&low_stock={{ $onlyLowStock ? '1' : '0' }}'">
                             <option value="">-- Todos --</option>
-                            <option value="GENERAL" {{ $selectedType == 'GENERAL' ? 'selected' : '' }}>General</option>
-                            <option value="CALZADO" {{ $selectedType == 'CALZADO' ? 'selected' : '' }}>Calzado</option>
-                            <option value="MEDICAMENTO" {{ $selectedType == 'MEDICAMENTO' ? 'selected' : '' }}>Medicamento</option>
+                            <option value="GENERAL" {{ $selectedType == 'GENERAL' ? 'selected' : '' }}>GENERAL</option>
+                            <option value="CALZADO" {{ $selectedType == 'CALZADO' ? 'selected' : '' }}>CALZADO</option>
+                            <option value="MEDICAMENTO" {{ $selectedType == 'MEDICAMENTO' ? 'selected' : '' }}>MEDICAMENTO</option>
                         </select>
                     </div>
 
-                    {{-- Toggle Bajo Stock --}}
-                    <div class="d-flex align-items-center">
-                        <input type="checkbox" name="low_stock" value="1" id="lowStockCheck" class="btn-check" onchange="this.form.submit()" {{ $onlyLowStock ? 'checked' : '' }}>
-                        <label class="btn btn-sm {{ $onlyLowStock ? 'btn-danger' : 'btn-outline-danger' }} rounded-pill px-3 fw-semibold shadow-sm" for="lowStockCheck">
-                            <i class="fa-solid fa-triangle-exclamation me-1"></i> Solo Bajo Stock
-                        </label>
-                    </div>
+                    {{-- Botón / Checkbox Solo Bajo Stock --}}
+                    <a href="{{ route('inventory.index') }}?branch_id={{ $selectedBranchId }}&type={{ $selectedType }}&low_stock={{ $onlyLowStock ? '0' : '1' }}" 
+                       class="btn btn-sm {{ $onlyLowStock ? 'btn-danger' : 'btn-outline-danger' }} rounded-pill px-3 fw-semibold">
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i> Solo Bajo Stock
+                    </a>
+
                 </div>
 
-                {{-- Botón Exportar PDF a la derecha del bloque de filtros --}}
+                {{-- Exportar PDF --}}
                 <div>
-                    <a href="{{ route('inventory.pdf', request()->query()) }}" target="_blank" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-semibold shadow-sm bg-white">
+                    <a href="{{ route('inventory.pdf', ['branch_id' => $selectedBranchId]) }}" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-semibold" target="_blank">
                         <i class="fa-solid fa-file-pdf me-1"></i> Exportar PDF
                     </a>
                 </div>
-            </form>
+            </div>
         </div>
 
         {{-- ALERTAS DE SESIÓN --}}
@@ -92,7 +124,7 @@
         {{-- CONTENEDOR DATATABLE --}}
         <div class="card border-0 shadow-sm rounded-4 p-3 p-md-4">
             
-            <form method="GET" data-loading-text="Cargando." action="{{ route('inventory.index') }}" id="dataTableForm">
+            <form method="GET" action="{{ route('inventory.index') }}" id="dataTableForm">
                 <input type="hidden" name="branch_id" value="{{ $selectedBranchId }}">
                 <input type="hidden" name="type" value="{{ $selectedType }}">
                 <input type="hidden" name="low_stock" value="{{ $onlyLowStock ? '1' : '' }}">
@@ -144,7 +176,6 @@
                     <tbody>
                         @forelse ($products as $p)
                             @php
-                                // Buscar explícitamente la sucursal seleccionada dentro de la colección cargada
                                 $branchData = $p->branches->firstWhere('id', $selectedBranchId);
                                 $currentStock = $branchData ? $branchData->pivot->stock_current : 0;
                                 $minStock = $branchData ? $branchData->pivot->stock_min : 1;
@@ -186,16 +217,17 @@
                                 <td class="text-end">
                                     <div class="d-flex justify-content-end gap-1">
                                         
-                                        @if (in_array($user->type, [0, 3]))
-                                            {{-- BOTÓN STOCK --}}
-                                            <button type="button" 
-                                                    class="btn btn-sm btn-outline-success rounded-pill px-2 py-1 open-adjust-modal" 
-                                                    data-id="{{ $p->id }}" 
-                                                    data-name="{{ $p->name }}" 
-                                                    data-stock="{{ $currentStock }}"
-                                                    title="Agregar/Ajustar Stock">
-                                                <i class="fa-solid fa-boxes-packing me-1"></i> Stock
-                                            </button>
+                                            @if (in_array($userRoleType, [1, 2, 3]))
+                                                {{-- BOTÓN STOCK --}}
+                                                <button type="button" 
+                                                        class="btn btn-sm btn-outline-success rounded-pill px-2 py-1 open-adjust-modal" 
+                                                        data-id="{{ $p->id }}" 
+                                                        data-name="{{ $p->name }}" 
+                                                        data-stock="{{ $currentStock }}"
+                                                        title="Agregar/Ajustar Stock">
+                                                    <i class="fa-solid fa-boxes-packing me-1"></i> Stock
+                                                </button>
+                                            @endif
 
                                             {{-- BOTÓN EDITAR ARTÍCULO --}}
                                             <button type="button" 
@@ -213,18 +245,6 @@
                                                     title="Editar Datos del Artículo">
                                                 <i class="fa-solid fa-pen-to-square"></i>
                                             </button>
-                                        @endif
-
-                                        @if ($user->type == 1 && $selectedBranchId == $user->branch_id)
-                                            @if ($currentStock > 0)
-                                                <button type="button" class="btn btn-sm btn-outline-warning text-dark rounded-pill px-2 py-1 fw-semibold open-return-modal"
-                                                        data-id="{{ $p->id }}" data-name="{{ $p->name }}" data-stock="{{ $currentStock }}">
-                                                    <i class="fa-solid fa-rotate-left me-1"></i> Devolver
-                                                </button>
-                                            @else
-                                                <span class="text-muted small">Sin stock</span>
-                                            @endif
-                                        @endif
 
                                     </div>
                                 </td>
@@ -249,6 +269,123 @@
             </div>
 
         </div>
+
+        <!-- RESUMEN DE INVENTARIO AMPLIADO (EXCLUSIVO ADMINISTRADOR) -->
+        @if(isset($isAdmin) ? $isAdmin : auth()->user()->isAdmin())
+            <div class="card border-0 shadow-sm rounded-4 p-4 mt-4 bg-light">
+                <div class="d-flex align-items-center mb-3">
+                    <h6 class="fw-bold m-0 text-secondary">
+                        <i class="fa-solid fa-chart-pie me-2 text-primary"></i>Resumen General de Inventario
+                    </h6>
+                    <span class="badge bg-danger-subtle text-danger rounded-pill px-3 ms-auto">
+                        <i class="fa-solid fa-user-shield me-1"></i>Vista Administrador
+                    </span>
+                </div>
+
+                {{-- FILA 1: MÉTRICAS GLOBALES DE INVENTARIO --}}
+                <div class="row g-3 mb-3">
+                    {{-- Total de Productos Registrados --}}
+                    <div class="col-12 col-sm-6 col-lg-3">
+                        <div class="card border-0 shadow-sm rounded-4 p-3 text-white h-100" style="background: linear-gradient(135deg, #0288d1, #26c6da);">
+                            <div class="small fw-semibold text-white-50">Artículos Únicos</div>
+                            <div class="fs-3 fw-bold my-1">{{ number_format($totalArticulos ?? 0) }}</div>
+                            <div class="extra-small text-white-50"><i class="fa-solid fa-boxes-stacked me-1"></i>En catálogo</div>
+                        </div>
+                    </div>
+
+                    {{-- Total de Piezas Físicas en Stock --}}
+                    <div class="col-12 col-sm-6 col-lg-3">
+                        <div class="card border-0 shadow-sm rounded-4 p-3 text-white h-100" style="background: linear-gradient(135deg, #7b1fa2, #ab47bc);">
+                            <div class="small fw-semibold text-white-50">Existencia Total</div>
+                            <div class="fs-3 fw-bold my-1">{{ number_format($totalPiezasStock ?? 0) }}</div>
+                            <div class="extra-small text-white-50"><i class="fa-solid fa-cubes me-1"></i>Unidades físicas</div>
+                        </div>
+                    </div>
+
+                    {{-- Inversión Total --}}
+                    <div class="col-12 col-sm-6 col-lg-3">
+                        <div class="card border-0 shadow-sm rounded-4 p-3 text-white h-100" style="background: linear-gradient(135deg, #d81b60, #e91e63);">
+                            <div class="small fw-semibold text-white-50">Inversión Total (Costo)</div>
+                            <div class="fs-3 fw-bold my-1">${{ number_format($inversionTotal ?? 0, 2) }}</div>
+                            <div class="extra-small text-white-50"><i class="fa-solid fa-sack-dollar me-1"></i>Valor en compras</div>
+                        </div>
+                    </div>
+
+                    {{-- Ganancia Estimada --}}
+                    <div class="col-12 col-sm-6 col-lg-3">
+                        <div class="card border-0 shadow-sm rounded-4 p-3 text-white h-100" style="background: linear-gradient(135deg, #2e7d32, #4caf50);">
+                            <div class="small fw-semibold text-white-50">Ganancia Estimada</div>
+                            <div class="fs-3 fw-bold my-1">${{ number_format($gananciaEstimada ?? 0, 2) }}</div>
+                            <div class="extra-small text-white-50"><i class="fa-solid fa-chart-line me-1"></i>Retorno proyectado</div>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-3 opacity-25">
+
+                {{-- FILA 2: DESGLOSE POR TIPO DE PRODUCTO (CANTIDAD Y MONTO) --}}
+                <h6 class="fw-bold mb-3 text-secondary small">
+                    <i class="fa-solid fa-layer-group me-1 text-info"></i>Desglose por Categoría de Producto:
+                </h6>
+
+                <div class="row g-3">
+                    {{-- DESGLOSE GENERAL --}}
+                    <div class="col-12 col-md-4">
+                        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-4 border-info h-100">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="fw-bold text-dark small"><i class="fa-solid fa-box-open me-1 text-info"></i>General</span>
+                                <span class="badge bg-info-subtle text-info rounded-pill px-2 py-1 small fw-semibold">
+                                    {{ number_format($statsByType['GENERAL']['pieces'] ?? 0) }} pzas
+                                </span>
+                            </div>
+                            <div class="fs-4 fw-bold text-dark">
+                                ${{ number_format($statsByType['GENERAL']['investment'] ?? 0, 2) }}
+                            </div>
+                            <div class="extra-small text-muted mt-1">
+                                Inversión estimada en artículos generales
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- DESGLOSE CALZADO --}}
+                    <div class="col-12 col-md-4">
+                        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-4 border-primary h-100">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="fw-bold text-dark small"><i class="fa-solid fa-shoe-prints me-1 text-primary"></i>Calzado</span>
+                                <span class="badge bg-primary-subtle text-primary rounded-pill px-2 py-1 small fw-semibold">
+                                    {{ number_format($statsByType['CALZADO']['pieces'] ?? 0) }} pzas
+                                </span>
+                            </div>
+                            <div class="fs-4 fw-bold text-dark">
+                                ${{ number_format($statsByType['CALZADO']['investment'] ?? 0, 2) }}
+                            </div>
+                            <div class="extra-small text-muted mt-1">
+                                Inversión estimada en modelos de calzado
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- DESGLOSE MEDICAMENTO --}}
+                    <div class="col-12 col-md-4">
+                        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-4 border-success h-100">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="fw-bold text-dark small"><i class="fa-solid fa-pills me-1 text-success"></i>Medicamento</span>
+                                <span class="badge bg-success-subtle text-success rounded-pill px-2 py-1 small fw-semibold">
+                                    {{ number_format($statsByType['MEDICAMENTO']['pieces'] ?? 0) }} pzas
+                                </span>
+                            </div>
+                            <div class="fs-4 fw-bold text-dark">
+                                ${{ number_format($statsByType['MEDICAMENTO']['investment'] ?? 0, 2) }}
+                            </div>
+                            <div class="extra-small text-muted mt-1">
+                                Inversión estimada en medicamentos / insumos
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        @endif
     </div>
 
     <!-- MODAL VER IMAGEN RÁPIDA -->
@@ -266,7 +403,7 @@
         </div>
     </div>
 
-    <!-- MODAL 1: NUEVO PRODUCTO (MATRIZ) -->
+    <!-- MODAL 1: NUEVO PRODUCTO -->
     <div class="modal fade" id="newProductModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg rounded-4">
@@ -276,11 +413,18 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST" data-loading-text="Cargando." action="{{ route('inventory.store-product') }}" enctype="multipart/form-data">
+                <form method="POST" action="{{ route('inventory.store-product') }}" enctype="multipart/form-data">
                     @csrf
+                    
+                    {{-- CAMPO OCULTO: SUCURSAL MATRIZ POR DEFECTO --}}
+                    <input type="hidden" name="branch_id" value="{{ $matrixBranch?->id ?? 1 }}">
+                    
+                    {{-- CAMPO OCULTO: CATEGORÍA DINÁMICA (Se mapea con JS al cambiar de tipo) --}}
+                    <input type="hidden" name="category_id" id="product_category_id" value="4">
+
                     <div class="modal-body py-3">
                         <div class="alert alert-info rounded-3 small py-2 mb-3">
-                            <i class="fa-solid fa-info-circle me-1"></i> El stock inicial ingresará a la <strong>Sucursal Matriz</strong>.
+                            <i class="fa-solid fa-info-circle me-1"></i> El stock inicial ingresará a la <strong>Sucursal Matriz ({{ $matrixBranch?->name ?? 'Central' }})</strong>.
                         </div>
 
                         <div class="row g-3 mb-3">
@@ -297,11 +441,30 @@
                                 </select>
                             </div>
 
+                            {{-- SECTOR DE PROVEEDOR (SE CARGAN TODOS) --}}
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Proveedor</label>
+                                <select name="supplier_id" class="form-select rounded-3">
+                                    <option value="">-- Seleccionar Proveedor --</option>
+                                    @if(isset($suppliers))
+                                        @foreach($suppliers as $supplier)
+                                            <option value="{{ $supplier->id }}">{{ $supplier->name ?? $supplier->company_name }}</option>
+                                        @endforeach
+                                    @endif
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Código de Barras / SKU</label>
+                                <input type="text" name="barcode" class="form-control rounded-3" placeholder="750123456789">
+                            </div>
+
                             <div class="col-md-12">
                                 <label class="form-label fw-semibold">Imagen del Producto (Opcional)</label>
                                 <input type="file" name="image" class="form-control rounded-3" accept="image/*">
                             </div>
 
+                            {{-- SECCIÓN CALZADO --}}
                             <div id="footwear_fields" class="row g-3 m-0 p-0 d-none">
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold text-primary">Modelo</label>
@@ -317,6 +480,7 @@
                                 </div>
                             </div>
 
+                            {{-- SECCIÓN MEDICAMENTO --}}
                             <div id="medicine_fields" class="row g-3 m-0 p-0 d-none">
                                 <div class="col-md-12">
                                     <label class="form-label fw-semibold text-info">Sustancia Activa</label>
@@ -324,10 +488,6 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Código de Barras / SKU</label>
-                                <input type="text" name="barcode" class="form-control rounded-3" placeholder="750123456789">
-                            </div>
                             <div class="col-md-3">
                                 <label class="form-label fw-semibold">Precio Compra (*)</label>
                                 <input type="number" step="0.01" name="cost_price" class="form-control rounded-3" required value="0.00">
@@ -337,12 +497,12 @@
                                 <input type="number" step="0.01" name="sale_price" class="form-control rounded-3" required value="0.00">
                             </div>
 
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Stock Inicial en Matriz (*)</label>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Stock Inicial (*)</label>
                                 <input type="number" name="initial_stock" class="form-control rounded-3" required value="10" min="0">
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Stock Mínimo Alerta (*)</label>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Stock Mínimo  (*)</label>
                                 <input type="number" name="stock_min" class="form-control rounded-3" required value="2" min="1">
                             </div>
                         </div>
@@ -356,7 +516,7 @@
         </div>
     </div>
 
-    <!-- MODAL 2: AJUSTE DIRECTO DE STOCK POR FILA -->
+    <!-- MODAL 2: AJUSTE DIRECTO DE STOCK POR FILA (AJUSTAR O ORDEN DE SURTIDO) -->
     <div class="modal fade" id="adjustStockModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg rounded-4">
@@ -366,7 +526,7 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST" data-loading-text="Cargando." action="{{ route('inventory.adjust') }}">
+                <form method="POST" action="{{ route('inventory.adjust') }}">
                     @csrf
                     <input type="hidden" name="product_id" id="adjust_product_id">
                     <input type="hidden" name="branch_id" value="{{ $selectedBranchId }}">
@@ -379,7 +539,10 @@
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Tipo de Movimiento (*)</label>
                                 <select name="type" class="form-select rounded-3" required>
-                                    <option value="ENTRADA">Agregar a Inventario General</option>
+                                    {{-- Tipo 1 y 3 pueden agregar stock general --}}
+                                    @if(in_array($userRoleType, [1, 3]))
+                                        <option value="ENTRADA">Agregar a Inventario General</option>
+                                    @endif
                                     <option value="DEVOLUCION">Devolver a Inventario General</option>
                                 </select>
                             </div>
@@ -419,8 +582,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 
-                {{-- IMPORTANTE: enctype="multipart/form-data" PARA PERMITIR SUBIR LA IMAGEN --}}
-                <form method="POST" data-loading-text="Cargando." id="editProductForm" enctype="multipart/form-data">
+                <form method="POST" id="editProductForm" enctype="multipart/form-data">
                     @csrf
                     @method('PUT')
                     
@@ -443,7 +605,6 @@
                                 </select>
                             </div>
 
-                            <!-- CAMPO DE SUBIDA Y VISTA PREVIA DE IMAGEN -->
                             <div class="col-md-12">
                                 <label class="form-label fw-semibold"><i class="fa-solid fa-image me-1 text-primary"></i> Cambiar / Subir Imagen del Producto</label>
                                 <div class="d-flex align-items-center gap-3">
@@ -452,7 +613,6 @@
                                 <small class="text-muted">Formatos permitidos: JPG, PNG, WEBP (Máx. 2MB). Deja en blanco si no deseas cambiar la imagen actual.</small>
                             </div>
 
-                            <!-- CAMPOS DINÁMICOS SEGÚN TIPO DE PRODUCTO -->
                             <div id="edit_footwear_fields" class="row g-3 m-0 p-0 d-none">
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold text-primary">Modelo</label>
@@ -499,7 +659,7 @@
         </div>
     </div>
 
-    <!-- MODAL TRASPASO -->
+    <!-- MODAL TRASPASO / MOVIMIENTO -->
     <div class="modal fade" id="transferModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg rounded-4">
@@ -509,7 +669,7 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST" data-loading-text="Cargando." action="{{ route('inventory.transfer') }}">
+                <form method="POST" action="{{ route('inventory.transfer') }}">
                     @csrf
                     <div class="modal-body py-3">
                         <div class="mb-3 position-relative">
@@ -567,6 +727,113 @@
             </div>
         </div>
     </div>
+
+    <!-- MODAL: GENERAR ORDEN DE SURTIDO INTERACTIVA -->
+    <div class="modal fade" id="supplyOrderModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-dark">
+                        <i class="fa-solid fa-boxes-packing text-warning me-2"></i>Generar Orden de Surtido
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                
+                <form method="POST" action="{{ route('supply-orders.store') }}" target="_blank" id="supplyOrderForm">
+                    @csrf
+                    <div class="modal-body py-3">
+                        
+                        {{-- Seleccionar Sucursal Destino --}}
+                        <div class="row g-3 mb-3 align-items-center">
+                            <div class="col-md-8">
+                                <label class="form-label fw-semibold mb-1">Sucursal Destino (*)</label>
+                                <select name="branch_id" id="so_branch_id" class="form-select rounded-3" required>
+                                    <option value="">-- Selecciona sucursal --</option>
+                                    @foreach ($branches as $b)
+                                        <option value="{{ $b->id }}" {{ $selectedBranchId == $b->id ? 'selected' : '' }}>
+                                            {{ $b->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-4 pt-4 text-end">
+                                <button type="button" id="btnSelectAllSO" class="btn btn-sm btn-outline-primary rounded-pill">
+                                    Marcar / Desmarcar Todos
+                                </button>
+                            </div>
+                        </div>
+
+                        {{-- Tabla de Productos Filtrados con Checkbox --}}
+                        <div class="table-responsive rounded-3 border mb-3" style="max-height: 320px; overflow-y: auto;">
+                            <table class="table table-hover align-middle mb-0" id="soProductsTable">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th style="width: 40px;" class="text-center">
+                                            <input type="checkbox" id="so_check_master" checked style="cursor: pointer;">
+                                        </th>
+                                        <th>Producto</th>
+                                        <th class="text-center" style="width: 100px;">Stock</th>
+                                        <th class="text-center" style="width: 130px;">Cant. Surtir</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="so_products_tbody">
+                                    {{-- Se llena dinámicamente mediante JS o por Blade --}}
+                                    @forelse($products as $p)
+                                        @php
+                                            $branchData = $p->branches->firstWhere('id', $selectedBranchId);
+                                            $currentStock = $branchData ? $branchData->pivot->stock_current : 0;
+                                            $minStock = $branchData ? $branchData->pivot->stock_min : 1;
+                                            $suggestedQty = max(1, ($minStock * 2) - $currentStock);
+                                        @endphp
+                                        <tr>
+                                            <td class="text-center">
+                                                <input type="checkbox" class="form-check-input so-item-check" name="items[{{ $p->id }}][selected]" value="1" checked style="cursor: pointer;">
+                                                <input type="hidden" name="items[{{ $p->id }}][product_id]" value="{{ $p->id }}">
+                                            </td>
+                                            <td>
+                                                <strong class="d-block text-dark small">{{ $p->name }}</strong>
+                                                <span class="text-muted extra-small">{{ $p->barcode ?? 'S/C' }}</span>
+                                                @if($currentStock <= $minStock)
+                                                    <span class="badge bg-danger rounded-pill ms-1" style="font-size: 9px;">Stock Bajo</span>
+                                                @endif
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-danger-subtle text-danger fw-bold rounded-circle p-2 fs-6">
+                                                    {{ $currentStock }}
+                                                </span>
+                                            </td>
+                                            <td class="text-center">
+                                                <input type="number" name="items[{{ $p->id }}][quantity]" class="form-control form-control-sm text-center fw-bold rounded-3" value="{{ $suggestedQty }}" min="1" style="width: 90px; margin: 0 auto;">
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="4" class="text-center py-3 text-muted">No hay productos en bajo stock para esta sucursal.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {{-- Campo de Observaciones / Notas --}}
+                        <div class="mb-2">
+                            <label class="form-label fw-semibold small">Observaciones o Notas de la Orden (Opcional)</label>
+                            <textarea name="notes" class="form-control rounded-3" rows="2" placeholder="Escribe detalles adicionales sobre el pedido..."></textarea>
+                        </div>
+
+                    </div>
+
+                    <div class="modal-footer border-0 pt-0">
+                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold" style="background: #e91e63; border: none;">
+                            <i class="fa-solid fa-paper-plane me-1"></i> Generar Orden de Surtido
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
 
     <!-- SCRIPTS JS CORREGIDOS Y ROBUSTOS -->
     <script>
@@ -632,7 +899,7 @@
                 editBtns.forEach(btn => {
                     btn.addEventListener('click', function () {
                         const id = this.getAttribute('data-id');
-                        editForm.action = `/inventory/products/${id}`;
+                        editForm.action = `{{ url('inventory/products') }}/${id}`;
 
                         document.getElementById('edit_name').value = this.getAttribute('data-name');
                         document.getElementById('edit_type').value = this.getAttribute('data-type');
@@ -650,29 +917,35 @@
                 });
             }
 
-            // 4. FORMULARIO NUEVO PRODUCTO
+            // MAPEO AUTOMÁTICO DE CATEGORÍAS SEGÚN TIPO DE PRODUCTO
             const typeSelect = document.getElementById('product_type_select');
+            const categoryInput = document.getElementById('product_category_id');
             const footwearFields = document.getElementById('footwear_fields');
             const medicineFields = document.getElementById('medicine_fields');
 
             if (typeSelect) {
-                function toggleFields() {
+                function handleTypeChange() {
                     const selectedType = typeSelect.value;
+
                     if (selectedType === 'CALZADO') {
-                        footwearFields.classList.remove('d-none');
-                        medicineFields.classList.add('d-none');
+                        categoryInput.value = 3; // Categoría 3 = Calzado
+                        if (footwearFields) footwearFields.classList.remove('d-none');
+                        if (medicineFields) medicineFields.classList.add('d-none');
                     } else if (selectedType === 'MEDICAMENTO') {
-                        medicineFields.classList.remove('d-none');
-                        footwearFields.classList.add('d-none');
+                        categoryInput.value = 2; // Categoría 2 = Medicamento
+                        if (medicineFields) medicineFields.classList.remove('d-none');
+                        if (footwearFields) footwearFields.classList.add('d-none');
                     } else {
-                        footwearFields.classList.add('d-none');
-                        medicineFields.classList.add('d-none');
+                        categoryInput.value = 4; // Categoría 4 = General
+                        if (footwearFields) footwearFields.classList.add('d-none');
+                        if (medicineFields) medicineFields.classList.add('d-none');
                     }
                 }
-                typeSelect.addEventListener('change', toggleFields);
-                toggleFields();
-            }
 
+                typeSelect.addEventListener('change', handleTypeChange);
+                handleTypeChange(); // Ejecutar al cargar para inicializar el estado
+            }
+            
             // 5. BUSCADOR TRASPASOS
             const searchInput = document.getElementById('transfer_product_search');
             const hiddenInput = document.getElementById('transfer_product_id');
@@ -703,9 +976,9 @@
                         resultsContainer.innerHTML = `<div class="list-group-item text-muted small py-2">No se encontraron productos</div>`;
                     } else {
                         filtered.forEach(p => {
-                            const item = document.createElement('a');
-                            item.href = '#';
-                            item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2';
+                            const item = document.createElement('button');
+                            item.type = 'button';
+                            item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2 text-start';
                             
                             item.innerHTML = `
                                 <div>
@@ -751,5 +1024,24 @@
                 }
             }
         });
+        // CONTROLADOR DE CASILLAS PARA ORDEN DE SURTIDO
+        const masterCheck = document.getElementById('so_check_master');
+        const btnSelectAll = document.getElementById('btnSelectAllSO');
+
+        if (masterCheck) {
+            masterCheck.addEventListener('change', function () {
+                const itemChecks = document.querySelectorAll('.so-item-check');
+                itemChecks.forEach(chk => chk.checked = this.checked);
+            });
+        }
+
+        if (btnSelectAll) {
+            btnSelectAll.addEventListener('click', function () {
+                const itemChecks = document.querySelectorAll('.so-item-check');
+                const anyUnchecked = Array.from(itemChecks).some(chk => !chk.checked);
+                itemChecks.forEach(chk => chk.checked = anyUnchecked);
+                if (masterCheck) masterCheck.checked = anyUnchecked;
+            });
+        }
     </script>
 </x-app-layout>

@@ -35,7 +35,7 @@
                             <input type="date" name="fecha2" value="{{ date('Y-m-d') }}" class="form-control form-control-sm rounded-3" required>
                         </div>
 
-                        @if(in_array($userRole, [0, 3]))
+                        @if(in_array($userRole, [0, 1]))
                             <div class="mb-3">
                                 <label class="form-label extra-small fw-bold text-muted">Sucursal</label>
                                 <select name="sucursal" class="form-select form-select-sm rounded-3">

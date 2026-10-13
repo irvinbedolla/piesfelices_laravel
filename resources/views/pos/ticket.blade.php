@@ -19,10 +19,56 @@
         .divider { border-top: 1px dashed #000; margin: 6px 0; }
         .table { width: 100%; border-collapse: collapse; margin-top: 5px; }
         .table th, .table td { font-size: 9px; padding: 2px 0; text-align: left; }
+
+        /* Estilos de la barra flotante de botones (No se imprime) */
+        .no-print-bar {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding: 8px;
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+        }
+
+        .btn-action {
+            padding: 6px 12px;
+            font-size: 11px;
+            font-weight: bold;
+            font-family: 'Arial', sans-serif;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            text-decoration: none;
+        }
+
+        .btn-print {
+            background-color: #198754;
+            color: #ffffff;
+        }
+
+        .btn-close-tab {
+            background-color: #dc3545;
+            color: #ffffff;
+        }
+
+        /* OCULTAR LOS BOTONES AL IMPRIMIR EL TICKET */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                padding: 0;
+            }
+        }
     </style>
 </head>
 <body>
-
+    <!-- TICKET DE VENTA -->
     <div class="text-center">
         <h2 style="font-size: 14px; margin: 0; text-transform: uppercase;">PIES FELICES</h2>
         <div style="font-size: 9px;">Sucursal: {{ $sale->venta_sucursal }}</div>
@@ -86,6 +132,13 @@
         ¡Gracias por su preferencia!<br>
         Pies Felices - Salud y Cuidado para tus Pies
     </div>
+
+    <!-- SCRIPT PARA DISPARAR LA IMPRESIÓN AUTOMÁTICA AL ABRIR LA PESTAÑA -->
+    <script class="no-print">
+        window.onload = function() {
+            window.print();
+        };
+    </script>
 
 </body>
 </html>

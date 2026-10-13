@@ -17,11 +17,11 @@ class CreditController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $userRole = $user->tipo_seccion ?? 2;
+        $userRole = (int) ($user->role_id ?? $user->tipo_seccion ?? $user->type ?? 2);
         $userBranch = $user->branch?->name ?? $user->branch_name ?? 'MATRIZ';
 
         $branches = Branch::all();
-        $selectedBranch = $request->get('branch');
+        $selectedBranch = $request->get('branch', $request->get('sucursal'));
         $search = trim($request->get('search'));
 
         // Query base de ventas a crédito
@@ -40,7 +40,7 @@ class CreditController extends Controller
             // VALIDACIÓN MATEMÁTICA: El restante debe ser mayor a cero
             ->whereRaw('(venta_total - venta_abono) > 0');
 
-        // Filtro por Buscador
+        // Filtro por Buscador (Cliente, N° Venta, Fecha)
         if (!empty($search)) {
             $query->where(function($q) use ($search) {
                 $q->where('venta_id', 'LIKE', "%{$search}%")
@@ -49,8 +49,10 @@ class CreditController extends Controller
             });
         }
 
-        // Control por rol y sucursal
-        if (in_array($userRole, [0, 3])) {
+        // Control por rol y sucursal (Tipos 0, 1 y 3 pueden filtrar todas las sucursales)
+        $isAdmin = in_array($userRole, [0, 1, 3]);
+
+        if ($isAdmin) {
             if ($selectedBranch && $selectedBranch !== 'TODOS') {
                 $query->where('venta_sucursal', $selectedBranch);
             }
@@ -63,7 +65,7 @@ class CreditController extends Controller
                          ->paginate(10)
                          ->appends($request->all());
 
-        return view('credits.index', compact('credits', 'branches', 'selectedBranch', 'search', 'userRole', 'userBranch'));
+        return view('credits.index', compact('credits', 'branches', 'selectedBranch', 'search', 'userRole', 'userBranch', 'isAdmin'));
     }
 
     /**
@@ -87,15 +89,15 @@ class CreditController extends Controller
                 throw new \Exception("El monto abonado es mayor al saldo pendiente.");
             }
 
-            // 1. Guardar el abono
+            // 1. Guardar el abono en la tabla 'abonos' usando 'abono_venta' como FK
             CreditPayment::create([
-                'venta_id'       => $sale->venta_id,
+                'abono_venta'    => $sale->venta_id, // Columna correcta en la tabla MySQL
                 'abono_cantidad' => $monto,
                 'abono_fecha'    => date('Y-m-d H:i:s'),
                 'abono_sucursal' => $sale->venta_sucursal,
             ]);
 
-            // 2. Recalcular
+            // 2. Recalcular saldo y abonos acumulados
             $nuevoAbonoAcumulado = $sale->venta_abono + $monto;
             $nuevoRestante = $sale->venta_total - $nuevoAbonoAcumulado;
 

@@ -4,38 +4,42 @@
         <div class="row g-3 mb-4">
             
             <!-- 1. Top 10 Artículos Más Vendidos del Mes -->
-            <div class="col-lg-6">
-                <div class="card border-0 shadow-sm rounded-4 h-100">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-center justify-content-between mb-3">
-                            <h6 class="fw-bold m-0 text-secondary">
-                                <i class="fa-solid fa-chart-column me-2 text-primary"></i>Top 10 Artículos Más Vendidos (Mes)
-                            </h6>
-                            <span class="badge bg-primary-subtle text-primary rounded-pill px-3" id="badgeMes">Cargando...</span>
-                        </div>
-                        <div style="position: relative; height:260px;">
-                            <canvas id="chartTopProductos"></canvas>
+            @if(auth()->user()->isAdmin())
+                <div class="col-lg-6">
+                    <div class="card border-0 shadow-sm rounded-4 h-100">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <h6 class="fw-bold m-0 text-secondary">
+                                    <i class="fa-solid fa-chart-column me-2 text-primary"></i>Top 10 Artículos Más Vendidos (Mes)
+                                </h6>
+                                <span class="badge bg-primary-subtle text-primary rounded-pill px-3" id="badgeMes">Cargando...</span>
+                            </div>
+                            <div style="position: relative; height:260px;">
+                                <canvas id="chartTopProductos"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            @endif
 
             <!-- 2. Número de Citas por Mes -->
-            <div class="col-lg-6">
-                <div class="card border-0 shadow-sm rounded-4 h-100">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-center justify-content-between mb-3">
-                            <h6 class="fw-bold m-0 text-secondary">
-                                <i class="fa-solid fa-calendar-check me-2 text-info"></i>Citas Atendidas por Mes
-                            </h6>
-                            <span class="badge bg-info-subtle text-info rounded-pill px-3" id="badgeAnio">Año {{ date('Y') }}</span>
-                        </div>
-                        <div style="position: relative; height:260px;">
-                            <canvas id="chartCitasMes"></canvas>
+             @if(auth()->user()->isAdmin())
+                <div class="col-lg-6">
+                    <div class="card border-0 shadow-sm rounded-4 h-100">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <h6 class="fw-bold m-0 text-secondary">
+                                    <i class="fa-solid fa-calendar-check me-2 text-info"></i>Citas Atendidas por Mes
+                                </h6>
+                                <span class="badge bg-info-subtle text-info rounded-pill px-3" id="badgeAnio">Año {{ date('Y') }}</span>
+                            </div>
+                            <div style="position: relative; height:260px;">
+                                <canvas id="chartCitasMes"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            @endif
 
         </div>
 

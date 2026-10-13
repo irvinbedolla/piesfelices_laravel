@@ -66,7 +66,7 @@ class UserController extends Controller
     /**
      * Guarda el nuevo usuario en la base de datos.
      */
-   public function store(Request $request)
+    public function store(Request $request)
     {
         $request->validate([
             'username'    => 'required|string|max:50|unique:users,username',
@@ -108,6 +108,28 @@ class UserController extends Controller
             'role_id'     => $request->role_id,
             'status'      => $request->status,
             'is_doctor'   => $request->has('is_doctor'),
+        ];
+
+        // 1. Obtener la sucursal para sincronizar el branch_id
+        $branch = Branch::where('name', $request->branch_name)->first();
+        // 2. Mapear user_type según el role_id seleccionado
+        // (Ajusta los números según la equivalencia de tus roles: 0=Admin, 1=Vendedor, 3=Sucursal, etc.)
+        $userType = match ((int) $request->role_id) {
+            1 => 0, // Super Admin / Admin
+            2 => 1, // Vendedor / Recepción
+            3 => 3, // Podólogo / Médico
+            default => 2,
+        };
+
+        $data = [
+            'username'    => $request->username,
+            'email'       => $request->email,
+            'branch_id'   => $branch ? $branch->id : $user->branch_id,
+            'branch_name' => $request->branch_name,
+            'role_id'     => $request->role_id,
+            'user_type'   => $userType,
+            'status'      => $request->status,
+            'is_doctor'   => $request->has('is_doctor') ? 1 : 0,
         ];
 
         if ($request->filled('password')) {

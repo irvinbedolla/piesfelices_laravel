@@ -12,17 +12,19 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx as XlsxWriter;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+
 
 class ReportController extends Controller
 {
     public function index()
     {
         $user = Auth::user();
-        $userRole = $user->tipo_seccion ?? 2;
+        $userRole = $user->role_id ?? 2;
         $userBranch = $user->branch?->name ?? $user->branch_name ?? 'MATRIZ';
 
         $branches = Branch::all();
@@ -272,5 +274,83 @@ class ReportController extends Controller
         // 2. GENERACIÓN EN PDF
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('reports.pdf_citas', compact('appointments', 'fecha1', 'fecha2', 'sucursal'));
         return $pdf->setPaper('letter', 'landscape')->stream("Reporte_Citas_{$fecha1}_al_{$fecha2}.pdf");
+    }
+
+    public function exportInvoicesExcel(Request $request)
+    {
+        $fecha1   = $request->get('fecha1', date('Y-m-01'));
+        $fecha2   = $request->get('fecha2', date('Y-m-d'));
+        $sucursal = $request->get('sucursal', 'TODOS');
+
+        $query = Sale::whereBetween('venta_fecha', [$fecha1, $fecha2])
+            ->where('venta_factura', 'SI')
+            ->where('venta_tipo', '!=', 3);
+
+        if ($sucursal !== 'TODOS' && !empty($sucursal)) {
+            $query->where('venta_sucursal', $sucursal);
+        }
+
+        $sales = $query->orderBy('venta_fecha', 'desc')->get();
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Facturación');
+
+        // Encabezados
+        $headers = [
+            'A1' => 'FOLIO / N° VENTA',
+            'B1' => 'FECHA',
+            'C1' => 'HORA',
+            'D1' => 'CLIENTE',
+            'E1' => 'RFC / CFDI',
+            'F1' => 'SUCURSAL',
+            'G1' => 'TIPO PAGO',
+            'H1' => 'SUBTOTAL',
+            'I1' => 'DESCUENTO',
+            'J1' => 'TOTAL FACTURADO',
+        ];
+
+        foreach ($headers as $cell => $text) {
+            $sheet->setCellValue($cell, $text);
+        }
+
+        // Estilo de encabezados (Color morado institucional)
+        $sheet->getStyle('A1:J1')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '8E24AA']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+        ]);
+
+        $row = 2;
+        foreach ($sales as $sale) {
+            $subtotal = $sale->venta_total + $sale->venta_descuento;
+
+            $sheet->setCellValue('A' . $row, $sale->venta_id);
+            $sheet->setCellValue('B' . $row, $sale->venta_fecha);
+            $sheet->setCellValue('C' . $row, $sale->venta_hora);
+            $sheet->setCellValue('D' . $row, $sale->nombre_cliente ?? 'Cliente General');
+            $sheet->setCellValue('E' . $row, $sale->venta_cfdi ?? 'G03 - Gastos en general');
+            $sheet->setCellValue('F' . $row, $sale->venta_sucursal);
+            $sheet->setCellValue('G' . $row, $sale->venta_tipopago);
+            $sheet->setCellValue('H' . $row, $subtotal);
+            $sheet->setCellValue('I' . $row, $sale->venta_descuento);
+            $sheet->setCellValue('J' . $row, $sale->venta_total);
+
+            $sheet->getStyle("H{$row}:J{$row}")->getNumberFormat()->setFormatCode('$#,##0.00');
+            $row++;
+        }
+
+        foreach (range('A', 'J') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $fileName = "Reporte_Facturacion_{$fecha1}_al_{$fecha2}.xlsx";
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header("Content-Disposition: attachment; filename=\"{$fileName}\"");
+        header('Cache-Control: max-age=0');
+        $writer->save('php://output');
+        exit;
     }
 }

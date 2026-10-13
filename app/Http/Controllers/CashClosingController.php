@@ -19,10 +19,28 @@ class CashClosingController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $branches = Branch::all();
-        $users = User::all();
+        $userRole = (int) ($user->role_id ?? $user->type ?? 2);
+        $userBranchId = $user->branch_id ?? null;
+        $userBranchName = $user->branch?->name ?? $user->branch_name ?? 'MATRIZ';
 
-        return view('cash_closing.index', compact('branches', 'users', 'user'));
+        // Determinar si es Admin/Inventario (Tipo 1 o 3)
+        $canAccessAll = in_array($userRole, [1, 3]);
+
+        if ($canAccessAll) {
+            $branches = Branch::all();
+            $users = User::all();
+        } else {
+            // Tipo 2: Filtrar exclusivamente su sucursal y los empleados pertenecientes a ella
+            $branches = Branch::where('id', $userBranchId)
+                ->orWhere('name', $userBranchName)
+                ->get();
+
+            $users = User::where('branch_id', $userBranchId)
+                ->orWhere('branch_name', $userBranchName)
+                ->get();
+        }
+
+        return view('cash_closing.index', compact('branches', 'users', 'user', 'canAccessAll', 'userBranchName'));
     }
 
     /**
@@ -183,22 +201,21 @@ class CashClosingController extends Controller
         $userId = (int) $request->usuario;
         $sucursal = $request->sucursal;
 
-        // Obtener datos del empleado desde la tabla de usuarios
+        // Obtener datos del empleado
         $user = User::findOrFail($userId);
         $employeeName = $user->name ?? $user->username ?? ("Empleado #" . $user->id);
-        $typeColumn = Schema::hasColumn('products', 'type') ? 'products.type' : (Schema::hasColumn('products', 'tipo') ? 'products.tipo' : DB::raw('1'));
 
-        // Detectar columna de categoría/tipo en la tabla 'products'
-        $totalCalzado = Schema::hasColumn('products', 'type') 
-            ? 'products.type' 
-            : (Schema::hasColumn('products', 'tipo') ? 'products.tipo' : DB::raw('1'));
+        // Consulta SQL seleccionando el ID de categoría del producto si existe
+        $typeColumn = Schema::hasColumn('products', 'category_id') 
+            ? 'products.category_id' 
+            : (Schema::hasColumn('products', 'type') ? 'products.type' : DB::raw('4'));
 
-        // Consulta SQL con JOIN estricto entre ventas, venta_producto y products
         $salesQuery = DB::table('ventas')
             ->join('venta_producto', 'ventas.venta_id', '=', 'venta_producto.venta_id')
             ->leftJoin('products', 'venta_producto.producto_id', '=', 'products.id')
             ->whereBetween('ventas.venta_fecha', [$fecha1, $fecha2])
-            ->where('ventas.venta_idempleado', $userId) // Filtro por el empleado solicitado
+            ->where('ventas.venta_idempleado', $userId)
+            ->where('ventas.venta_tipo', '!=', 3) // EXCLUIR VENTAS CANCELADAS
             ->select(
                 'ventas.venta_id',
                 'ventas.venta_idempleado',
@@ -206,7 +223,8 @@ class CashClosingController extends Controller
                 'venta_producto.cantidad',
                 'venta_producto.precio',
                 'venta_producto.nombre as producto_nombre',
-                DB::raw("{$typeColumn} as producto_tipo")
+                DB::raw("{$typeColumn} as producto_categoria"),
+                DB::raw("products.type as producto_tipo")
             );
 
         // Filtrar por sucursal si no se eligió "TODOS"
@@ -216,27 +234,31 @@ class CashClosingController extends Controller
 
         $items = $salesQuery->get();
 
-        // Acumuladores de montos por rubro
+        // Acumuladores de montos por categoría
         $totalCalzado     = 0;
         $totalMedicamento = 0;
         $totalConsulta    = 0;
         $totalGeneral     = 0;
 
         foreach ($items as $item) {
-            $subtotal = $item->cantidad * $item->precio;
+            $subtotal = (float)($item->cantidad * $item->precio);
+            $productId = (int)($item->producto_id ?? 0);
 
-            // Regla 1: Si producto_id es 0, es un Servicio / Consulta podológica
-            if ($item->producto_id == 0) {
+            // Regla 1: Si producto_id es 0 -> Servicio / Consulta
+            if ($productId === 0) {
                 $totalConsulta += $subtotal;
             } 
-            // Regla 2: Si producto_id > 0, evaluar la categoría del producto
+            // Regla 2: Si producto_id > 0 -> Evaluar por categoría/tipo
             else {
-                if ($item->producto_tipo == 3) {
-                    $totalCalzado += $subtotal;      // Calzado
-                } elseif ($item->producto_tipo == 4) {
-                    $totalMedicamento += $subtotal;  // Medicamento
+                $catId = (int)($item->producto_categoria ?? 0);
+                $tipoStr = strtoupper($item->producto_tipo ?? '');
+
+                if ($catId === 3 || $tipoStr === 'CALZADO') {
+                    $totalCalzado += $subtotal;       // Categoría 3 = Calzado
+                } elseif ($catId === 2 || $tipoStr === 'MEDICAMENTO') {
+                    $totalMedicamento += $subtotal;   // Categoría 2 = Medicamento
                 } else {
-                    $totalGeneral += $subtotal;      // Productos Generales (Accesorios, Cotonetes, etc.)
+                    $totalGeneral += $subtotal;       // Categoría 4 / General
                 }
             }
         }

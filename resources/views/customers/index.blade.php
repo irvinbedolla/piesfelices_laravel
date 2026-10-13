@@ -13,7 +13,7 @@
                 <div class="d-flex flex-wrap gap-2 mt-2">
                     @foreach($birthdays as $cumple)
                         @php
-                            $telLimpio = preg_replace('/[^0-9]/', '', $cumple->telefono);
+                            $telLimpio = preg_replace('/[^0-9]/', '',$cumple->telefono);
                             $msgWhatsApp = rawurlencode("¡Hola {$cumple->nombre}! 🎉 Desde Pies Felices queremos desearle un muy feliz cumpleaños. Esperamos que pase un día extraordinario. 🎂✨");
                         @endphp
                         <span class="badge bg-white text-dark border p-2 d-flex align-items-center rounded-pill shadow-sm">
@@ -21,7 +21,7 @@
                                 <i class="fa-solid fa-gift me-1 text-danger"></i> {{ $cumple->nombre }}
                             </span>
                             @if(!empty($telLimpio))
-                                <a href="https://api.whatsapp.com/send?phone=52{{ $telLimpio }}&text={{ $msgWhatsApp }}" 
+                                <a href="https://api.whatsapp.com/send?phone=52{{ $telLimpio }}&text={{$msgWhatsApp }}" 
                                    target="_blank" class="btn btn-sm btn-success py-0 px-2 rounded-pill d-flex align-items-center small">
                                     <i class="fa-brands fa-whatsapp me-1"></i> Felicitaciones
                                 </a>
@@ -42,82 +42,92 @@
             </div>
         @endif
 
-        {{-- CONTENEDOR DATATABLE DE CLIENTES --}}
-        <form id="formBorradoMasivo" action="{{ route('customers.bulk-delete') }}" method="POST" data-loading-text="Cargando.">
-            @csrf
+        <div class="card border-0 shadow-sm rounded-4 p-3 p-md-4">
+            
+            {{-- BARRA SUPERIOR DE ACCIONES Y FILTROS --}}
+            <div class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center justify-content-between gap-3 mb-4">
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <h4 class="fw-bold m-0 text-dark">
+                        <i class="fa-solid fa-users text-primary me-2"></i>Directorio de Clientes
+                    </h4>
 
-            <div class="card border-0 shadow-sm rounded-4 p-3 p-md-4">
-                
-                {{-- BARRA SUPERIOR DE ACCIONES Y FILTROS --}}
-                <div class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center justify-content-between gap-3 mb-4">
-                    <div class="d-flex align-items-center gap-3 flex-wrap">
-                        <h4 class="fw-bold m-0 text-dark">
-                            <i class="fa-solid fa-users text-primary me-2"></i>Directorio de Clientes
-                        </h4>
-
-                        @if(in_array($user->type, [0, 3]))
-                            <select name="sucursal_filtro" class="form-select rounded-pill border-primary shadow-sm" style="width: auto;" onchange="window.location.href='?sucursal_filtro='+this.value;">
-                                <option value="TODOS" {{ $selectedBranch == 'TODOS' ? 'selected' : '' }}>Todas las Sucursales</option>
-                                @foreach($branches as $b)
-                                    <option value="{{ $b->name }}" {{ $selectedBranch == $b->name ? 'selected' : '' }}>
-                                        {{ $b->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        @endif
-                    </div>
-
-                    <div class="d-flex flex-wrap gap-2 justify-content-start justify-content-lg-end">
-                        <button type="submit" id="btnBorrarSeleccionados" class="btn btn-danger rounded-pill px-3 fw-semibold shadow-sm d-none" onclick="return confirm('¿Estás seguro de eliminar los clientes seleccionados?');">
-                            <i class="fa-solid fa-trash-can me-1"></i> Eliminar Seleccionados (<span id="countCheck">0</span>)
-                        </button>
-
-                        <button type="button" class="btn btn-success rounded-pill px-3 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#createCustomerModal">
-                            <i class="fa-solid fa-user-plus me-1"></i> Agregar Cliente
-                        </button>
-
-                        <a href="{{ route('customers.pdf', request()->query()) }}" target="_blank" class="btn btn-outline-danger rounded-pill px-3 fw-semibold shadow-sm">
-                            <i class="fa-solid fa-file-pdf me-1"></i> PDF
-                        </a>
-                    </div>
+                    @if(in_array($user->type, [0, 1]))
+                        <select name="sucursal_filtro" class="form-select rounded-pill border-primary shadow-sm" style="width: auto;" onchange="window.location.href='{{ route('customers.index') }}?sucursal_filtro='+this.value;">
+                            <option value="TODOS" {{ $selectedBranch == 'TODOS' ? 'selected' : '' }}>Todas las Sucursales</option>
+                            @foreach($branches as $b)
+                                <option value="{{ $b->name }}" {{ $selectedBranch ==$b->name ? 'selected' : '' }}>
+                                    {{ $b->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    @endif
                 </div>
 
-                {{-- ALERTAS --}}
-                @if (session('success'))
-                    <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-sm mb-4" role="alert">
-                        <i class="fa-solid fa-circle-check me-2"></i>{{ session('success') }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                @endif
+                <div class="d-flex flex-wrap gap-2 justify-content-start justify-content-lg-end">
+                    <button type="submit" form="formBorradoMasivo" id="btnBorrarSeleccionados" class="btn btn-danger rounded-pill px-3 fw-semibold shadow-sm d-none" onclick="return confirm('¿Estás seguro de eliminar los clientes seleccionados?');">
+                        <i class="fa-solid fa-trash-can me-1"></i> Eliminar Seleccionados (<span id="countCheck">0</span>)
+                    </button>
 
-                {{-- CONTROLES DE PAGINACIÓN Y BUSCADOR --}}
-                <div class="row align-items-center mb-3 g-3">
-                    <div class="col-12 col-md-6 d-flex align-items-center gap-2">
-                        <span class="text-muted small">Mostrar</span>
-                        <select name="per_page" class="form-select form-select-sm rounded-3" style="width: 80px;" onchange="window.location.href='?per_page='+this.value+'&sucursal_filtro={{ $selectedBranch }}'">
-                            <option value="10" {{ $perPage == 10 ? 'selected' : '' }}>10</option>
-                            <option value="25" {{ $perPage == 25 ? 'selected' : '' }}>25</option>
-                            <option value="50" {{ $perPage == 50 ? 'selected' : '' }}>50</option>
-                            <option value="100" {{ $perPage == 100 ? 'selected' : '' }}>100</option>
-                        </select>
-                        <span class="text-muted small">registros</span>
-                    </div>
+                    <button type="button" class="btn btn-success rounded-pill px-3 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#createCustomerModal">
+                        <i class="fa-solid fa-user-plus me-1"></i> Agregar Cliente
+                    </button>
 
-                    <div class="col-12 col-md-6">
-                        <div class="input-group input-group-sm">
+                    <a href="{{ route('customers.pdf', request()->query()) }}" target="_blank" class="btn btn-outline-danger rounded-pill px-3 fw-semibold shadow-sm">
+                        <i class="fa-solid fa-file-pdf me-1"></i> PDF
+                    </a>
+                </div>
+            </div>
+
+            {{-- ALERTAS --}}
+            @if (session('success'))
+                <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-sm mb-4" role="alert">
+                    <i class="fa-solid fa-circle-check me-2"></i>{{ session('success') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            @endif
+
+            {{-- CONTROLES DE PAGINACIÓN Y BUSCADOR --}}
+            <div class="row align-items-center mb-3 g-3">
+                <div class="col-12 col-md-5 d-flex align-items-center gap-2">
+                    <span class="text-muted small">Mostrar</span>
+                    <select name="per_page" class="form-select form-select-sm rounded-3" style="width: 80px;" onchange="window.location.href='{{ route('customers.index') }}?per_page='+this.value+'&sucursal_filtro={{ $selectedBranch }}'">
+                        <option value="10" {{ $perPage == 10 ? 'selected' : '' }}>10</option>
+                        <option value="25" {{ $perPage == 25 ? 'selected' : '' }}>25</option>
+                        <option value="50" {{ $perPage == 50 ? 'selected' : '' }}>50</option>
+                        <option value="100" {{ $perPage == 100 ? 'selected' : '' }}>100</option>
+                    </select>
+                    <span class="text-muted small">registros</span>
+                </div>
+
+                {{-- FORMULARIO INDEPENDIENTE DE BÚSQUEDA --}}
+                <div class="col-12 col-md-7">
+                    <form method="GET" action="{{ route('customers.index') }}" class="d-flex align-items-center gap-2">
+                        <input type="hidden" name="sucursal_filtro" value="{{ $selectedBranch }}">
+                        <input type="hidden" name="per_page" value="{{ $perPage }}">
+                        
+                        <div class="input-group input-group-sm w-100">
                             <span class="input-group-text bg-white border-end-0 rounded-start-pill ps-3">
                                 <i class="fa-solid fa-magnifying-glass text-muted"></i>
                             </span>
-                            <input type="text" name="search" value="{{ request('search') }}" class="form-control border-start-0 rounded-end-pill" placeholder="Buscar por nombre, teléfono, RFC..." onchange="this.form.submit()">
-                            @if(request('search'))
-                                <a href="{{ route('customers.index', ['sucursal_filtro' => $selectedBranch]) }}" class="btn btn-outline-secondary rounded-pill ms-2">
-                                    <i class="fa-solid fa-xmark"></i>
-                                </a>
-                            @endif
+                            <input type="text" name="search" value="{{ request('search') }}" class="form-control border-start-0 border-end-0" placeholder="Buscar por nombre, teléfono, RFC...">
+                            <button type="submit" class="btn btn-primary rounded-end-pill px-3">
+                                Buscar
+                            </button>
                         </div>
-                    </div>
-                </div>
 
+                        @if(request('search'))
+                            <a href="{{ route('customers.index', ['sucursal_filtro' => $selectedBranch]) }}" class="btn btn-sm btn-outline-secondary rounded-pill text-nowrap px-3">
+                                <i class="fa-solid fa-xmark me-1"></i> Limpiar
+                            </a>
+                        @endif
+                    </form>
+                </div>
+            </div>
+
+            {{-- FORMULARIO PARA BORRADO MASIVO --}}
+            <form id="formBorradoMasivo" action="{{ route('customers.bulk-delete') }}" method="POST" data-loading-text="Cargando.">
+                @csrf
+                
                 {{-- TABLA DE CLIENTES --}}
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
@@ -138,8 +148,8 @@
                         <tbody>
                             @forelse($customers as $c)
                                 @php
-                                    $esCumple = $c->fecha_nacimiento && $c->fecha_nacimiento->format('m-d') === date('m-d');
-                                    $telLimpio = preg_replace('/[^0-9]/', '', $c->telefono);
+                                    $esCumple = $c->fecha_nacimiento &&$c->fecha_nacimiento->format('m-d') === date('m-d');
+                                    $telLimpio = preg_replace('/[^0-9]/', '',$c->telefono);
                                     $msgWp = rawurlencode("Hola {$c->nombre}, le escribimos desde Pies Felices...");
                                 @endphp
                                 <tr>
@@ -183,7 +193,7 @@
                                     <td class="text-end">
                                         <div class="d-flex justify-content-end gap-1">
                                             @if($c->telefono)
-                                                <a href="https://api.whatsapp.com/send?phone=52{{ $telLimpio }}&text={{ $msgWp }}" 
+                                                <a href="https://api.whatsapp.com/send?phone=52{{ $telLimpio }}&text={{$msgWp }}" 
                                                    target="_blank" class="btn btn-sm btn-outline-success rounded-circle" title="WhatsApp">
                                                     <i class="fa-brands fa-whatsapp"></i>
                                                 </a>
@@ -216,19 +226,19 @@
                         </tbody>
                     </table>
                 </div>
+            </form>
 
-                {{-- PIE DE TABLA CON PAGINACIÓN --}}
-                <div class="d-flex flex-wrap align-items-center justify-content-between mt-4 gap-3">
-                    <div class="text-muted small">
-                        Mostrando del <strong>{{ $customers->firstItem() ?? 0 }}</strong> al <strong>{{ $customers->lastItem() ?? 0 }}</strong> de <strong>{{ $customers->total() }}</strong> clientes
-                    </div>
-                    <div>
-                        {{ $customers->links() }}
-                    </div>
+            {{-- PIE DE TABLA CON PAGINACIÓN --}}
+            <div class="d-flex flex-wrap align-items-center justify-content-between mt-4 gap-3">
+                <div class="text-muted small">
+                    Mostrando del <strong>{{ $customers->firstItem() ?? 0 }}</strong> al <strong>{{ $customers->lastItem() ?? 0 }}</strong> de <strong>{{$customers->total() }}</strong> clientes
                 </div>
-
+                <div>
+                    {{ $customers->links() }}
+                </div>
             </div>
-        </form>
+
+        </div>
     </div>
 
     <!-- MODAL CREAR CLIENTE -->
@@ -398,7 +408,7 @@
                 editBtns.forEach(btn => {
                     btn.addEventListener('click', function () {
                         const id = this.getAttribute('data-id');
-                        editForm.action = `/customers/${id}`;
+                        editForm.action = `{{ url('customers') }}/${id}`;
 
                         document.getElementById('edit_nombre').value = this.getAttribute('data-nombre');
                         document.getElementById('edit_telefono').value = this.getAttribute('data-telefono') ?? '';
