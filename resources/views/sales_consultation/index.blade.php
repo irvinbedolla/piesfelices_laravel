@@ -174,7 +174,7 @@
                                     <td>{{ $v->venta_hora ?? '00:00:00' }}</td>
                                     <td>{{ $v->venta_fecha }}</td>
                                     <td class="fw-semibold text-uppercase">
-                                        {{ $v->seller->name ?? $v->vendedor_nombre ?? $v->venta_idempleado ?? 'S/D' }}
+                                        {{ $v->seller->name ?? $v->seller->username ?? $v->vendedor_nombre ?? ('Empleado #' . $v->venta_idempleado) }}
                                     </td>
                                     <td class="fw-semibold">{{ $v->nombre_cliente ?? 'Selecciona' }}</td>
                                     <td>

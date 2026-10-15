@@ -65,7 +65,7 @@ return [
     |
     */
 
-    'timezone' => 'America/Mexico_City',
+    'timezone' => env('APP_TIMEZONE', 'America/Mexico_City'),
 
     /*
     |--------------------------------------------------------------------------
@@ -79,10 +79,8 @@ return [
     */
 
     'locale' => env('APP_LOCALE', 'es'),
-
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'es'),
-
-    'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
+    'faker_locale' => 'es_MX',
 
     /*
     |--------------------------------------------------------------------------

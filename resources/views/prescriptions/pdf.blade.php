@@ -76,6 +76,74 @@
             color: #555;
         }
         .logo-img { height: 50px; width: auto; max-width: 160px; }
+
+
+        /* Tarjeta Destacada de Sucursal estilo Pies Felices */
+        .branch-card-container {
+            margin-top: 30px;
+            width: 100%;
+            background-color: #fff5f8; /* Fondo rosado muy suave */
+            border: 1px solid #f8bbd0; /* Borde rosa claro */
+            border-left: 5px solid #e91e63; /* Borde lateral rosa fucsia corporativo */
+            border-radius: 6px;
+            padding: 8px 12px;
+            box-sizing: border-box;
+            font-family: 'Helvetica', 'Arial', sans-serif;
+        }
+
+        .branch-card-header {
+            font-size: 10px;
+            font-weight: bold;
+            color: #880e4f; /* Color guinda/rosa oscuro */
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding-bottom: 4px;
+            margin-bottom: 6px;
+            border-bottom: 1px dashed #f48fb1;
+        }
+
+        .branch-card-header span {
+            color: #e91e63; /* Fucsia para resaltar el nombre de la sucursal */
+            font-size: 11px;
+        }
+
+        .branch-card-body {
+            width: 100%;
+            border-collapse: collapse !important;
+            border: none !important;
+        }
+
+        .branch-card-body td {
+            border: none !important;
+            padding: 2px 0 !important;
+            vertical-align: middle;
+        }
+
+        .col-address {
+            text-align: left;
+        }
+
+        .col-phone {
+            text-align: right;
+            width: 180px;
+        }
+
+        .label-title {
+            font-size: 9px;
+            font-weight: bold;
+            color: #ad1457;
+        }
+
+        .label-value {
+            font-size: 9px;
+            color: #333333;
+        }
+
+        .label-value-phone {
+            font-size: 10px;
+            font-weight: bold;
+            color: #e91e63;
+        }
     </style>
 </head>
 <body>
@@ -129,19 +197,25 @@
         {{ $prescription->indications }}
     </div>
 
-    <!-- Pie de Página con Datos Dinámicos de la Sucursal -->
-    <table class="footer-table">
-        <tr>
-            <td style="width: 50%;">
-                <strong>Contacto:</strong> {{ $branch->phone ?? $branch->telefono ?? '443 138 0409' }}<br>
-                <strong>Dirección:</strong> {{ $branch->address ?? $branch->direccion ?? 'Limón 91, Morelia, 58090, Mich, MX' }}
-            </td>
-            <td style="width: 50%; text-align: right;">
-                <strong>Sucursal:</strong> {{ $prescription->branch_name }}<br>
-                <strong>Redes:</strong> {{ $branch->social_media ?? $branch->redes ?? 'PIESFELICES.16' }}
-            </td>
-        </tr>
-    </table>
+    {{-- PIE DE PÁGINA: SUCURSAL DE ATENCIÓN --}}
+    <div class="branch-card-container">
+        <div class="branch-card-header">
+            SUCURSAL DE ATENCIÓN: <span>{{ strtoupper($branch->name) }}</span>
+        </div>
+        
+        <table class="branch-card-body">
+            <tr>
+                <td class="col-address">
+                    <span class="label-title">Dirección:</span> 
+                    <span class="label-value">{{ $branch->address ?? 'Pendiente' }}</span>
+                </td>
+                <td class="col-phone">
+                    <span class="label-title">Teléfono:</span> 
+                    <span class="label-value-phone">{{ $branch->phone ?? 'S/D' }}</span>
+                </td>
+            </tr>
+        </table>
+</div>
 
 </body>
 </html>

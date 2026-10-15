@@ -59,7 +59,8 @@ class InventoryController extends Controller
             }
         })->with(['branches' => function ($q) use ($selectedBranchId) {
             $q->where('branch_id', $selectedBranchId);
-        }]);
+        }])
+        ->orderBy('name', 'asc');;
 
         // 4. Filtro por Tipo de Producto (GENERAL, CALZADO, MEDICAMENTO)
         if ($selectedType && in_array($selectedType, ['GENERAL', 'CALZADO', 'MEDICAMENTO'])) {

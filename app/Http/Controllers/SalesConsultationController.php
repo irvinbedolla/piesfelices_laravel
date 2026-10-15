@@ -244,9 +244,9 @@ class SalesConsultationController extends Controller
     public function destroySale($id)
     {
         $user = Auth::user();
-        $userRole = $user->tipo_seccion ?? $user->type ?? 2;
+        $userRole = (int) ($user->role_id ?? $user->tipo_seccion ?? $user->type ?? 2);
 
-        if (!in_array($userRole, [0, 1, 3])) {
+        if (!in_array($userRole, [1, 3])) {
             return redirect()->back()->with('error', 'No tienes permisos para cancelar o borrar ventas.');
         }
 

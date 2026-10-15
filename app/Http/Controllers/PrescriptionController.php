@@ -143,9 +143,9 @@ class PrescriptionController extends Controller
     public function pdf($id)
     {
         $prescription = Prescription::findOrFail($id);
-        
+
         // Obtener los datos reales de la sucursal registrada en la receta
-        $branch = Branch::where('name', $prescription->branch_name)->first() 
+        $branch = Branch::where('id', $prescription->branch_id)->first() 
                 ?? Branch::first();
 
         $pdf = Pdf::loadView('prescriptions.pdf', compact('prescription', 'branch'))
