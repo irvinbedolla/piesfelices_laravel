@@ -145,6 +145,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     
     // API Stats Dashboard
     Route::get('/api/dashboard-stats', [DashboardController::class, 'stats'])->name('api.dashboard.stats');
+    Route::get('/cash-closing/commissions-pdf', [CashClosingController::class, 'commissionsPdf'])->name('cash-closing.commissions-pdf'); 
+    
 });
 
 require __DIR__.'/auth.php';

@@ -16,11 +16,17 @@
                 
                 <div class="w-100">
                     <!-- Encabezado con número de venta -->
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h4 class="fw-bold m-0 text-primary">
-                            <i class="fa-solid fa-cart-shopping me-2"></i>Venta #<?php echo e($sale->venta_id); ?>
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <h4 class="fw-bold text-primary m-0">
+                            <i class="fa-solid fa-cart-shopping me-1"></i> Venta #<?php echo e($sale->venta_id ?? $venta_id ?? '30756'); ?>
 
                         </h4>
+
+                        
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2 fs-6">
+                            <i class="fa-solid fa-hospital me-1"></i> <?php echo e($sale->venta_sucursal ?? $selectedBranch ?? $userBranch ?? 'HUETAMO'); ?>
+
+                        </span>
                     </div>
 
                     <!-- Grilla de Botones Responsiva -->

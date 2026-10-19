@@ -58,21 +58,31 @@ class CashClosingController extends Controller
         $branchesSelected = $request->get('sucursales', []);
         $sucursalSingle = $request->get('sucursal');
 
-        // Detectar si la columna en 'products' se llama 'type' o 'tipo'
-        $typeColumn = Schema::hasColumn('products', 'type') ? 'products.type' : (Schema::hasColumn('products', 'tipo') ? 'products.tipo' : DB::raw('1'));
+        // Detectar dinámicamente las columnas de la tabla 'products'
+        $categoryCol = Schema::hasColumn('products', 'category_id') 
+            ? 'products.category_id' 
+            : (Schema::hasColumn('products', 'type') ? 'products.type' : DB::raw('4'));
 
+        $typeStrCol = Schema::hasColumn('products', 'type') ? 'products.type' : DB::raw("''");
+
+        // Consulta de ventas usando LEFT JOIN en caso de que venta_producto esté vacío o use producto_id = 0
         $querySales = DB::table('ventas')
-            ->join('venta_producto', 'ventas.venta_id', '=', 'venta_producto.venta_id')
+            ->leftJoin('venta_producto', 'ventas.venta_id', '=', 'venta_producto.venta_id')
             ->leftJoin('products', 'venta_producto.producto_id', '=', 'products.id')
             ->whereBetween('ventas.venta_fecha', [$fecha1, $fecha2])
+            ->where('ventas.venta_tipo', '!=', 3) // Excluir cancelados si aplica
+            ->where('ventas.venta_tipo', '!=', 'CANCELADO')
             ->select(
+                'ventas.venta_id',
                 'ventas.venta_tipo',
                 'ventas.venta_descuento',
                 'ventas.venta_sucursal',
+                'ventas.venta_total',
                 'venta_producto.producto_id',
                 'venta_producto.cantidad',
                 'venta_producto.precio',
-                DB::raw("{$typeColumn} as producto_tipo")
+                DB::raw("{$categoryCol} as producto_categoria"),
+                DB::raw("{$typeStrCol} as producto_tipo_str")
             );
 
         if (!empty($branchesSelected) && is_array($branchesSelected)) {
@@ -87,29 +97,43 @@ class CashClosingController extends Controller
 
         $salesData = $querySales->get();
 
-        // Totales desglosados
-        $credito = ['medicamento' => 0, 'calzado' => 0, 'consulta' => 0, 'descuento' => 0];
-        $contado = ['medicamento' => 0, 'calzado' => 0, 'consulta' => 0, 'descuento' => 0];
+        // Acumuladores iniciales
+        $credito   = ['medicamento' => 0, 'calzado' => 0, 'consulta' => 0, 'descuento' => 0];
+        $contado   = ['medicamento' => 0, 'calzado' => 0, 'consulta' => 0, 'descuento' => 0];
         $liquidado = ['medicamento' => 0, 'calzado' => 0, 'consulta' => 0, 'descuento' => 0];
 
         foreach ($salesData as $item) {
-            $monto = $item->cantidad * $item->precio;
-            $tipoProd = $item->producto_tipo; // 3: Calzado, 4: Medicamento, 0/null: Consulta
+            // Calcular subtotal de la fila
+            $monto = (float)($item->cantidad ?? 1) * (float)($item->precio ?? $item->venta_total ?? 0);
+            $productId = (int)($item->producto_id ?? 0);
+            $catId     = (int)($item->producto_categoria ?? 0);
+            $tipoStr   = strtoupper($item->producto_tipo_str ?? '');
 
-            // Categoría del Producto/Servicio
-            $cat = 'consulta';
-            if ($item->producto_id != 0) {
-                if ($tipoProd == 3) $cat = 'calzado';
-                elseif ($tipoProd == 4) $cat = 'medicamento';
+            // Clasificación por categoría
+            $cat = 'consulta'; // Por defecto (producto_id == 0)
+            
+            if ($productId !== 0) {
+                if ($catId === 3 || $tipoStr === 'CALZADO' || $item->producto_categoria == 3) {
+                    $cat = 'calzado';
+                } elseif ($catId === 2 || $tipoStr === 'MEDICAMENTO' || $item->producto_categoria == 2) {
+                    $cat = 'medicamento';
+                } else {
+                    $cat = 'consulta'; // O categoría general
+                }
             }
 
-            // Tipo de Venta (1: Contado, 2: Crédito, 3: Liquidada)
-            if ($item->venta_tipo == 2) {
+            // Tipo de Venta (1: Contado/Pagado, 2: Crédito, 3: Liquidada/Cancelada)
+            $tipoVenta = (int)$item->venta_tipo;
+
+            if ($tipoVenta === 2 || $tipoVenta === 'CREDITO') {
                 $credito[$cat] += $monto;
-            } elseif ($item->venta_tipo == 1) {
+            } elseif ($tipoVenta === 1 || $tipoVenta === 'CONTADO' || $tipoVenta === 'PAGADO') {
                 $contado[$cat] += $monto;
-            } elseif ($item->venta_tipo == 3) {
+            } elseif ($tipoVenta === 3) {
                 $liquidado[$cat] += $monto;
+            } else {
+                // Por defecto si no coincide el entero
+                $contado[$cat] += $monto;
             }
         }
 
@@ -122,7 +146,7 @@ class CashClosingController extends Controller
         }
         $totalAbonos = $queryAbonos->sum('abono_cantidad') ?? 0;
 
-        // Consultar Retiros / Gastos por Tipo (1: Proveedor, 2: Consultorio, 3: Sueldos)
+        // Consultar Retiros / Gastos
         $queryRetiros = DB::table('retiros')
             ->whereBetween('fecha', [$fecha1, $fecha2])
             ->where('status', 'Activo');
@@ -134,17 +158,17 @@ class CashClosingController extends Controller
         }
 
         $retiros = $queryRetiros->get();
-        $gastosProveedor = $retiros->where('tipo', 1)->sum('cantida');
+        $gastosProveedor   = $retiros->where('tipo', 1)->sum('cantida');
         $gastosConsultorio = $retiros->where('tipo', 2)->sum('cantida');
-        $gastosSueldos = $retiros->where('tipo', 3)->sum('cantida');
-        $totalGastos = $retiros->sum('cantida');
+        $gastosSueldos     = $retiros->where('tipo', 3)->sum('cantida');
+        $totalGastos       = $retiros->sum('cantida');
 
         // Totales Generales
-        $totalCredito = array_sum($credito);
-        $totalContado = array_sum($contado);
+        $totalCredito   = array_sum($credito);
+        $totalContado   = array_sum($contado);
         $totalLiquidado = array_sum($liquidado);
 
-        $totalEfectivoNeto = ($totalContado + $totalAbonos) - $totalGastos;
+        $totalEfectivoNeto       = ($totalContado + $totalAbonos) - $totalGastos;
         $totalEfectivoMasCredito = $totalEfectivoNeto + $totalCredito;
 
         $pdf = Pdf::loadView('cash_closing.daily', compact(
@@ -192,7 +216,7 @@ class CashClosingController extends Controller
     }
 
     /**
-     * 3. Reporte de Comisiones por Empleado (Filtro Estricto por venta_idempleado + JOIN con venta_producto)
+     * 3. Reporte de Comisiones por Empleado
      */
     public function commissionsReport(Request $request)
     {
@@ -201,11 +225,24 @@ class CashClosingController extends Controller
         $userId = (int) $request->usuario;
         $sucursal = $request->sucursal;
 
-        // Obtener datos del empleado
+        // Obtener datos del usuario
         $user = User::findOrFail($userId);
         $employeeName = $user->name ?? $user->username ?? ("Empleado #" . $user->id);
 
-        // Consulta SQL seleccionando el ID de categoría del producto si existe
+        // Obtener comisión personalizada y teléfono desde la tabla 'employees'
+        $employeeRecord = DB::table('employees')->where('user_id', $userId)->first();
+        
+        // Porcentaje dinámico para Consultas (si no existe, default 10%)
+        $pctConsulta = $employeeRecord && $employeeRecord->commission_rate > 0 
+            ? (float) $employeeRecord->commission_rate 
+            : 10.0;
+
+        // Número de teléfono para WhatsApp
+        $employeePhone = $employeeRecord->phone ?? $user->phone ?? $user->telefono ?? '';
+        // Limpiar caracteres no numéricos del teléfono
+        $employeePhoneClean = preg_replace('/[^0-9]/', '', $employeePhone);
+
+        // Detección de columna de categoría
         $typeColumn = Schema::hasColumn('products', 'category_id') 
             ? 'products.category_id' 
             : (Schema::hasColumn('products', 'type') ? 'products.type' : DB::raw('4'));
@@ -215,7 +252,7 @@ class CashClosingController extends Controller
             ->leftJoin('products', 'venta_producto.producto_id', '=', 'products.id')
             ->whereBetween('ventas.venta_fecha', [$fecha1, $fecha2])
             ->where('ventas.venta_idempleado', $userId)
-            ->where('ventas.venta_tipo', '!=', 3) // EXCLUIR VENTAS CANCELADAS
+            ->where('ventas.venta_tipo', '!=', 3) // Excluir canceladas
             ->select(
                 'ventas.venta_id',
                 'ventas.venta_idempleado',
@@ -227,14 +264,12 @@ class CashClosingController extends Controller
                 DB::raw("products.type as producto_tipo")
             );
 
-        // Filtrar por sucursal si no se eligió "TODOS"
         if ($sucursal && $sucursal !== 'TODOS') {
             $salesQuery->where('ventas.venta_sucursal', $sucursal);
         }
 
         $items = $salesQuery->get();
 
-        // Acumuladores de montos por categoría
         $totalCalzado     = 0;
         $totalMedicamento = 0;
         $totalConsulta    = 0;
@@ -244,41 +279,119 @@ class CashClosingController extends Controller
             $subtotal = (float)($item->cantidad * $item->precio);
             $productId = (int)($item->producto_id ?? 0);
 
-            // Regla 1: Si producto_id es 0 -> Servicio / Consulta
             if ($productId === 0) {
                 $totalConsulta += $subtotal;
-            } 
-            // Regla 2: Si producto_id > 0 -> Evaluar por categoría/tipo
-            else {
+            } else {
                 $catId = (int)($item->producto_categoria ?? 0);
                 $tipoStr = strtoupper($item->producto_tipo ?? '');
 
                 if ($catId === 3 || $tipoStr === 'CALZADO') {
-                    $totalCalzado += $subtotal;       // Categoría 3 = Calzado
+                    $totalCalzado += $subtotal;
                 } elseif ($catId === 2 || $tipoStr === 'MEDICAMENTO') {
-                    $totalMedicamento += $subtotal;   // Categoría 2 = Medicamento
+                    $totalMedicamento += $subtotal;
                 } else {
-                    $totalGeneral += $subtotal;       // Categoría 4 / General
+                    $totalGeneral += $subtotal;
                 }
             }
         }
 
-        // Porcentaje uniforme del 10%
-        $pct = 10;
+        // Porcentajes
+        $pctGeneral     = 10;
+        $pctCalzado     = 10;
+        $pctMedicamento = 10;
 
-        $comisionCalzado     = ($totalCalzado * $pct) / 100;
-        $comisionMedicamento = ($totalMedicamento * $pct) / 100;
-        $comisionConsulta    = ($totalConsulta * $pct) / 100;
-        $comisionGeneral     = ($totalGeneral * $pct) / 100;
+        // Cálculo de comisiones
+        $comisionGeneral     = ($totalGeneral * $pctGeneral) / 100;
+        $comisionCalzado     = ($totalCalzado * $pctCalzado) / 100;
+        $comisionMedicamento = ($totalMedicamento * $pctMedicamento) / 100;
+        $comisionConsulta    = ($totalConsulta * $pctConsulta) / 100;
 
         $totalVentas     = $totalCalzado + $totalMedicamento + $totalConsulta + $totalGeneral;
         $totalComisiones = $comisionCalzado + $comisionMedicamento + $comisionConsulta + $comisionGeneral;
 
         return view('cash_closing.commissions_view', compact(
-            'employeeName', 'fecha1', 'fecha2', 'sucursal',
+            'userId', 'employeeName', 'employeePhoneClean', 'fecha1', 'fecha2', 'sucursal',
             'totalCalzado', 'totalMedicamento', 'totalConsulta', 'totalGeneral', 'totalVentas',
             'comisionCalzado', 'comisionMedicamento', 'comisionConsulta', 'comisionGeneral',
-            'totalComisiones', 'pct'
+            'totalComisiones', 'pctGeneral', 'pctCalzado', 'pctMedicamento', 'pctConsulta'
         ));
+    }
+
+    /**
+     * 4. Generación de PDF de Comisiones sin Venta Total (Para Imprimir o Enviar por WhatsApp)
+     */
+    public function commissionsPdf(Request $request)
+    {
+        $fecha1 = $request->fecha1;
+        $fecha2 = $request->fecha2;
+        $userId = (int) $request->usuario;
+        $sucursal = $request->sucursal;
+
+        $user = User::findOrFail($userId);
+        $employeeName = $user->name ?? $user->username ?? ("Empleado #" . $user->id);
+
+        $employeeRecord = DB::table('employees')->where('user_id', $userId)->first();
+        $pctConsulta = $employeeRecord && $employeeRecord->commission_rate > 0 
+            ? (float) $employeeRecord->commission_rate 
+            : 10.0;
+
+        $typeColumn = Schema::hasColumn('products', 'category_id') 
+            ? 'products.category_id' 
+            : (Schema::hasColumn('products', 'type') ? 'products.type' : DB::raw('4'));
+
+        $salesQuery = DB::table('ventas')
+            ->join('venta_producto', 'ventas.venta_id', '=', 'venta_producto.venta_id')
+            ->leftJoin('products', 'venta_producto.producto_id', '=', 'products.id')
+            ->whereBetween('ventas.venta_fecha', [$fecha1, $fecha2])
+            ->where('ventas.venta_idempleado', $userId)
+            ->where('ventas.venta_tipo', '!=', 3)
+            ->select(
+                'venta_producto.producto_id',
+                'venta_producto.cantidad',
+                'venta_producto.precio',
+                DB::raw("{$typeColumn} as producto_categoria"),
+                DB::raw("products.type as producto_tipo")
+            );
+
+        if ($sucursal && $sucursal !== 'TODOS') {
+            $salesQuery->where('ventas.venta_sucursal', $sucursal);
+        }
+
+        $items = $salesQuery->get();
+
+        $totalCalzado = 0; $totalMedicamento = 0; $totalConsulta = 0; $totalGeneral = 0;
+
+        foreach ($items as $item) {
+            $subtotal = (float)($item->cantidad * $item->precio);
+            $productId = (int)($item->producto_id ?? 0);
+
+            if ($productId === 0) {
+                $totalConsulta += $subtotal;
+            } else {
+                $catId = (int)($item->producto_categoria ?? 0);
+                $tipoStr = strtoupper($item->producto_tipo ?? '');
+
+                if ($catId === 3 || $tipoStr === 'CALZADO') $totalCalzado += $subtotal;
+                elseif ($catId === 2 || $tipoStr === 'MEDICAMENTO') $totalMedicamento += $subtotal;
+                else $totalGeneral += $subtotal;
+            }
+        }
+
+        $pctGeneral = 10; $pctCalzado = 10; $pctMedicamento = 10;
+
+        $comisionGeneral     = ($totalGeneral * $pctGeneral) / 100;
+        $comisionCalzado     = ($totalCalzado * $pctCalzado) / 100;
+        $comisionMedicamento = ($totalMedicamento * $pctMedicamento) / 100;
+        $comisionConsulta    = ($totalConsulta * $pctConsulta) / 100;
+
+        $totalComisiones = $comisionCalzado + $comisionMedicamento + $comisionConsulta + $comisionGeneral;
+
+        $pdf = Pdf::loadView('cash_closing.pdf', compact(
+            'employeeName', 'fecha1', 'fecha2', 'sucursal',
+            'comisionCalzado', 'comisionMedicamento', 'comisionConsulta', 'comisionGeneral',
+            'totalComisiones', 'pctGeneral', 'pctCalzado', 'pctMedicamento', 'pctConsulta'
+        ));
+
+        return $pdf->stream("Comisiones_{$employeeName}_{$fecha1}.pdf");
     }
 }

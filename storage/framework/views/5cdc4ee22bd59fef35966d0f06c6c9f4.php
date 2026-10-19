@@ -44,9 +44,9 @@
 
                     
                     <?php if(in_array($userRoleType, [1, 2, 3])): ?>
-                        <a href="<?php echo e(route('supply-orders.create', ['branch_id' => $selectedBranchId])); ?>" class="btn btn-sm btn-warning text-dark rounded-pill px-3 fw-semibold">
+                        <button type="button" class="btn btn-sm btn-warning text-dark rounded-pill px-3 fw-semibold" data-bs-toggle="modal" data-bs-target="#supplyOrderModal">
                             <i class="fa-solid fa-boxes-packing me-1"></i> Orden de Surtido
-                        </a>
+                        </button>
                     <?php endif; ?>
 
                     
@@ -230,16 +230,17 @@
                                 <td class="text-end">
                                     <div class="d-flex justify-content-end gap-1">
                                         
-                                        <?php if(in_array($userRoleType, [1, 3])): ?>
-                                            
-                                            <button type="button" 
-                                                    class="btn btn-sm btn-outline-success rounded-pill px-2 py-1 open-adjust-modal" 
-                                                    data-id="<?php echo e($p->id); ?>" 
-                                                    data-name="<?php echo e($p->name); ?>" 
-                                                    data-stock="<?php echo e($currentStock); ?>"
-                                                    title="Agregar/Ajustar Stock">
-                                                <i class="fa-solid fa-boxes-packing me-1"></i> Stock
-                                            </button>
+                                            <?php if(in_array($userRoleType, [1, 2, 3])): ?>
+                                                
+                                                <button type="button" 
+                                                        class="btn btn-sm btn-outline-success rounded-pill px-2 py-1 open-adjust-modal" 
+                                                        data-id="<?php echo e($p->id); ?>" 
+                                                        data-name="<?php echo e($p->name); ?>" 
+                                                        data-stock="<?php echo e($currentStock); ?>"
+                                                        title="Agregar/Ajustar Stock">
+                                                    <i class="fa-solid fa-boxes-packing me-1"></i> Stock
+                                                </button>
+                                            <?php endif; ?>
 
                                             
                                             <button type="button" 
@@ -257,7 +258,6 @@
                                                     title="Editar Datos del Artículo">
                                                 <i class="fa-solid fa-pen-to-square"></i>
                                             </button>
-                                        <?php endif; ?>
 
                                     </div>
                                 </td>
@@ -284,8 +284,8 @@
 
         </div>
 
-        <!-- RESUMEN DE INVENTARIO (EXCLUSIVO ADMINISTRADOR) -->
-        <?php if(isset($isAdmin) ? $isAdmin : (auth()->user()->isAdmin())): ?>
+        <!-- RESUMEN DE INVENTARIO AMPLIADO (EXCLUSIVO ADMINISTRADOR) -->
+        <?php if(isset($isAdmin) ? $isAdmin : auth()->user()->isAdmin()): ?>
             <div class="card border-0 shadow-sm rounded-4 p-4 mt-4 bg-light">
                 <div class="d-flex align-items-center mb-3">
                     <h6 class="fw-bold m-0 text-secondary">
@@ -296,7 +296,9 @@
                     </span>
                 </div>
 
-                <div class="row g-3">
+                
+                <div class="row g-3 mb-3">
+                    
                     <div class="col-12 col-sm-6 col-lg-3">
                         <div class="card border-0 shadow-sm rounded-4 p-3 text-white h-100" style="background: linear-gradient(135deg, #0288d1, #26c6da);">
                             <div class="small fw-semibold text-white-50">Artículos Únicos</div>
@@ -305,6 +307,7 @@
                         </div>
                     </div>
 
+                    
                     <div class="col-12 col-sm-6 col-lg-3">
                         <div class="card border-0 shadow-sm rounded-4 p-3 text-white h-100" style="background: linear-gradient(135deg, #7b1fa2, #ab47bc);">
                             <div class="small fw-semibold text-white-50">Existencia Total</div>
@@ -313,6 +316,7 @@
                         </div>
                     </div>
 
+                    
                     <div class="col-12 col-sm-6 col-lg-3">
                         <div class="card border-0 shadow-sm rounded-4 p-3 text-white h-100" style="background: linear-gradient(135deg, #d81b60, #e91e63);">
                             <div class="small fw-semibold text-white-50">Inversión Total (Costo)</div>
@@ -321,6 +325,7 @@
                         </div>
                     </div>
 
+                    
                     <div class="col-12 col-sm-6 col-lg-3">
                         <div class="card border-0 shadow-sm rounded-4 p-3 text-white h-100" style="background: linear-gradient(135deg, #2e7d32, #4caf50);">
                             <div class="small fw-semibold text-white-50">Ganancia Estimada</div>
@@ -329,6 +334,73 @@
                         </div>
                     </div>
                 </div>
+
+                <hr class="my-3 opacity-25">
+
+                
+                <h6 class="fw-bold mb-3 text-secondary small">
+                    <i class="fa-solid fa-layer-group me-1 text-info"></i>Desglose por Categoría de Producto:
+                </h6>
+
+                <div class="row g-3">
+                    
+                    <div class="col-12 col-md-4">
+                        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-4 border-info h-100">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="fw-bold text-dark small"><i class="fa-solid fa-box-open me-1 text-info"></i>General</span>
+                                <span class="badge bg-info-subtle text-info rounded-pill px-2 py-1 small fw-semibold">
+                                    <?php echo e(number_format($statsByType['GENERAL']['pieces'] ?? 0)); ?> pzas
+                                </span>
+                            </div>
+                            <div class="fs-4 fw-bold text-dark">
+                                $<?php echo e(number_format($statsByType['GENERAL']['investment'] ?? 0, 2)); ?>
+
+                            </div>
+                            <div class="extra-small text-muted mt-1">
+                                Inversión estimada en artículos generales
+                            </div>
+                        </div>
+                    </div>
+
+                    
+                    <div class="col-12 col-md-4">
+                        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-4 border-primary h-100">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="fw-bold text-dark small"><i class="fa-solid fa-shoe-prints me-1 text-primary"></i>Calzado</span>
+                                <span class="badge bg-primary-subtle text-primary rounded-pill px-2 py-1 small fw-semibold">
+                                    <?php echo e(number_format($statsByType['CALZADO']['pieces'] ?? 0)); ?> pzas
+                                </span>
+                            </div>
+                            <div class="fs-4 fw-bold text-dark">
+                                $<?php echo e(number_format($statsByType['CALZADO']['investment'] ?? 0, 2)); ?>
+
+                            </div>
+                            <div class="extra-small text-muted mt-1">
+                                Inversión estimada en modelos de calzado
+                            </div>
+                        </div>
+                    </div>
+
+                    
+                    <div class="col-12 col-md-4">
+                        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-4 border-success h-100">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="fw-bold text-dark small"><i class="fa-solid fa-pills me-1 text-success"></i>Medicamento</span>
+                                <span class="badge bg-success-subtle text-success rounded-pill px-2 py-1 small fw-semibold">
+                                    <?php echo e(number_format($statsByType['MEDICAMENTO']['pieces'] ?? 0)); ?> pzas
+                                </span>
+                            </div>
+                            <div class="fs-4 fw-bold text-dark">
+                                $<?php echo e(number_format($statsByType['MEDICAMENTO']['investment'] ?? 0, 2)); ?>
+
+                            </div>
+                            <div class="extra-small text-muted mt-1">
+                                Inversión estimada en medicamentos / insumos
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         <?php endif; ?>
     </div>
@@ -484,7 +556,10 @@
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Tipo de Movimiento (*)</label>
                                 <select name="type" class="form-select rounded-3" required>
-                                    <option value="ENTRADA">Agregar a Inventario General</option>
+                                    
+                                    <?php if(in_array($userRoleType, [1, 3])): ?>
+                                        <option value="ENTRADA">Agregar a Inventario General</option>
+                                    <?php endif; ?>
                                     <option value="DEVOLUCION">Devolver a Inventario General</option>
                                 </select>
                             </div>
@@ -669,6 +744,115 @@
             </div>
         </div>
     </div>
+
+    <!-- MODAL: GENERAR ORDEN DE SURTIDO INTERACTIVA -->
+    <div class="modal fade" id="supplyOrderModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-dark">
+                        <i class="fa-solid fa-boxes-packing text-warning me-2"></i>Generar Orden de Surtido
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                
+                <form method="POST" action="<?php echo e(route('supply-orders.store')); ?>" target="_blank" id="supplyOrderForm">
+                    <?php echo csrf_field(); ?>
+                    <div class="modal-body py-3">
+                        
+                        
+                        <div class="row g-3 mb-3 align-items-center">
+                            <div class="col-md-8">
+                                <label class="form-label fw-semibold mb-1">Sucursal Destino (*)</label>
+                                <select name="branch_id" id="so_branch_id" class="form-select rounded-3" required>
+                                    <option value="">-- Selecciona sucursal --</option>
+                                    <?php $__currentLoopData = $branches; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $b): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                        <option value="<?php echo e($b->id); ?>" <?php echo e($selectedBranchId == $b->id ? 'selected' : ''); ?>>
+                                            <?php echo e($b->name); ?>
+
+                                        </option>
+                                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                                </select>
+                            </div>
+                            <div class="col-md-4 pt-4 text-end">
+                                <button type="button" id="btnSelectAllSO" class="btn btn-sm btn-outline-primary rounded-pill">
+                                    Marcar / Desmarcar Todos
+                                </button>
+                            </div>
+                        </div>
+
+                        
+                        <div class="table-responsive rounded-3 border mb-3" style="max-height: 320px; overflow-y: auto;">
+                            <table class="table table-hover align-middle mb-0" id="soProductsTable">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th style="width: 40px;" class="text-center">
+                                            <input type="checkbox" id="so_check_master" checked style="cursor: pointer;">
+                                        </th>
+                                        <th>Producto</th>
+                                        <th class="text-center" style="width: 100px;">Stock</th>
+                                        <th class="text-center" style="width: 130px;">Cant. Surtir</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="so_products_tbody">
+                                    
+                                    <?php $__empty_1 = true; $__currentLoopData = $products; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $p): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                                        <?php
+                                            $branchData = $p->branches->firstWhere('id', $selectedBranchId);
+                                            $currentStock = $branchData ? $branchData->pivot->stock_current : 0;
+                                            $minStock = $branchData ? $branchData->pivot->stock_min : 1;
+                                            $suggestedQty = max(1, ($minStock * 2) - $currentStock);
+                                        ?>
+                                        <tr>
+                                            <td class="text-center">
+                                                <input type="checkbox" class="form-check-input so-item-check" name="items[<?php echo e($p->id); ?>][selected]" value="1" checked style="cursor: pointer;">
+                                                <input type="hidden" name="items[<?php echo e($p->id); ?>][product_id]" value="<?php echo e($p->id); ?>">
+                                            </td>
+                                            <td>
+                                                <strong class="d-block text-dark small"><?php echo e($p->name); ?></strong>
+                                                <span class="text-muted extra-small"><?php echo e($p->barcode ?? 'S/C'); ?></span>
+                                                <?php if($currentStock <= $minStock): ?>
+                                                    <span class="badge bg-danger rounded-pill ms-1" style="font-size: 9px;">Stock Bajo</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-danger-subtle text-danger fw-bold rounded-circle p-2 fs-6">
+                                                    <?php echo e($currentStock); ?>
+
+                                                </span>
+                                            </td>
+                                            <td class="text-center">
+                                                <input type="number" name="items[<?php echo e($p->id); ?>][quantity]" class="form-control form-control-sm text-center fw-bold rounded-3" value="<?php echo e($suggestedQty); ?>" min="1" style="width: 90px; margin: 0 auto;">
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                                        <tr>
+                                            <td colspan="4" class="text-center py-3 text-muted">No hay productos en bajo stock para esta sucursal.</td>
+                                        </tr>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        
+                        <div class="mb-2">
+                            <label class="form-label fw-semibold small">Observaciones o Notas de la Orden (Opcional)</label>
+                            <textarea name="notes" class="form-control rounded-3" rows="2" placeholder="Escribe detalles adicionales sobre el pedido..."></textarea>
+                        </div>
+
+                    </div>
+
+                    <div class="modal-footer border-0 pt-0">
+                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold" style="background: #e91e63; border: none;">
+                            <i class="fa-solid fa-paper-plane me-1"></i> Generar Orden de Surtido
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
 
     <!-- SCRIPTS JS CORREGIDOS Y ROBUSTOS -->
     <script>
@@ -859,6 +1043,25 @@
                 }
             }
         });
+        // CONTROLADOR DE CASILLAS PARA ORDEN DE SURTIDO
+        const masterCheck = document.getElementById('so_check_master');
+        const btnSelectAll = document.getElementById('btnSelectAllSO');
+
+        if (masterCheck) {
+            masterCheck.addEventListener('change', function () {
+                const itemChecks = document.querySelectorAll('.so-item-check');
+                itemChecks.forEach(chk => chk.checked = this.checked);
+            });
+        }
+
+        if (btnSelectAll) {
+            btnSelectAll.addEventListener('click', function () {
+                const itemChecks = document.querySelectorAll('.so-item-check');
+                const anyUnchecked = Array.from(itemChecks).some(chk => !chk.checked);
+                itemChecks.forEach(chk => chk.checked = anyUnchecked);
+                if (masterCheck) masterCheck.checked = anyUnchecked;
+            });
+        }
     </script>
  <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>
