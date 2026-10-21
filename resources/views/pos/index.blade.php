@@ -1,4 +1,9 @@
 <x-app-layout>
+    @php
+        $userRole = (int) (auth()->user()->role_id ?? auth()->user()->type ?? 2);
+        // Permitir cambiar vendedor y fecha a Admin Global (rol 1) y Admin de Centro (rol 2)
+        $canManageSellers = auth()->user()->isAdmin() || in_array($userRole, [1, 2]);
+    @endphp
     <div class="container-fluid px-3 py-3">
         
         {{-- TOOLBAR SUPERIOR DE ACCIONES RÁPIDAS --}}
@@ -23,7 +28,7 @@
                         
                         {{-- Botón Vendedor (Solo administradores pueden reasignar) --}}
                         <div class="col-6 col-sm-auto">
-                            @if(auth()->user()->isAdmin())
+                            @if($canManageSellers)
                                 <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate" data-bs-toggle="modal" data-bs-target="#sellerModal">
                                     <i class="fa-solid fa-id-badge me-1 text-success"></i> 
                                     {{ $sale->seller->name ?? $sale->seller->username ?? 'Empleado' }}
@@ -256,46 +261,54 @@
     <div class="modal fade" id="customerModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow-lg rounded-4">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold text-dark">
+                <div class="modal-header border-0 pb-0 d-flex justify-content-between align-items-center">
+                    <h5 class="modal-title fw-bold text-dark m-0">
                         <i class="fa-solid fa-user text-primary me-2"></i>Seleccionar Cliente
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-success rounded-pill px-3 fw-semibold" data-bs-toggle="modal" data-bs-target="#fullCustomerModal">
+                            <i class="fa-solid fa-user-plus me-1"></i> + Registro Completo
+                        </button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
                 </div>
                 
                 <div class="modal-body py-3">
+                    {{-- REGISTRO RÁPIDO --}}
                     <div class="card border-0 bg-light p-3 rounded-4 mb-3">
-                        <h6 class="fw-bold text-dark small mb-2"><i class="fa-solid fa-user-plus me-1 text-success"></i> Registro Rápido</h6>
-                        <div class="row g-2">
-                            <div class="col-md-6">
-                                <input type="text" id="fastCustomerName" class="form-control form-control-sm rounded-3" placeholder="Nombre completo (*)">
+                        <h6 class="fw-bold text-dark small mb-2">
+                            <i class="fa-solid fa-bolt me-1 text-warning"></i> Nuevo Cliente Rápido
+                        </h6>
+                        <div class="row g-2 align-items-center">
+                            <div class="col-12 col-md-8">
+                                <input type="text" id="fastCustomerName" class="form-control rounded-3" placeholder="Nombre completo del cliente (*)">
+                                <input type="hidden" id="fastCustomerBranch" value="{{ $sale->venta_sucursal ?? $userBranchName ?? 'MATRIZ' }}">
                             </div>
-                            <div class="col-md-6">
-                                <input type="text" id="fastCustomerPhone" class="form-control form-control-sm rounded-3" placeholder="Teléfono">
-                            </div>
-                            <div class="col-12 text-end mt-2">
-                                <button type="button" id="saveFastCustomerBtn" class="btn btn-sm btn-primary rounded-pill px-3 fw-semibold">
-                                    Guardar y Asignar
+                            <div class="col-12 col-md-4 text-end">
+                                <button type="button" id="saveFastCustomerBtn" class="btn btn-primary w-100 rounded-pill fw-semibold">
+                                    <i class="fa-solid fa-plus me-1"></i> Guardar y Asignar
                                 </button>
                             </div>
                         </div>
                     </div>
 
+                    {{-- BUSCADOR EN VIVO --}}
                     <div class="mb-3">
                         <div class="input-group input-group-sm">
                             <span class="input-group-text bg-white border-end-0 rounded-start-pill ps-3">
                                 <i class="fa-solid fa-magnifying-glass text-muted"></i>
                             </span>
-                            <input type="text" id="searchCustomerInput" class="form-control border-start-0 rounded-end-pill" placeholder="Buscar por nombre o teléfono...">
+                            <input type="text" id="searchCustomerInput" class="form-control border-start-0 rounded-end-pill" placeholder="Buscar por nombre de cliente...">
                         </div>
                     </div>
 
+                    {{-- TABLA DE CLIENTES --}}
                     <div class="table-responsive" style="max-height: 280px;">
                         <table class="table table-hover align-middle mb-0" id="customersPosTable">
                             <thead class="table-light">
                                 <tr>
                                     <th>Cliente</th>
-                                    <th>Teléfono</th>
+                                    <th>Sucursal Asignada</th>
                                     <th class="text-end">Acción</th>
                                 </tr>
                             </thead>
@@ -305,7 +318,11 @@
                                         <strong class="text-dark d-block">Cliente General / Público</strong>
                                         <small class="text-muted">Venta mostrador general</small>
                                     </td>
-                                    <td><span class="text-muted small">N/A</span></td>
+                                    <td>
+                                        <span class="badge bg-secondary-subtle text-secondary rounded-pill px-2 py-1 extra-small">
+                                            {{ $sale->venta_sucursal }}
+                                        </span>
+                                    </td>
                                     <td class="text-end">
                                         <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 assign-customer-btn" data-id="0" data-name="Cliente General">
                                             Seleccionar
@@ -314,12 +331,13 @@
                                 </tr>
 
                                 @forelse($customers as $c)
-                                    <tr class="customer-row" data-name="{{ strtolower($c->nombre) }}" data-phone="{{ strtolower($c->telefono) }}">
+                                    <tr class="customer-row" data-name="{{ strtolower($c->nombre) }}">
+                                        <td><strong class="text-dark d-block">{{ $c->nombre }}</strong></td>
                                         <td>
-                                            <strong class="text-dark d-block">{{ $c->nombre }}</strong>
-                                            <small class="text-muted">{{ $c->correo ?? 'Sin correo' }}</small>
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1 extra-small">
+                                                {{ $c->sucursal ?? $sale->venta_sucursal }}
+                                            </span>
                                         </td>
-                                        <td><span class="small fw-semibold">{{ $c->telefono ?? 'N/A' }}</span></td>
                                         <td class="text-end">
                                             <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 assign-customer-btn" data-id="{{ $c->cliente_id }}" data-name="{{ $c->nombre }}">
                                                 Seleccionar
@@ -328,19 +346,85 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="3" class="text-center py-3 text-muted">No hay clientes registrados.</td>
+                                        <td colspan="3" class="text-center py-3 text-muted">No hay clientes registrados en esta sucursal.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
                         </table>
                     </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL REGISTRAR NUEVO CLIENTE COMPLETO (#fullCustomerModal) -->
+    <div class="modal fade" id="fullCustomerModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-dark">
+                        <i class="fa-solid fa-user-plus text-primary me-2"></i>Registrar Nuevo Cliente
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body py-3">
+                    <form id="fullCustomerForm">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Nombre Completo (*)</label>
+                                <input type="text" id="fullCustomerName" class="form-control rounded-3" placeholder="Ej. Juan Pérez" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Teléfono</label>
+                                <input type="text" id="fullCustomerPhone" class="form-control rounded-3" placeholder="4431234567">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Correo Electrónico</label>
+                                <input type="email" id="fullCustomerEmail" class="form-control rounded-3" placeholder="correo@ejemplo.com">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">RFC</label>
+                                <input type="text" id="fullCustomerRfc" class="form-control rounded-3" placeholder="XAXX010101000">
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label small fw-bold">Dirección</label>
+                                <input type="text" id="fullCustomerAddress" class="form-control rounded-3" placeholder="Calle, Número, Colonia">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">Código Postal</label>
+                                <input type="text" id="fullCustomerCp" class="form-control rounded-3" placeholder="58000">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">Localidad / Ciudad</label>
+                                <input type="text" id="fullCustomerCity" class="form-control rounded-3" placeholder="Morelia">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">Sucursal (*)</label>
+                                <select id="fullCustomerBranch" class="form-select rounded-3" required>
+                                    @foreach($branches as $b)
+                                        <option value="{{ $b->name }}" {{ ($sale->venta_sucursal == $b->name) ? 'selected' : '' }}>{{ $b->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">Fecha Nacimiento</label>
+                                <input type="date" id="fullCustomerBirthdate" class="form-control rounded-3">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" id="saveFullCustomerBtn" class="btn btn-primary rounded-pill px-5 fw-semibold">
+                        Guardar Cliente
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- MODAL SELECCIONAR EMPLEADO VENDEDOR (#sellerModal - EXCLUSIVO ADMIN) -->
-    @if(auth()->user()->isAdmin())
         <div class="modal fade" id="sellerModal" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content border-0 shadow-lg rounded-4">
@@ -373,7 +457,7 @@
                 </div>
             </div>
         </div>
-    @endif
+
 
     <!-- MODAL TIPO DE PAGO (#paymentTypeModal) -->
     <div class="modal fade" id="paymentTypeModal" tabindex="-1" aria-hidden="true">
@@ -693,12 +777,19 @@
                 });
             }
 
-            // Confirmar Pago y Finalizar Venta
+            // Confirmar Pago y Finalizar Venta (VERSIÓN CORREGIDA Y ROBUSTA)
             const confirmPayBtn = document.getElementById('confirmPayBtn');
             if (confirmPayBtn) {
                 confirmPayBtn.addEventListener('click', function () {
-                    const received = parseFloat(receivedInput.value) || totalSale;
+                    // Validar que exista la entrada de pago recibido
+                    const receivedInput = document.getElementById('receivedInput');
+                    const received = receivedInput ? (parseFloat(receivedInput.value) || totalSale) : totalSale;
                     const printTicket = document.getElementById('printTicketCheck') ? document.getElementById('printTicketCheck').checked : true;
+
+                    if (typeof saleId === 'undefined' || !saleId) {
+                        alert('Error: No hay una venta activa seleccionada.');
+                        return;
+                    }
 
                     showLoading();
 
@@ -706,6 +797,7 @@
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Accept': 'application/json', // Forzar a Laravel a responder siempre en JSON
                             'X-CSRF-TOKEN': '{{ csrf_token() }}'
                         },
                         body: JSON.stringify({ 
@@ -713,21 +805,33 @@
                             print_ticket: printTicket
                         })
                     })
-                    .then(res => res.json())
+                    .then(async res => {
+                        const isJson = res.headers.get('content-type')?.includes('application/json');
+                        const data = isJson ? await res.json() : null;
+
+                        if (!res.ok) {
+                            // Si el servidor devolvió un error HTTP (500, 422, etc.)
+                            const errorMsg = data?.message || data?.error || 'Error interno en el servidor (' + res.status + ')';
+                            throw new Error(errorMsg);
+                        }
+
+                        return data;
+                    })
                     .then(data => {
-                        if (data.success) {
+                        if (data && data.success) {
                             if (printTicket && data.redirect) {
                                 window.open(data.redirect, '_blank');
                             }
                             window.location.href = "{{ url('pos') }}";
                         } else {
                             hideLoading();
-                            alert(data.message);
+                            alert(data?.message || 'No se pudo completar la venta');
                         }
                     })
-                    .catch(() => {
+                    .catch(error => {
                         hideLoading();
-                        alert('Error al procesar el cobro');
+                        console.error('Error al finalizar venta:', error);
+                        alert('Error al procesar el cobro: ' + error.message);
                     });
                 });
             }
@@ -749,15 +853,17 @@
                 });
             }
 
-            // 1. Filtrar tabla de clientes en vivo
+            // 1. Filtrar tabla de clientes en vivo (CORREGIDO Y SEGURO)
             const searchCustomerInput = document.getElementById('searchCustomerInput');
             if (searchCustomerInput) {
                 searchCustomerInput.addEventListener('keyup', function () {
-                    const q = this.value.toLowerCase();
-                    document.querySelectorAll('.customer-row').forEach(row => {
-                        const name = row.getAttribute('data-name');
-                        const phone = row.getAttribute('data-phone');
-                        if (name.includes(q) || phone.includes(q)) {
+                    const q = this.value.toLowerCase().trim();
+                    
+                    document.querySelectorAll('#customersPosTable tbody tr.customer-row').forEach(row => {
+                        const nameAttr = row.getAttribute('data-name') || '';
+                        const phoneAttr = row.getAttribute('data-phone') || '';
+                        
+                        if (nameAttr.toLowerCase().includes(q) || phoneAttr.toLowerCase().includes(q)) {
                             row.classList.remove('d-none');
                         } else {
                             row.classList.add('d-none');
@@ -801,10 +907,10 @@
             if (saveFastCustomerBtn) {
                 saveFastCustomerBtn.addEventListener('click', function () {
                     const name = document.getElementById('fastCustomerName').value.trim();
-                    const phone = document.getElementById('fastCustomerPhone').value.trim();
+                    const branch = document.getElementById('fastCustomerBranch').value || '{{ $sale->venta_sucursal }}';
 
                     if (!name) {
-                        alert('Ingresa al menos el nombre del cliente');
+                        alert('Por favor ingresa el nombre completo del cliente');
                         return;
                     }
 
@@ -819,8 +925,7 @@
                         },
                         body: JSON.stringify({
                             nombre: name,
-                            telefono: phone,
-                            sucursal: '{{ $sale->venta_sucursal }}'
+                            sucursal: branch // Se envía siempre la sucursal activa de la venta
                         })
                     })
                     .then(res => res.json().then(data => ({ status: res.status, data: data })))
@@ -828,6 +933,7 @@
                         if (res.status === 200 || res.status === 201 || res.data.success) {
                             const newCustomerId = res.data.cliente_id || res.data.id || 0;
 
+                            // Asignar inmediatamente el cliente a la venta actual
                             return fetch("{{ url('pos') }}/" + saleId + "/header", {
                                 method: 'PUT',
                                 headers: {
@@ -841,7 +947,7 @@
                             });
                         } else {
                             hideLoading();
-                            const msg = res.data.message || (res.data.errors ? Object.values(res.data.errors).flat().join('n') : 'Error al registrar cliente');
+                            const msg = res.data.message || 'Error al registrar el cliente';
                             alert(msg);
                             throw new Error(msg);
                         }
@@ -1075,6 +1181,80 @@
                         }
                     })
                     .catch(() => hideLoading());
+                });
+            }
+
+            // Guardar Cliente Completo desde #fullCustomerModal
+            const saveFullCustomerBtn = document.getElementById('saveFullCustomerBtn');
+            if (saveFullCustomerBtn) {
+                saveFullCustomerBtn.addEventListener('click', function () {
+                    const name = document.getElementById('fullCustomerName').value.trim();
+                    const branch = document.getElementById('fullCustomerBranch').value || '{{ $sale->venta_sucursal }}';
+
+                    if (!name) {
+                        alert('Por favor ingresa el nombre completo del cliente');
+                        return;
+                    }
+
+                    showLoading();
+
+                    const payload = {
+                        nombre: name,
+                        telefono: document.getElementById('fullCustomerPhone').value.trim(),
+                        correo: document.getElementById('fullCustomerEmail').value.trim(),
+                        rfc: document.getElementById('fullCustomerRfc').value.trim(),
+                        direccion: document.getElementById('fullCustomerAddress').value.trim(),
+                        cp: document.getElementById('fullCustomerCp').value.trim(),
+                        localidad: document.getElementById('fullCustomerCity').value.trim(),
+                        sucursal: branch,
+                        fecha_nacimiento: document.getElementById('fullCustomerBirthdate').value
+                    };
+
+                    fetch("{{ url('clientes') }}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify(payload)
+                    })
+                    .then(res => res.json().then(data => ({ status: res.status, data: data })))
+                    .then(res => {
+                        if (res.status === 200 || res.status === 201 || res.data.success) {
+                            const newCustomerId = res.data.cliente_id || res.data.id || 0;
+
+                            // Asignar inmediatamente al POS de la venta activa
+                            return fetch("{{ url('pos') }}/" + saleId + "/header", {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                },
+                                body: JSON.stringify({
+                                    venta_idcliente: newCustomerId,
+                                    nombre_cliente: name
+                                })
+                            });
+                        } else {
+                            hideLoading();
+                            const msg = res.data.message || 'Error al registrar el cliente';
+                            alert(msg);
+                            throw new Error(msg);
+                        }
+                    })
+                    .then(res => {
+                        if (res) return res.json();
+                    })
+                    .then(data => {
+                        if (data && data.success) {
+                            location.reload();
+                        }
+                    })
+                    .catch(err => {
+                        hideLoading();
+                        console.error(err);
+                    });
                 });
             }
         });

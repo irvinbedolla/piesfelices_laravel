@@ -63,7 +63,8 @@ class SalesConsultationController extends Controller
             // Cargar relaciones de detalles, producto, pagos/abonos y vendedor
             $query = Sale::with(['details.product', 'payments', 'seller']);
 
-            $fecha1 = $request->get('fecha1', date('Y-m-01'));
+            // Cambiar el valor por defecto de $fecha1 para que tome la fecha de hoy
+            $fecha1 = $request->get('fecha1', date('Y-m-d'));
             $fecha2 = $request->get('fecha2', date('Y-m-d'));
 
             if (!empty($fecha1) && !empty($fecha2)) {
@@ -195,7 +196,7 @@ class SalesConsultationController extends Controller
             }
 
         } else {
-            $fecha1 = $request->get('fecha1', date('Y-m-01'));
+            $fecha1 = $request->get('fecha1', date('Y-m-d'));
             $fecha2 = $request->get('fecha2', date('Y-m-d'));
 
             $dateColAbono = Schema::hasColumn('abonos', 'abono_fecha') ? 'abono_fecha' : 'created_at';

@@ -137,7 +137,6 @@
                 </div>
             </form>
 
-            //Tabla de date_interval_create_from_date_string
             <div class="table-responsive">
                 @if($tab !== 'abonos')
                     <table class="table table-hover align-middle text-nowrap extra-small">
@@ -174,7 +173,11 @@
                                     <td>{{ $v->venta_hora ?? '00:00:00' }}</td>
                                     <td>{{ $v->venta_fecha }}</td>
                                     <td class="fw-semibold text-uppercase">
-                                        {{ $v->seller->name ?? $v->seller->username ?? $v->vendedor_nombre ?? ('Empleado #' . $v->venta_idempleado) }}
+                                        @php
+                                            // Intentar obtener el usuario mediante la relación o buscando por ID en la colección $users
+                                            $sellerUser = $v->seller ?? $users->firstWhere('id', $v->venta_idempleado);
+                                        @endphp
+                                        {{ $sellerUser->name ?? $sellerUser->username ?? $v->vendedor_nombre ?? ('Usuario #' . $v->venta_idempleado) }}
                                     </td>
                                     <td class="fw-semibold">{{ $v->nombre_cliente ?? 'Selecciona' }}</td>
                                     <td>
@@ -191,7 +194,7 @@
                                     <td class="text-end fw-semibold">${{ number_format($v->sum_general ?? 0, 2) }}</td>
 
                                     {{-- DESCUENTO --}}
-                                    <td class="text-center">{{ (float)($v->venta_descuento ?? 0) }}%</td>
+                                    <td class="text-center">${{ number_format($v->venta_descuento ?? 0) }}</td>
                                     
                                     {{-- TOTAL DE LA VENTA --}}
                                     <td class="text-end fw-bold text-dark fs-6">${{ number_format($v->venta_total, 2) }}</td>
@@ -215,14 +218,14 @@
                                         </button>
                                     </td>
 
-                                    {{-- BOTÓN ELIMINAR / CANCELAR --}}
-                                    @if($isAdmin)
+                                    {{-- BOTÓN ELIMINAR / CANCELAR VENTA --}}
+                                    @if($isAdmin || in_array((int)(auth()->user()->role_id ?? auth()->user()->user_type ?? 2), [1, 2]))
                                         <td class="text-center">
                                             @if($tab !== 'canceladas')
                                                 <form action="{{ route('sales.consultation.destroy-sale', $v->venta_id) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de cancelar esta venta?');">
                                                     @csrf
                                                     @method('DELETE')
-                                                    <button type="submit" class="btn btn-sm btn-link text-danger text-decoration-underline p-0 fw-bold" title="Eliminar Venta">
+                                                    <button type="submit" class="btn btn-sm btn-link text-danger text-decoration-underline p-0 fw-bold" title="Cancelar / Eliminar Venta">
                                                         Eliminar
                                                     </button>
                                                 </form>

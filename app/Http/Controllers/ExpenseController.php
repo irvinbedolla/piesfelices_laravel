@@ -19,7 +19,7 @@ class ExpenseController extends Controller
         $userRole = $user->role_id ?? $user->tipo_seccion ?? $user->type ?? 2;
         $userBranch = $user->branch?->name ?? $user->branch_name ?? 'MATRIZ';
 
-        $fecha1 = $request->get('fecha1', date('Y-m-01'));
+        $fecha1 = $request->get('fecha1', date('Y-m-d'));
         $fecha2 = $request->get('fecha2', date('Y-m-d'));
         $sucursalSel = $request->get('sucursal');
         $search = trim($request->get('search')); // <--- Capturar texto a buscar
@@ -108,77 +108,111 @@ class ExpenseController extends Controller
 
     public function destroy($id)
     {
-        $expense = Expense::findOrFail($id);
-        $expense->update(['status' => 'Inactivo']);
+        $authUser = auth()->user();
+        $roleId   = (int) ($authUser->role_id ?? $authUser->user_type ?? $authUser->type ?? 2);
 
-        return redirect()->back()->with('success', 'Gasto eliminado.');
+        // 1. Validar que el usuario tenga rol autorizado (Rol 1 o Rol 2)
+        if (!in_array($roleId, [1, 2])) {
+            return redirect()->back()->with('error', 'No tienes permisos para eliminar préstamos.');
+        }
+
+        $loan = Loan::findOrFail($id);
+
+        // 2. Si es Admin de Centro (Rol 2), validar estricta pertenencia de sucursal
+        if ($roleId === 2) {
+            $userBranch = $authUser->branch?->name ?? $authUser->sucursal;
+            
+            if ($loan->sucursal !== $userBranch) {
+                return redirect()->back()->with('error', 'No puedes eliminar préstamos de otra sucursal.');
+            }
+        }
+
+        // 3. Eliminar el registro
+        $loan->delete();
+
+        return redirect()->back()->with('success', 'Préstamo eliminado correctamente.');
     }
 
     /**
-     * MÓDULO 2: CONTROL DE PRÉSTAMOS
-     */
+     * MÓDULO 2: CONTROL DE PRÉSTAMOS loansIndex
+    */
     public function loansIndex(Request $request)
     {
-        $user = Auth::user();
-        $userRole = $user->role_id ?? $user->tipo_seccion ?? $user->type ?? 0;
-        $userBranch = $user->branch?->name ?? $user->branch_name ?? 'MATRIZ';
+        $authUser = auth()->user();
+        
+        // 1. Identificar el tipo de rol y permisos
+        $roleId = (int) ($authUser->role_id ?? $authUser->user_type ?? 2);
+        $isAdmin = in_array($roleId, [1, 2]);
 
-        $branches = Branch::all();
-        $users = User::all();
+        $viewMode = $request->get('mode', 'activos');
 
-        $viewMode = $request->get('mode', 'activos'); // 'activos', 'historial', 'mis_prestamos'
-        $selectedBranch = $request->get('sucursal', $request->get('branch'));
-        $search = trim($request->get('search'));
+        // 2. Obtener la lista general de sucursales activas
+        $branches = Branch::where('status', true)->get();
 
-        $isAdmin = in_array($userRole, [0, 1]);
-
-        if (!$isAdmin) {
-            $selectedBranch = $userBranch;
-        }
-
-        // Cargar la relación 'user' para obtener el nombre real del empleado
-        $query = Loan::with(['user', 'payments']);
-
-        // 1. Filtrado por Pestaña / Modo
-        if ($viewMode === 'mis_prestamos') {
-            $query->where('user_id', $user->id);
-        } elseif ($viewMode === 'historial') {
-            // Historial: Muestra los préstamos liquidados/pagados (restante = 0)
-            $query->where('pres_restante', '<=', 0);
+        // 3. DETERMINAR LA SUCURSAL SELECCIONADA/ACTIVA ($selectedBranch y $selectedBranchId)
+        if ($roleId === 1) {
+            // SuperAdmin (Rol 1): Puede filtrar por la sucursal enviada en la URL o ver la de su perfil por defecto
+            $selectedBranchId = $request->get('branch_id', $authUser->branch_id ?? $branches->first()?->id ?? 1);
         } else {
-            // Activos (por defecto): Préstamos con saldo pendiente (restante > 0)
-            $query->where('pres_restante', '>', 0);
+            // Admin de Centro (Rol 2) y Empleados: Forzados estrictamente a su sucursal asignada
+            $selectedBranchId = $authUser->branch_id ?? 1;
         }
 
-        // 2. Filtro por Sucursal
-        if ($isAdmin && $viewMode !== 'mis_prestamos') {
-            if (!empty($selectedBranch) && $selectedBranch !== 'TODOS') {
-                $query->where('sucursal', $selectedBranch);
+        $selectedBranch = Branch::find($selectedBranchId);
+
+        // 4. Filtrar los usuarios para el modal según el alcance del rol
+        if ($roleId === 1) {
+            // SuperAdmin: Todos los usuarios activos
+            $users = User::where('status', 'Activo')->orderBy('username', 'asc')->get();
+        } elseif ($roleId === 2) {
+            // Admin de Centro: Únicamente los usuarios de su sucursal
+            $users = User::where('status', 'Activo')
+                ->where('branch_id', $authUser->branch_id)
+                ->orderBy('username', 'asc')
+                ->get();
+        } else {
+            $users = collect([$authUser]);
+        }
+
+        // 5. Consulta Base de Préstamos
+        $query = Loan::with('user');
+
+        if ($roleId === 1) {
+            if ($viewMode === 'mis_prestamos') {
+                $query->where('user_id', $authUser->id);
+            } elseif ($viewMode === 'historial') {
+                $query->where('status', 'Pagado')->orWhere('pres_restante', 0);
+            } else {
+                $query->where('status', 'Activo');
+            }
+        } elseif ($roleId === 2) {
+            $branchName = $authUser->branch?->name ?? $authUser->sucursal;
+
+            if ($viewMode === 'mis_prestamos') {
+                $query->where('user_id', $authUser->id);
+            } elseif ($viewMode === 'historial') {
+                $query->where('sucursal', $branchName)->where('status', 'Pagado')->orWhere('pres_restante', 0);
+            } else {
+                $query->where('sucursal', $branchName)->where('status', 'Activo');
             }
         } else {
-            $query->where('sucursal', $userBranch);
+            $viewMode = 'mis_prestamos';
+            $query->where('user_id', $authUser->id);
         }
 
-        // 3. Buscador
-        if (!empty($search)) {
-            $query->where(function($q) use ($search) {
-                $q->where('pres_descripcion', 'LIKE', "%{$search}%")
-                ->orWhere('pres_id', 'LIKE', "%{$search}%")
-                ->orWhereHas('user', function($uQuery) use ($search) {
-                    $uQuery->where('name', 'LIKE', "%{$search}%");
-                });
-            });
-        }
+        $loans = $query->orderBy('created_at', 'desc')->paginate(10);
 
-        $loans = $query->latest('pres_fecha')
-                    ->latest('pres_id')
-                    ->paginate(10)
-                    ->appends($request->all());
-
+        // 6. INCLUIR $selectedBranch Y $selectedBranchId EN EL COMPACT
         return view('loans.index', compact(
-            'loans', 'branches', 'users', 'viewMode', 'userRole', 
-            'user', 'userBranch', 'selectedBranch', 'isAdmin', 'search'
-        )); 
+            'loans', 
+            'isAdmin', 
+            'viewMode', 
+            'roleId', 
+            'users', 
+            'branches', 
+            'selectedBranch', 
+            'selectedBranchId'
+        ));
     }
 
     public function storeLoan(Request $request)
@@ -190,8 +224,15 @@ class ExpenseController extends Controller
             'user_id'          => 'required|integer',
         ]);
 
-        $targetUser = User::findOrFail($request->user_id);
-        $userBranch = $request->sucursal ?? ($targetUser->branch?->name ?? 'MATRIZ');
+        $authUser = auth()->user();
+        $targetUser = User::with('branch')->findOrFail($request->user_id);
+        // Si la request no envía sucursal, toma la del usuario destino o la del admin autenticado
+        $userBranch = $request->sucursal 
+        ?? ($targetUser->branch?->name ?? $authUser->branch?->name ?? 'MATRIZ');
+
+
+        //$targetUser = User::findOrFail($request->user_id);
+        //$userBranch = $request->sucursal ?? ($targetUser->branch?->name ?? 'MATRIZ');
 
         Loan::create([
             'pres_descripcion' => $request->pres_descripcion,

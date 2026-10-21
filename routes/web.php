@@ -19,6 +19,105 @@ use App\Http\Controllers\CreditController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SalesConsultationController;
 use App\Http\Controllers\DashboardController;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+
+
+Route::get('/migrar-ids', function () {
+    // Mapeo de IDs finales deseados: ['ID_ORIGINAL' => 'ID_FINAL_DESEADO']
+    $mapaIds = [
+        1  => 43,
+        2  => 1,
+        3  => 2,
+        4  => 3,
+        5  => 4,
+        6  => 9,
+        7  => 10,
+        8  => 11, 
+        9  => 12,
+        10 => 13,
+        11 => 17,
+        12 => 18,
+        13 => 19,
+        14 => 20,
+        15 => 21,
+        16 => 22,
+        17 => 23,
+        19 => 50,
+        20 => 52,
+        21 => 53,
+        22 => 54,
+        23 => 61,
+        24 => 25,
+        25 => 64,
+        26 => 65,
+        27 => 66
+    ];
+
+    try {
+        DB::beginTransaction();
+        DB::statement('SET FOREIGN_KEY_CHECKS = 0;');
+
+        $log = [];
+        $offset = 100000;
+
+        foreach ($mapaIds as $oldId => $newId) {
+            $tempId = $oldId + $offset; // p. ej. 100003, 100014
+
+            // 1. Si el usuario quedó en la ID temporal (10000x), asignarle su ID final
+            $userTemp = DB::table('users')->where('id', $tempId)->first();
+            
+            if ($userTemp) {
+                // Si el ID destino final está ocupado por un tercero no actualizado, mover temporalmente a ese tercero
+                DB::table('users')->where('id', $newId)->where('id', '!=', $tempId)->update(['id' => $newId + 200000]);
+
+                // Asignar ID final al usuario principal
+                DB::table('users')->where('id', $tempId)->update(['id' => $newId]);
+
+                if (Schema::hasTable('employees') && Schema::hasColumn('employees', 'user_id')) {
+                    DB::table('employees')->where('user_id', $tempId)->update(['user_id' => $newId]);
+                }
+                if (Schema::hasTable('supply_orders') && Schema::hasColumn('supply_orders', 'user_id')) {
+                    DB::table('supply_orders')->where('user_id', $tempId)->update(['user_id' => $newId]);
+                }
+
+                $log[] = "Completado: ID Temporal {$tempId} ---> ID Final {$newId} ('{$userTemp->username}')";
+            } else {
+                // Por si el usuario aún conservaba su ID original sin offset
+                $userOrig = DB::table('users')->where('id', $oldId)->first();
+                if ($userOrig) {
+                    DB::table('users')->where('id', $oldId)->update(['id' => $newId]);
+                    
+                    if (Schema::hasTable('ventas')) {
+                        DB::table('ventas')->where('venta_idempleado', $oldId)->update(['venta_idempleado' => $newId]);
+                    }
+                    $log[] = "Actualizado directo: ID {$oldId} ---> ID Final {$newId} ('{$userOrig->username}')";
+                }
+            }
+        }
+
+        DB::statement('SET FOREIGN_KEY_CHECKS = 1;');
+        DB::commit();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Migración completada exitosamente. Se restablecieron los nombres reales.',
+            'log'     => $log
+        ]);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        DB::statement('SET FOREIGN_KEY_CHECKS = 1;');
+
+        return response()->json([
+            'success' => false,
+            'error'   => $e->getMessage()
+        ], 500);
+    }
+});
+
+
 
 // Redirigir la raíz al login
 Route::get('/', function () {

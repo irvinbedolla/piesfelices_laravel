@@ -142,12 +142,14 @@
                                     @endif
                                 </td>
 
-                                @if($isAdmin)
+                                @if($isAdmin || in_array((int)(auth()->user()->role_id ?? auth()->user()->user_type ?? 2), [1, 2]))
                                     <td class="text-center">
-                                        <form action="{{ route('loans.destroy', $l->pres_id) }}" method="POST" onsubmit="if(!confirm('¿Borrar préstamo?')) { event.preventDefault(); return false; }">
+                                        <form action="{{ route('loans.destroy', $l->pres_id ?? $l->id) }}" method="POST" onsubmit="if(!confirm('¿Seguro que deseas borrar este préstamo?')) { event.preventDefault(); return false; }">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="btn btn-sm text-danger border-0"><i class="fa-solid fa-trash"></i></button>
+                                            <button type="submit" class="btn btn-sm text-danger border-0 p-1" title="Eliminar Préstamo">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
                                         </form>
                                     </td>
                                 @endif
@@ -267,13 +269,28 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label extra-small fw-bold text-muted">Sucursal</label>
-                            <select name="sucursal" class="form-select rounded-3">
-                                @foreach($branches as $b)
-                                    <option value="{{ $b->name }}" {{ (isset($selectedBranch) && $selectedBranch ==$b->name) ? 'selected' : '' }}>
-                                        {{ $b->name }}
-                                    </option>
-                                @endforeach
-                            </select>
+
+                            @if($roleId === 1)
+                                {{-- ROL 1 (SuperAdmin): Puede elegir cualquier sucursal --}}
+                                <select name="sucursal" class="form-select rounded-3">
+                                    @foreach($branches as $b)
+                                        <option value="{{ $b->name }}" {{ (isset($selectedBranch) && ($selectedBranch->name ?? $selectedBranch) == $b->name) ? 'selected' : '' }}>
+                                            {{ $b->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            @else
+                                {{-- ROL 2 (Admin de Centro) y otros: Fijado a su sucursal asignada --}}
+                                @php
+                                    $currentBranchName = auth()->user()->branch?->name ?? $selectedBranch->name ?? 'MATRIZ';
+                                @endphp
+                                
+                                {{-- Campo estático visible --}}
+                                <input type="text" class="form-control rounded-3 bg-light text-muted fw-bold" value="{{ $currentBranchName }}" readonly>
+                                
+                                {{-- Campo oculto enviado en el formulario --}}
+                                <input type="hidden" name="sucursal" value="{{ $currentBranchName }}">
+                            @endif
                         </div>
                     </div>
                     <div class="modal-footer border-0">

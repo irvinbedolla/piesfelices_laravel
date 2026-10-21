@@ -46,13 +46,24 @@ class InventoryController extends Controller
         $sortBy    = $request->get('sort_by', 'created_at');
         $sortOrder = $request->get('sort_order', 'desc');
 
-        // 3. Consulta optimizada en MySQL
+        
+        // 3. Consulta en MySQL para Bajo Stock Real
         $query = Product::whereHas('branches', function ($q) use ($selectedBranchId, $onlyLowStock) {
             $q->where('branch_id', $selectedBranchId);
             
             if ($onlyLowStock) {
-                // Muestra productos agotados o por debajo del mínimo (Bajo Stock)
-                $q->whereColumn('branch_product.stock_current', '<=', 'branch_product.stock_min');
+                // Opción A: Productos que están por debajo del stock mínimo Y que sí tienen/tuvieron inventario registrado
+                $q->whereColumn('branch_product.stock_current', '<=', 'branch_product.stock_min')
+                ->where(function ($sub) use ($selectedBranchId) {
+                    // Exige que la sucursal haya tenido al menos 1 movimiento en Kárdex o que el producto no sea 'fantasma'
+                    $sub->where('branch_product.stock_current', '>', 0)
+                        ->orWhereExists(function ($movQuery) use ($selectedBranchId) {
+                            $movQuery->select(DB::raw(1))
+                                ->from('inventory_movements')
+                                ->whereColumn('inventory_movements.product_id', 'branch_product.product_id')
+                                ->where('inventory_movements.branch_id', $selectedBranchId);
+                        });
+                });
             } else {
                 // Por defecto: Muestra SOLO productos con existencias activas en esta sucursal
                 $q->where('branch_product.stock_current', '>', 0);
@@ -60,7 +71,7 @@ class InventoryController extends Controller
         })->with(['branches' => function ($q) use ($selectedBranchId) {
             $q->where('branch_id', $selectedBranchId);
         }])
-        ->orderBy('name', 'asc');;
+        ->orderBy('name', 'asc');
 
         // 4. Filtro por Tipo de Producto (GENERAL, CALZADO, MEDICAMENTO)
         if ($selectedType && in_array($selectedType, ['GENERAL', 'CALZADO', 'MEDICAMENTO'])) {

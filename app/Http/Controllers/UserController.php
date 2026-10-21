@@ -17,6 +17,15 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
+
+        // Obtener el usuario actualmente autenticado
+        $authUser = auth()->user();
+
+        // Determinar si es Superusuario (Tipo 1 / Role 1)
+        $isSuperUser = method_exists($authUser, 'isAdmin') 
+        ? $authUser->isAdmin() 
+        : ((int)($authUser->role_id ?? $authUser->user_type ?? $authUser->type ?? 2) === 1);
+
         // 1. Parámetros de la DataTable nativa
         $perPage   = $request->get('per_page', 10);
         $sortBy    = $request->get('sort_by', 'created_at');
@@ -24,6 +33,14 @@ class UserController extends Controller
 
         // 2. Consulta Base con Eager Loading de relaciones
         $query = User::with(['permission', 'role', 'branch']);
+
+        // -------------------------------------------------------------
+        // RESTRICCIÓN DE ACCESO POR ROL
+        // -------------------------------------------------------------
+        if (!$isSuperUser) {
+            // Si NO es superusuario, restringir la consulta a ver ÚNICAMENTE su propio usuario
+            $query->where('id', $authUser->id);
+        }
 
         // 3. Buscador Global por usuario, correo, sucursal o estado
         if ($request->filled('search')) {
