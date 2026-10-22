@@ -246,6 +246,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/api/dashboard-stats', [DashboardController::class, 'stats'])->name('api.dashboard.stats');
     Route::get('/cash-closing/commissions-pdf', [CashClosingController::class, 'commissionsPdf'])->name('cash-closing.commissions-pdf'); 
     
+    //Reportes de prestamos y ventas
+    Route::get('/reports/loans', [ReportController::class, 'exportLoansReport'])->name('reports.loans');
+    Route::get('/reports/sales-normal', [ReportController::class, 'exportNormalSales'])->name('reports.sales.normal');
+    Route::get('/reports/sales-credit', [ReportController::class, 'exportCreditSales'])->name('reports.sales.credit');
 });
 
 require __DIR__.'/auth.php';

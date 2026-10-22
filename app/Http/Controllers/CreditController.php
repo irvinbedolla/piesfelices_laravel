@@ -25,7 +25,7 @@ class CreditController extends Controller
         $search = trim($request->get('search'));
 
         // Query base de ventas a crédito
-        $query = Sale::with(['details', 'payments'])
+        $query = Sale::with(['details', 'payments', 'seller'])
             ->where(function($q) {
                 $q->where('venta_tipo', 2)
                   ->orWhere('venta_tipo', '2')

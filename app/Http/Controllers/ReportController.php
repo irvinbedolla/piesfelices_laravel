@@ -7,6 +7,7 @@ use App\Models\SaleDetail;
 use App\Models\Appointment;
 use App\Models\Branch;
 use App\Models\User;
+use App\Models\Loan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +26,6 @@ class ReportController extends Controller
         $userRole = (int) ($user->role_id ?? $user->user_type ?? 2);
         $userBranch = $user->branch?->name ?? 'MATRIZ';
 
-        // Cargar sucursales según el nivel de acceso
         if ($userRole === 1) {
             $branches = Branch::where('status', true)->get();
         } else {
@@ -34,7 +34,6 @@ class ReportController extends Controller
 
         $podologists = User::where('status', 'Activo')->get();
 
-        // Lista de artículos para el desplegable/datalist
         $products = SaleDetail::select('nombre', 'sku')
             ->whereNotNull('nombre')
             ->distinct()
@@ -45,8 +44,233 @@ class ReportController extends Controller
     }
 
     /**
-     * Reporte de Facturación (Soporta PDF y Excel, incluye numero_factura)
+     * Reporte de Ventas Normales / Contado (PDF y Excel)
      */
+    public function exportNormalSales(Request $request)
+    {
+        $user = Auth::user();
+        $userRole = (int) ($user->role_id ?? $user->user_type ?? 2);
+        $userBranch = $user->branch?->name ?? 'MATRIZ';
+
+        $fecha1    = $request->get('fecha1', date('Y-m-d'));
+        $fecha2    = $request->get('fecha2', date('Y-m-d'));
+        $sucursal  = $request->get('sucursal', 'TODOS');
+        $usuarioId = $request->get('usuario_id', 'TODOS');
+        $formato   = $request->get('formato', 'pdf');
+
+        if ($userRole !== 1) {
+            $sucursal = $userBranch;
+        }
+
+        $query = Sale::with('seller')
+            ->whereBetween('venta_fecha', [$fecha1, $fecha2])
+            ->whereIn('venta_tipo', [1, '1', 'PAGADO', 'CONTADO'])
+            ->where('venta_tipo', '!=', 3);
+
+        // Filtro independiente por Sucursal
+        if ($sucursal !== 'TODOS' && !empty($sucursal)) {
+            $query->where('venta_sucursal', $sucursal);
+        }
+
+        // Filtro independiente por Usuario / Vendedor
+        if ($usuarioId !== 'TODOS' && !empty($usuarioId)) {
+            $query->where('venta_idempleado', $usuarioId);
+        }
+
+        $sales = $query->orderBy('venta_fecha', 'desc')->get();
+
+        if ($formato === 'excel') {
+            $spreadsheet = new Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Ventas Contado');
+
+            $headers = ['A1' => 'FOLIO', 'B1' => 'FECHA', 'C1' => 'HORA', 'D1' => 'CLIENTE', 'E1' => 'VENDEDOR', 'F1' => 'SUCURSAL', 'G1' => 'TIPO PAGO', 'H1' => 'TOTAL'];
+            foreach ($headers as $cell => $text) {
+                $sheet->setCellValue($cell, $text);
+            }
+
+            $sheet->getStyle('A1:H1')->applyFromArray([
+                'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '0D6EFD']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+            ]);
+
+            $row = 2;
+            foreach ($sales as $s) {
+                $vendedor = $s->seller->name ?? $s->seller->username ?? 'S/A';
+                $sheet->setCellValue('A' . $row, $s->venta_id);
+                $sheet->setCellValue('B' . $row, $s->venta_fecha);
+                $sheet->setCellValue('C' . $row, $s->venta_hora);
+                $sheet->setCellValue('D' . $row, $s->nombre_cliente ?? 'Cliente General');
+                $sheet->setCellValue('E' . $row, $vendedor);
+                $sheet->setCellValue('F' . $row, $s->venta_sucursal);
+                $sheet->setCellValue('G' . $row, $s->venta_tipopago);
+                $sheet->setCellValue('H' . $row, $s->venta_total);
+                $sheet->getStyle("H{$row}")->getNumberFormat()->setFormatCode('$#,##0.00');
+                $row++;
+            }
+
+            $fileName = "Reporte_Ventas_Contado_{$fecha1}_al_{$fecha2}.xlsx";
+            $writer = new Xlsx($spreadsheet);
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header("Content-Disposition: attachment; filename=\"{$fileName}\"");
+            $writer->save('php://output');
+            exit;
+        }
+
+        $pdf = Pdf::loadView('reports.pdf_normal_sales', compact('sales', 'fecha1', 'fecha2', 'sucursal', 'usuarioId'));
+        return $pdf->setPaper('letter', 'landscape')->stream("Reporte_Ventas_Contado_{$fecha1}_al_{$fecha2}.pdf");
+    }
+
+    /**
+     * Reporte de Ventas a Crédito (PDF y Excel)
+     */
+    public function exportCreditSales(Request $request)
+    {
+        $user = Auth::user();
+        $userRole = (int) ($user->role_id ?? $user->user_type ?? 2);
+        $userBranch = $user->branch?->name ?? 'MATRIZ';
+
+        $fecha1    = $request->get('fecha1', date('Y-m-d'));
+        $fecha2    = $request->get('fecha2', date('Y-m-d'));
+        $sucursal  = $request->get('sucursal', 'TODOS');
+        $usuarioId = $request->get('usuario_id', 'TODOS');
+        $formato   = $request->get('formato', 'pdf');
+
+        if ($userRole !== 1) {
+            $sucursal = $userBranch;
+        }
+
+        $query = Sale::with(['seller', 'abonos'])
+            ->whereBetween('venta_fecha', [$fecha1, $fecha2])
+            ->whereIn('venta_tipo', [2, '2', 'CREDITO'])
+            ->where('venta_tipo', '!=', 3);
+
+        // Filtro independiente por Sucursal
+        if ($sucursal !== 'TODOS' && !empty($sucursal)) {
+            $query->where('venta_sucursal', $sucursal);
+        }
+
+        // Filtro independiente por Usuario / Vendedor
+        if ($usuarioId !== 'TODOS' && !empty($usuarioId)) {
+            $query->where('venta_idempleado', $usuarioId);
+        }
+
+        $sales = $query->orderBy('venta_fecha', 'desc')->get();
+
+        if ($formato === 'excel') {
+            $spreadsheet = new Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Ventas a Crédito');
+
+            $headers = ['A1' => 'FOLIO', 'B1' => 'FECHA', 'C1' => 'HORA', 'D1' => 'CLIENTE', 'E1' => 'VENDEDOR', 'F1' => 'SUCURSAL', 'G1' => 'TOTAL', 'H1' => 'ABONO', 'I1' => 'RESTANTE'];
+            foreach ($headers as $cell => $text) {
+                $sheet->setCellValue($cell, $text);
+            }
+
+            $sheet->getStyle('A1:I1')->applyFromArray([
+                'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FF9800']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+            ]);
+
+            $row = 2;
+            foreach ($sales as $s) {
+                $vendedor = $s->seller->name ?? $s->seller->username ?? 'S/A';
+                $restante = $s->venta_restante > 0 ? $s->venta_restante : ($s->venta_total - $s->venta_abono);
+                $sheet->setCellValue('A' . $row, $s->venta_id);
+                $sheet->setCellValue('B' . $row, $s->venta_fecha);
+                $sheet->setCellValue('C' . $row, $s->venta_hora);
+                $sheet->setCellValue('D' . $row, $s->nombre_cliente ?? 'Cliente General');
+                $sheet->setCellValue('E' . $row, $vendedor);
+                $sheet->setCellValue('F' . $row, $s->venta_sucursal);
+                $sheet->setCellValue('G' . $row, $s->venta_total);
+                $sheet->setCellValue('H' . $row, $s->venta_abono);
+                $sheet->setCellValue('I' . $row, $restante);
+                $sheet->getStyle("G{$row}:I{$row}")->getNumberFormat()->setFormatCode('$#,##0.00');
+                $row++;
+            }
+
+            $fileName = "Reporte_Ventas_Credito_{$fecha1}_al_{$fecha2}.xlsx";
+            $writer = new Xlsx($spreadsheet);
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header("Content-Disposition: attachment; filename=\"{$fileName}\"");
+            $writer->save('php://output');
+            exit;
+        }
+
+        $pdf = Pdf::loadView('reports.pdf_credit_sales', compact('sales', 'fecha1', 'fecha2', 'sucursal', 'usuarioId'));
+        return $pdf->setPaper('letter', 'landscape')->stream("Reporte_Ventas_Credito_{$fecha1}_al_{$fecha2}.pdf");
+    }
+
+    public function exportLoansReport(Request $request)
+    {
+        $user = Auth::user();
+        $userRole = (int) ($user->role_id ?? $user->user_type ?? 2);
+        $userBranch = $user->branch?->name ?? 'MATRIZ';
+
+        $fecha1   = $request->get('fecha1', date('Y-m-d'));
+        $fecha2   = $request->get('fecha2', date('Y-m-d'));
+        $sucursal = $request->get('sucursal', 'ALTOZANO');
+        $formato  = $request->get('formato', 'pdf');
+
+        if ($userRole !== 1) {
+            $sucursal = $userBranch;
+        }
+
+        $queryLoans = Loan::whereBetween('pres_fecha', [$fecha1, $fecha2]);
+        if ($sucursal !== 'TODOS' && !empty($sucursal)) {
+            $queryLoans->where('sucursal', $sucursal);
+        }
+        $loans = $queryLoans->orderBy('pres_fecha', 'desc')->get();
+
+        $totalPrestamos = $loans->sum('pres_costo');
+        $totalRestante  = $loans->sum('pres_restante');
+        $totalAbonos    = $totalPrestamos - $totalRestante;
+
+        $prestamosPersonales = Loan::whereBetween('pres_fecha', [$fecha1, $fecha2])
+            ->where('pres_descripcion', 'LIKE', '%PERSONAL%')
+            ->sum('pres_costo');
+
+        if ($formato === 'excel') {
+            $spreadsheet = new Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Préstamos y Abonos');
+
+            $headers = ['A1' => 'DESCRIPCIÓN', 'B1' => 'FECHA', 'C1' => 'SUCURSAL', 'D1' => 'TOTAL', 'E1' => 'RESTANTE'];
+            foreach ($headers as $cell => $text) {
+                $sheet->setCellValue($cell, $text);
+            }
+
+            $sheet->getStyle('A1:E1')->applyFromArray([
+                'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'E040FB']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+            ]);
+
+            $row = 2;
+            foreach ($loans as $l) {
+                $sheet->setCellValue('A' . $row, $l->pres_descripcion);
+                $sheet->setCellValue('B' . $row, $l->pres_fecha);
+                $sheet->setCellValue('C' . $row, $l->sucursal);
+                $sheet->setCellValue('D' . $row, $l->pres_costo);
+                $sheet->setCellValue('E' . $row, $l->pres_restante);
+                $sheet->getStyle("D{$row}:E{$row}")->getNumberFormat()->setFormatCode('$#,##0.00');
+                $row++;
+            }
+
+            $fileName = "Reporte_Prestamos_{$fecha1}_al_{$fecha2}.xlsx";
+            $writer = new Xlsx($spreadsheet);
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header("Content-Disposition: attachment; filename=\"{$fileName}\"");
+            $writer->save('php://output');
+            exit;
+        }
+
+        $pdf = Pdf::loadView('reports.pdf_loans', compact('loans', 'fecha1', 'fecha2', 'sucursal', 'totalPrestamos', 'totalAbonos', 'totalRestante', 'prestamosPersonales'));
+        return $pdf->setPaper('letter', 'portrait')->stream("Reporte_Prestamos_{$fecha1}_al_{$fecha2}.pdf");
+    }
+
     public function exportInvoices(Request $request)
     {
         $user = Auth::user();
@@ -58,7 +282,6 @@ class ReportController extends Controller
         $sucursal = $request->get('sucursal', 'TODOS');
         $formato  = $request->get('formato', 'excel');
 
-        // Control de permisos de sucursal para Rol 2
         if ($userRole !== 1) {
             $sucursal = $userBranch;
         }
@@ -73,32 +296,18 @@ class ReportController extends Controller
 
         $sales = $query->orderBy('venta_fecha', 'desc')->get();
 
-        // GENERACIÓN EN EXCEL
         if ($formato === 'excel') {
             $spreadsheet = new Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
             $sheet->setTitle('Facturación');
 
-            $headers = [
-                'A1' => 'FOLIO / N° VENTA',
-                'B1' => 'N° FACTURA',
-                'C1' => 'FECHA',
-                'D1' => 'HORA',
-                'E1' => 'CLIENTE',
-                'F1' => 'RFC / CFDI',
-                'G1' => 'SUCURSAL',
-                'H1' => 'TIPO PAGO',
-                'I1' => 'SUBTOTAL',
-                'J1' => 'DESCUENTO',
-                'K1' => 'TOTAL FACTURADO',
-            ];
-
+            $headers = ['A1' => 'FOLIO / N° VENTA', 'B1' => 'N° FACTURA', 'C1' => 'FECHA', 'D1' => 'HORA', 'E1' => 'CLIENTE', 'F1' => 'RFC / CFDI', 'G1' => 'SUCURSAL', 'H1' => 'TIPO PAGO', 'I1' => 'SUBTOTAL', 'J1' => 'DESCUENTO', 'K1' => 'TOTAL FACTURADO'];
             foreach ($headers as $cell => $text) {
                 $sheet->setCellValue($cell, $text);
             }
 
             $sheet->getStyle('A1:K1')->applyFromArray([
-                'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+                'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
                 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '8E24AA']],
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
             ]);
@@ -106,7 +315,6 @@ class ReportController extends Controller
             $row = 2;
             foreach ($sales as $sale) {
                 $subtotal = $sale->venta_total + $sale->venta_descuento;
-
                 $sheet->setCellValue('A' . $row, $sale->venta_id);
                 $sheet->setCellValue('B' . $row, $sale->numero_factura ?? 'S/N');
                 $sheet->setCellValue('C' . $row, $sale->venta_fecha);
@@ -118,48 +326,34 @@ class ReportController extends Controller
                 $sheet->setCellValue('I' . $row, $subtotal);
                 $sheet->setCellValue('J' . $row, $sale->venta_descuento);
                 $sheet->setCellValue('K' . $row, $sale->venta_total);
-
                 $sheet->getStyle("I{$row}:K{$row}")->getNumberFormat()->setFormatCode('$#,##0.00');
                 $row++;
             }
 
-            foreach (range('A', 'K') as $col) {
-                $sheet->getColumnDimension($col)->setAutoSize(true);
-            }
-
             $fileName = "Reporte_Facturacion_{$fecha1}_al_{$fecha2}.xlsx";
             $writer = new Xlsx($spreadsheet);
-
             header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             header("Content-Disposition: attachment; filename=\"{$fileName}\"");
-            header('Cache-Control: max-age=0');
             $writer->save('php://output');
             exit;
         }
 
-        // GENERACIÓN EN PDF
         $pdf = Pdf::loadView('reports.pdf_invoices', compact('sales', 'fecha1', 'fecha2', 'sucursal'));
         return $pdf->setPaper('letter', 'landscape')->stream("Reporte_Facturacion_{$fecha1}_al_{$fecha2}.pdf");
     }
 
-    /**
-     * Alias por compatibilidad
-     */
     public function exportInvoicesExcel(Request $request)
     {
         return $this->exportInvoices($request);
     }
 
-    /**
-     * Reporte de Citas (Soporta PDF y Excel)
-     */
     public function exportAppointments(Request $request)
     {
         $user = Auth::user();
         $userRole = (int) ($user->role_id ?? $user->user_type ?? 2);
         $userBranch = $user->branch?->name ?? 'MATRIZ';
 
-        $fecha1     = $request->get('fecha1', date('Y-m-01'));
+        $fecha1     = $request->get('fecha1', date('Y-m-d'));
         $fecha2     = $request->get('fecha2', date('Y-m-d'));
         $sucursal   = $request->get('sucursal', 'TODOS');
         $podologoId = $request->get('podologo_id');
@@ -241,16 +435,13 @@ class ReportController extends Controller
         return $pdf->setPaper('letter', 'landscape')->stream("Reporte_Citas_{$fecha1}_al_{$fecha2}.pdf");
     }
 
-    /**
-     * Reporte Especial de Ventas por Artículo
-     */
     public function exportSalesReport(Request $request)
     {
         $user = Auth::user();
         $userRole = (int) ($user->role_id ?? $user->user_type ?? 2);
         $userBranch = $user->branch?->name ?? 'MATRIZ';
 
-        $fecha1    = $request->get('fecha1', date('Y-m-01'));
+        $fecha1    = $request->get('fecha1', date('Y-m-d'));
         $fecha2    = $request->get('fecha2', date('Y-m-d'));
         $sucursal  = $request->get('sucursal', 'MATRIZ');
         $usuarioId = $request->get('usuario_id');
@@ -262,16 +453,9 @@ class ReportController extends Controller
         }
 
         $selects = [
-            'ventas.venta_id',
-            'ventas.venta_fecha',
-            'ventas.venta_hora',
-            'ventas.nombre_cliente',
-            'ventas.venta_sucursal',
-            'ventas.venta_tipopago',
-            'venta_producto.nombre as producto_nombre',
-            'venta_producto.sku',
-            'venta_producto.cantidad',
-            'venta_producto.precio'
+            'ventas.venta_id', 'ventas.venta_fecha', 'ventas.venta_hora', 'ventas.nombre_cliente',
+            'ventas.venta_sucursal', 'ventas.venta_tipopago', 'venta_producto.nombre as producto_nombre',
+            'venta_producto.sku', 'venta_producto.cantidad', 'venta_producto.precio'
         ];
 
         $query = DB::table('venta_producto')
@@ -302,23 +486,14 @@ class ReportController extends Controller
             $sheet = $spreadsheet->getActiveSheet();
             $sheet->setTitle('Ventas por Artículo');
 
-            $headers = [
-                'A1' => 'FOLIO VENTA', 'B1' => 'FECHA', 'C1' => 'HORA', 'D1' => 'CLIENTE',
-                'E1' => 'ARTÍCULO / PRODUCTO', 'F1' => 'SKU', 'G1' => 'CANTIDAD', 'H1' => 'PRECIO UNIT.',
-                'I1' => 'SUBTOTAL', 'J1' => 'SUCURSAL',
-            ];
-
+            $headers = ['A1' => 'FOLIO VENTA', 'B1' => 'FECHA', 'C1' => 'HORA', 'D1' => 'CLIENTE', 'E1' => 'ARTÍCULO', 'F1' => 'SKU', 'G1' => 'CANTIDAD', 'H1' => 'PRECIO UNIT.', 'I1' => 'SUBTOTAL', 'J1' => 'SUCURSAL'];
             foreach ($headers as $cell => $text) {
                 $sheet->setCellValue($cell, $text);
             }
 
             $row = 2;
-            $totalGeneral = 0;
-
             foreach ($salesData as $item) {
                 $subtotal = $item->cantidad * $item->precio;
-                $totalGeneral += $subtotal;
-
                 $sheet->setCellValue('A' . $row, $item->venta_id);
                 $sheet->setCellValue('B' . $row, $item->venta_fecha);
                 $sheet->setCellValue('C' . $row, $item->venta_hora);
@@ -329,7 +504,6 @@ class ReportController extends Controller
                 $sheet->setCellValue('H' . $row, $item->precio);
                 $sheet->setCellValue('I' . $row, $subtotal);
                 $sheet->setCellValue('J' . $row, $item->venta_sucursal);
-
                 $sheet->getStyle("H{$row}:I{$row}")->getNumberFormat()->setFormatCode('$#,##0.00');
                 $row++;
             }
