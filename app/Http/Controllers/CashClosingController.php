@@ -158,10 +158,10 @@ class CashClosingController extends Controller
         }
 
         $retiros = $queryRetiros->get();
-        $gastosProveedor   = $retiros->where('tipo', 1)->sum('cantida');
-        $gastosConsultorio = $retiros->where('tipo', 2)->sum('cantida');
-        $gastosSueldos     = $retiros->where('tipo', 3)->sum('cantida');
-        $totalGastos       = $retiros->sum('cantida');
+        $gastosProveedor   = $retiros->where('tipo', 1)->sum('cantidad');
+        $gastosConsultorio = $retiros->where('tipo', 2)->sum('cantidad');
+        $gastosSueldos     = $retiros->where('tipo', 3)->sum('cantidad');
+        $totalGastos       = $retiros->sum('cantidad');
 
         // Totales Generales
         $totalCredito   = array_sum($credito);
@@ -176,7 +176,7 @@ class CashClosingController extends Controller
             'credito', 'contado', 'liquidado',
             'totalCredito', 'totalContado', 'totalLiquidado',
             'totalAbonos', 'gastosProveedor', 'gastosConsultorio', 'gastosSueldos', 'totalGastos',
-            'totalEfectivoNeto', 'totalEfectivoMasCredito'
+            'totalEfectivoNeto', 'totalEfectivoMasCredito','retiros'
         ))->setPaper([0, 0, 226.77, 650], 'portrait');
 
         return $pdf->stream("cierre_diario_{$fecha1}_{$fecha2}.pdf");

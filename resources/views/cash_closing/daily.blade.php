@@ -56,13 +56,57 @@
 
     <div class="divider-dashed"></div>
 
-    {{-- ABONOS Y GASTOS --}}
+    <div class="divider-dashed"></div>
+
+    
+
+    <div class="divider-dashed"></div>
+
+    {{-- TABLA DESGLOSADA DE RETIROS / GASTOS --}}
+    <div class="fw-bold text-center" style="margin-bottom: 4px;">DETALLE DE GASTOS / RETIROS</div>
     <table>
-        <tr><td>Total Abonos Cobrados:</td><td class="text-right">${{ number_format($totalAbonos, 2) }}</td></tr>
-        <tr><td>Gastos Proveedores:</td><td class="text-right">-${{ number_format($gastosProveedor, 2) }}</td></tr>
-        <tr><td>Gastos Consultorio:</td><td class="text-right">-${{ number_format($gastosConsultorio, 2) }}</td></tr>
-        <tr><td>Gastos Sueldos:</td><td class="text-right">-${{ number_format($gastosSueldos, 2) }}</td></tr>
-        <tr class="fw-bold"><td>TOTAL GASTOS:</td><td class="text-right">-${{ number_format($totalGastos, 2) }}</td></tr>
+        <thead>
+            <tr class="fw-bold" style="border-bottom: 1px dashed #000;">
+                <td style="width: 55%;">Concepto</td>
+                <td class="text-right" style="width: 45%;">Monto</td>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse($retiros as $r)
+                <tr>
+                    <td>{{ strtoupper($r->concepto ?? 'GASTO GENERAL') }}</td>
+                    <td class="text-right">-${{ number_format($r->cantidad ?? $r->monto ?? 0, 2) }}</td>
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="2" class="text-center" style="font-style: italic; color: #555;">
+                        Sin gastos registrados
+                    </td>
+                </tr>
+            @endforelse
+        </tbody>
+    </table>
+
+    <div class="divider-dashed"></div>
+
+    {{-- TOTALES DE GASTOS POR TIPO --}}
+    <table>
+        <tr>
+            <td>Gastos Proveedores:</td>
+            <td class="text-right">-${{ number_format($gastosProveedor, 2) }}</td>
+        </tr>
+        <tr>
+            <td>Gastos Consultorio:</td>
+            <td class="text-right">-${{ number_format($gastosConsultorio, 2) }}</td>
+        </tr>
+        <tr>
+            <td>Gastos Sueldos:</td>
+            <td class="text-right">-${{ number_format($gastosSueldos, 2) }}</td>
+        </tr>
+        <tr class="fw-bold">
+            <td>TOTAL GASTOS:</td>
+            <td class="text-right">-${{ number_format($totalGastos, 2) }}</td>
+        </tr>
     </table>
 
     <div class="divider-double"></div>
