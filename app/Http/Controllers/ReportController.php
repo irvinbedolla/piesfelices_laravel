@@ -64,8 +64,13 @@ class ReportController extends Controller
 
         $query = Sale::with('seller')
             ->whereBetween('venta_fecha', [$fecha1, $fecha2])
+            // -------------------------------------------------------------
+            // FILTROS ESTRICTOS: SOLO VENTAS PAGADAS Y NO CANCELADAS
+            // -------------------------------------------------------------
+            ->where('status', 'Pagado')
             ->whereIn('venta_tipo', [1, '1', 'PAGADO', 'CONTADO'])
-            ->where('venta_tipo', '!=', 3);
+            ->where('venta_tipo', '!=', 3)
+            ->where('status', '!=', 'CANCELADO');
 
         // Filtro independiente por Sucursal
         if ($sucursal !== 'TODOS' && !empty($sucursal)) {
@@ -77,14 +82,26 @@ class ReportController extends Controller
             $query->where('venta_idempleado', $usuarioId);
         }
 
-        $sales = $query->orderBy('venta_fecha', 'desc')->get();
+        $sales = $query->orderBy('venta_fecha', 'desc')
+                    ->orderBy('venta_id', 'desc')
+                    ->get();
 
         if ($formato === 'excel') {
             $spreadsheet = new Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
             $sheet->setTitle('Ventas Contado');
 
-            $headers = ['A1' => 'FOLIO', 'B1' => 'FECHA', 'C1' => 'HORA', 'D1' => 'CLIENTE', 'E1' => 'VENDEDOR', 'F1' => 'SUCURSAL', 'G1' => 'TIPO PAGO', 'H1' => 'TOTAL'];
+            $headers = [
+                'A1' => 'FOLIO', 
+                'B1' => 'FECHA', 
+                'C1' => 'HORA', 
+                'D1' => 'CLIENTE', 
+                'E1' => 'VENDEDOR', 
+                'F1' => 'SUCURSAL', 
+                'G1' => 'TIPO PAGO', 
+                'H1' => 'TOTAL'
+            ];
+
             foreach ($headers as $cell => $text) {
                 $sheet->setCellValue($cell, $text);
             }
@@ -105,13 +122,18 @@ class ReportController extends Controller
                 $sheet->setCellValue('E' . $row, $vendedor);
                 $sheet->setCellValue('F' . $row, $s->venta_sucursal);
                 $sheet->setCellValue('G' . $row, $s->venta_tipopago);
-                $sheet->setCellValue('H' . $row, $s->venta_total);
+                $sheet->setCellValue('H' . $row, (float)$s->venta_total);
                 $sheet->getStyle("H{$row}")->getNumberFormat()->setFormatCode('$#,##0.00');
                 $row++;
             }
 
+            foreach (range('A', 'H') as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+
             $fileName = "Reporte_Ventas_Contado_{$fecha1}_al_{$fecha2}.xlsx";
             $writer = new Xlsx($spreadsheet);
+            
             header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             header("Content-Disposition: attachment; filename=\"{$fileName}\"");
             $writer->save('php://output');
@@ -143,8 +165,13 @@ class ReportController extends Controller
 
         $query = Sale::with(['seller', 'abonos'])
             ->whereBetween('venta_fecha', [$fecha1, $fecha2])
+            // -------------------------------------------------------------
+            // FILTROS ESTRICTOS: SOLO VENTAS PAGADAS/AUTORIZADAS Y NO CANCELADAS
+            // -------------------------------------------------------------
+            ->where('status', 'Pagado')
             ->whereIn('venta_tipo', [2, '2', 'CREDITO'])
-            ->where('venta_tipo', '!=', 3);
+            ->where('venta_tipo', '!=', 3)
+            ->where('status', '!=', 'CANCELADO');
 
         // Filtro independiente por Sucursal
         if ($sucursal !== 'TODOS' && !empty($sucursal)) {
@@ -156,14 +183,27 @@ class ReportController extends Controller
             $query->where('venta_idempleado', $usuarioId);
         }
 
-        $sales = $query->orderBy('venta_fecha', 'desc')->get();
+        $sales = $query->orderBy('venta_fecha', 'desc')
+                    ->orderBy('venta_id', 'desc')
+                    ->get();
 
         if ($formato === 'excel') {
             $spreadsheet = new Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
             $sheet->setTitle('Ventas a Crédito');
 
-            $headers = ['A1' => 'FOLIO', 'B1' => 'FECHA', 'C1' => 'HORA', 'D1' => 'CLIENTE', 'E1' => 'VENDEDOR', 'F1' => 'SUCURSAL', 'G1' => 'TOTAL', 'H1' => 'ABONO', 'I1' => 'RESTANTE'];
+            $headers = [
+                'A1' => 'FOLIO', 
+                'B1' => 'FECHA', 
+                'C1' => 'HORA', 
+                'D1' => 'CLIENTE', 
+                'E1' => 'VENDEDOR', 
+                'F1' => 'SUCURSAL', 
+                'G1' => 'TOTAL', 
+                'H1' => 'ABONO', 
+                'I1' => 'RESTANTE'
+            ];
+
             foreach ($headers as $cell => $text) {
                 $sheet->setCellValue($cell, $text);
             }
@@ -177,22 +217,34 @@ class ReportController extends Controller
             $row = 2;
             foreach ($sales as $s) {
                 $vendedor = $s->seller->name ?? $s->seller->username ?? 'S/A';
-                $restante = $s->venta_restante > 0 ? $s->venta_restante : ($s->venta_total - $s->venta_abono);
+                
+                // CÁLCULO SEGURO DEL RESTANTE
+                $totalAmount = (float)($s->venta_total ?? 0);
+                $abonoAmount = (float)($s->venta_abono ?? 0);
+                $restante = isset($s->venta_restante) && $s->venta_restante > 0 
+                    ? (float)$s->venta_restante 
+                    : max(0, $totalAmount - $abonoAmount);
+
                 $sheet->setCellValue('A' . $row, $s->venta_id);
                 $sheet->setCellValue('B' . $row, $s->venta_fecha);
                 $sheet->setCellValue('C' . $row, $s->venta_hora);
                 $sheet->setCellValue('D' . $row, $s->nombre_cliente ?? 'Cliente General');
                 $sheet->setCellValue('E' . $row, $vendedor);
                 $sheet->setCellValue('F' . $row, $s->venta_sucursal);
-                $sheet->setCellValue('G' . $row, $s->venta_total);
-                $sheet->setCellValue('H' . $row, $s->venta_abono);
+                $sheet->setCellValue('G' . $row, $totalAmount);
+                $sheet->setCellValue('H' . $row, $abonoAmount);
                 $sheet->setCellValue('I' . $row, $restante);
                 $sheet->getStyle("G{$row}:I{$row}")->getNumberFormat()->setFormatCode('$#,##0.00');
                 $row++;
             }
 
+            foreach (range('A', 'I') as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+
             $fileName = "Reporte_Ventas_Credito_{$fecha1}_al_{$fecha2}.xlsx";
             $writer = new Xlsx($spreadsheet);
+
             header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             header("Content-Disposition: attachment; filename=\"{$fileName}\"");
             $writer->save('php://output');
@@ -328,24 +380,35 @@ class ReportController extends Controller
             $sucursal = $userBranch;
         }
 
-        // Cargamos la relación con 'customer' para asegurar que tengamos acceso al correo
+        // Cargamos la relación con 'customer' para asegurar el acceso al correo
         $query = Sale::with('customer')
             ->whereBetween('venta_fecha', [$fecha1, $fecha2])
-            ->where('venta_factura', 'SI')
-            ->where('venta_tipo', '!=', 3);
+            // -------------------------------------------------------------
+            // FILTROS ESTRICTOS: SOLO VENTAS PAGADAS, FACTURADAS Y NO CANCELADAS
+            // -------------------------------------------------------------
+            ->where('status', 'Pagado')
+            ->where('status', '!=', 'CANCELADO')
+            ->where('venta_tipo', '!=', 3)
+            ->where(function($q) {
+                $q->where('venta_factura', 'SI')
+                ->orWhere('venta_factura', 'si')
+                ->orWhere('venta_factura', '1')
+                ->orWhere('venta_factura', 1);
+            });
 
         if ($sucursal !== 'TODOS' && !empty($sucursal)) {
             $query->where('venta_sucursal', $sucursal);
         }
 
-        $sales = $query->orderBy('numero_factura', 'desc')->get();
+        $sales = $query->orderBy('numero_factura', 'desc')
+                    ->orderBy('venta_id', 'desc')
+                    ->get();
 
         if ($formato === 'excel') {
             $spreadsheet = new Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
             $sheet->setTitle('Facturación');
 
-            // Se agrega 'F1' => 'CORREO' y se recorren las demás columnas hasta L1
             $headers = [
                 'A1' => 'FOLIO / N° VENTA', 
                 'B1' => 'N° FACTURA', 
@@ -373,12 +436,14 @@ class ReportController extends Controller
 
             $row = 2;
             foreach ($sales as $sale) {
-                $subtotal = $sale->venta_total + $sale->venta_descuento;
+                $total     = (float)($sale->venta_total ?? 0);
+                $descuento = (float)($sale->venta_descuento ?? 0);
+                $subtotal  = $total + $descuento;
                 
                 // Prioridad: 1. correo_cliente de la venta | 2. correo de la tabla clientes | 3. 'N/A'
                 $correoCliente = $sale->correo_cliente 
-                    ?? $sale->customer->correo 
-                    ?? $sale->customer->email 
+                    ?? $sale->customer?->correo 
+                    ?? $sale->customer?->email 
                     ?? 'N/A';
 
                 $sheet->setCellValue('A' . $row, $sale->venta_id);
@@ -391,15 +456,21 @@ class ReportController extends Controller
                 $sheet->setCellValue('H' . $row, $sale->venta_sucursal);
                 $sheet->setCellValue('I' . $row, $sale->venta_tipopago);
                 $sheet->setCellValue('J' . $row, $subtotal);
-                $sheet->setCellValue('K' . $row, $sale->venta_descuento);
-                $sheet->setCellValue('L' . $row, $sale->venta_total);
+                $sheet->setCellValue('K' . $row, $descuento);
+                $sheet->setCellValue('L' . $row, $total);
                 
                 $sheet->getStyle("J{$row}:L{$row}")->getNumberFormat()->setFormatCode('$#,##0.00');
                 $row++;
             }
 
+            // Autoajustar ancho de columnas
+            foreach (range('A', 'L') as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+
             $fileName = "Reporte_Facturacion_{$fecha1}_al_{$fecha2}.xlsx";
             $writer = new Xlsx($spreadsheet);
+            
             header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             header("Content-Disposition: attachment; filename=\"{$fileName}\"");
             $writer->save('php://output');

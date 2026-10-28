@@ -152,7 +152,6 @@
                                 <th class="text-end">Medicamento</th>
                                 <th class="text-end">Consulta</th>
                                 <th class="text-end">Calzado</th>
-                                <th class="text-end">General</th>
                                 <th class="text-center">Desc.</th>
                                 <th class="text-end">Total</th>
                                 <th class="text-end">Último Abono</th>
@@ -191,7 +190,6 @@
                                     <td class="text-end fw-semibold">${{ number_format($v->sum_medicamento ?? 0, 2) }}</td>
                                     <td class="text-end fw-semibold">${{ number_format($v->sum_consulta ?? 0, 2) }}</td>
                                     <td class="text-end fw-semibold">${{ number_format($v->sum_calzado ?? 0, 2) }}</td>
-                                    <td class="text-end fw-semibold">${{ number_format($v->sum_general ?? 0, 2) }}</td>
 
                                     {{-- DESCUENTO --}}
                                     <td class="text-center">${{ number_format($v->venta_descuento ?? 0) }}</td>
@@ -348,25 +346,19 @@
                                     <span class="badge bg-success text-white rounded-pill">${{ number_format($summary['total_contado'], 2) }}</span>
                                 </div>
                                 <div class="row g-2">
-                                    <div class="col-6 col-sm-3">
+                                    <div class="col-4">
                                         <div class="bg-white p-2 rounded-3 text-center border">
                                             <small class="text-muted extra-small d-block fw-semibold">CALZADO</small>
                                             <span class="fw-bold text-dark fs-6">${{ number_format($summary['contado_calzado'], 2) }}</span>
                                         </div>
                                     </div>
-                                    <div class="col-6 col-sm-3">
+                                    <div class="col-4">
                                         <div class="bg-white p-2 rounded-3 text-center border">
                                             <small class="text-muted extra-small d-block fw-semibold">MEDICAMENTO</small>
                                             <span class="fw-bold text-dark fs-6">${{ number_format($summary['contado_medicamento'], 2) }}</span>
                                         </div>
                                     </div>
-                                    <div class="col-6 col-sm-3">
-                                        <div class="bg-white p-2 rounded-3 text-center border">
-                                            <small class="text-muted extra-small d-block fw-semibold">GENERAL</small>
-                                            <span class="fw-bold text-dark fs-6">${{ number_format($summary['contado_general'], 2) }}</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-6 col-sm-3">
+                                    <div class="col-4">
                                         <div class="bg-white p-2 rounded-3 text-center border">
                                             <small class="text-muted extra-small d-block fw-semibold">CONSULTA</small>
                                             <span class="fw-bold text-dark fs-6">${{ number_format($summary['contado_consulta'], 2) }}</span>
@@ -384,25 +376,19 @@
                                     <span class="badge bg-warning text-dark rounded-pill">${{ number_format($summary['total_credito'], 2) }}</span>
                                 </div>
                                 <div class="row g-2">
-                                    <div class="col-6 col-sm-3">
+                                    <div class="col-4">
                                         <div class="bg-white p-2 rounded-3 text-center border">
                                             <small class="text-muted extra-small d-block fw-semibold">CALZADO</small>
                                             <span class="fw-bold text-dark fs-6">${{ number_format($summary['credito_calzado'], 2) }}</span>
                                         </div>
                                     </div>
-                                    <div class="col-6 col-sm-3">
+                                    <div class="col-4">
                                         <div class="bg-white p-2 rounded-3 text-center border">
                                             <small class="text-muted extra-small d-block fw-semibold">MEDICAMENTO</small>
                                             <span class="fw-bold text-dark fs-6">${{ number_format($summary['credito_medicamento'], 2) }}</span>
                                         </div>
                                     </div>
-                                    <div class="col-6 col-sm-3">
-                                        <div class="bg-white p-2 rounded-3 text-center border">
-                                            <small class="text-muted extra-small d-block fw-semibold">GENERAL</small>
-                                            <span class="fw-bold text-dark fs-6">${{ number_format($summary['credito_general'], 2) }}</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-6 col-sm-3">
+                                    <div class="col-4">
                                         <div class="bg-white p-2 rounded-3 text-center border">
                                             <small class="text-muted extra-small d-block fw-semibold">CONSULTA</small>
                                             <span class="fw-bold text-dark fs-6">${{ number_format($summary['credito_consulta'], 2) }}</span>
@@ -482,8 +468,6 @@
                             <span>Total Calzado: <strong class="text-dark">${{ number_format($summary['total_calzado'], 2) }}</strong></span>
                             <span>|</span>
                             <span>Total Medicamento: <strong class="text-dark">${{ number_format($summary['total_medicamento'], 2) }}</strong></span>
-                            <span>|</span>
-                            <span>Total General: <strong class="text-dark">${{ number_format($summary['total_general'], 2) }}</strong></span>
                             <span>|</span>
                             <span>Total Consultas: <strong class="text-dark">${{ number_format($summary['total_consulta'], 2) }}</strong></span>
                         </div>

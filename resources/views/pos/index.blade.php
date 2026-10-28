@@ -1020,22 +1020,39 @@
             document.querySelectorAll('.assign-seller-btn').forEach(btn => {
                 btn.addEventListener('click', function () {
                     if (isProcessing) return;
+                    
+                    const sellerId = this.getAttribute('data-id');
+
                     isProcessing = true;
                     showLoading();
-
-                    const sellerId = this.getAttribute('data-id');
 
                     fetch("{{ url('pos') }}/" + saleId + "/header", {
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Accept': 'application/json',
                             'X-CSRF-TOKEN': '{{ csrf_token() }}'
                         },
                         body: JSON.stringify({ venta_idempleado: sellerId })
                     })
-                    .then(res => res.json())
+                    .then(async res => {
+                        const data = await res.json();
+                        if (!res.ok) {
+                            throw new Error(data.message || 'Error al cambiar de vendedor.');
+                        }
+                        return data;
+                    })
                     .then(data => {
-                        if (data.success) location.reload();
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            throw new Error(data.message || 'No se pudo actualizar el vendedor.');
+                        }
+                    })
+                    .catch(err => {
+                        isProcessing = false;
+                        hideLoading();
+                        alert(err.message);
                     });
                 });
             });

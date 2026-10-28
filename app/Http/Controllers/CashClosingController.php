@@ -65,13 +65,14 @@ class CashClosingController extends Controller
 
         $typeStrCol = Schema::hasColumn('products', 'type') ? 'products.type' : DB::raw("''");
 
-        // Consulta de ventas usando LEFT JOIN
+        // Consulta de ventas usando LEFT JOIN (Filtrando pagadas y activas)
         $querySales = DB::table('ventas')
             ->leftJoin('venta_producto', 'ventas.venta_id', '=', 'venta_producto.venta_id')
             ->leftJoin('products', 'venta_producto.producto_id', '=', 'products.id')
             ->whereBetween('ventas.venta_fecha', [$fecha1, $fecha2])
-            ->where('ventas.venta_tipo', '!=', 3) // Excluir cancelados
-            ->where('ventas.venta_tipo', '!=', 'CANCELADO')
+            ->where('ventas.status', 'Pagado')
+            ->where('ventas.venta_tipo', '!=', 3)
+            ->where('ventas.status', '!=', 'CANCELADO')
             ->select(
                 'ventas.venta_id',
                 'ventas.venta_tipo',
@@ -105,24 +106,29 @@ class CashClosingController extends Controller
         $descuentoContado = 0;
         $descuentoCredito = 0;
 
-        // Rastreo de IDs procesados para no duplicar el descuento de la misma venta por cada producto
         $processedSalesForDiscount = [];
 
         foreach ($salesData as $item) {
-            $monto = (float)($item->cantidad ?? 1) * (float)($item->precio ?? $item->venta_total ?? 0);
+            $qty = (float)($item->cantidad ?? 1);
+            $price = (float)($item->precio ?? 0);
+            $monto = $qty * $price;
+
             $productId = (int)($item->producto_id ?? 0);
             $catId     = (int)($item->producto_categoria ?? 0);
             $tipoStr   = strtoupper($item->producto_tipo_str ?? '');
 
-            // Clasificación de Categoria
-            $cat = 'consulta';
-            if ($productId !== 0) {
+            // ------------------------------------------------------------------
+            // REGLA DE CLASIFICACIÓN CORREGIDA:
+            // ------------------------------------------------------------------
+            if ($productId === 0) {
+                // Si no hay ID de producto, es un Servicio / Consulta
+                $cat = 'consulta';
+            } else {
+                // Si hay producto, verificar si es Calzado; de lo contrario, TODO es MEDICAMENTO
                 if ($catId === 3 || $tipoStr === 'CALZADO' || $item->producto_categoria == 3) {
                     $cat = 'calzado';
-                } elseif ($catId === 2 || $tipoStr === 'MEDICAMENTO' || $item->producto_categoria == 2) {
-                    $cat = 'medicamento';
                 } else {
-                    $cat = 'consulta';
+                    $cat = 'medicamento';
                 }
             }
 
@@ -138,7 +144,7 @@ class CashClosingController extends Controller
                 $contado[$cat] += $monto;
             }
 
-            // Sumar el descuento en pesos ($) de la cabecera de la venta solo una vez por venta
+            // Descuentos por venta
             if (!in_array($item->venta_id, $processedSalesForDiscount)) {
                 $processedSalesForDiscount[] = $item->venta_id;
                 $desc = (float)($item->venta_descuento ?? 0);
@@ -176,44 +182,24 @@ class CashClosingController extends Controller
 
         $retiros = $queryRetiros->get();
 
-        // Detectar el campo de monto de retiros
-        $montoCol = Schema::hasColumn('retiros', 'cantidad') ? 'cantidad' : 'cantidad';
+        $montoCol = Schema::hasColumn('retiros', 'cantidad') ? 'cantidad' : 'monto';
 
-        // Gastos Proveedores (Tipo 1)
-        $gastosProveedor = $retiros->where('tipo', 1)->sum($montoCol);
+        $gastosProveedor   = $retiros->where('tipo', 1)->sum($montoCol);
         $gastosConsultorio = $retiros->where('tipo', 2)->sum($montoCol);
-        $gastosSueldos = $retiros->where('tipo', 3)->sum($montoCol);
-
-        /*
-        // Gastos Consultorio: Tipo 2 descartando los que digan 'SUELDO'
-        $gastosConsultorio = $retiros->filter(function($r) {
-            $concepto = strtoupper($r->concepto ?? $r->motivo ?? '');
-            return (int)$r->tipo === 2 && !str_contains($concepto, 'SUELDO');
-        })->sum($montoCol);
-
-        // Gastos Sueldos: Tipo 3 O cualquier concepto que diga 'SUELDO'
-        $gastosSueldos = $retiros->filter(function($r) {
-            $concepto = strtoupper($r->concepto ?? $r->motivo ?? '');
-            return (int)$r->tipo === 3 || str_contains($concepto, 'SUELDO');
-        })->sum($montoCol);
-        */
-        // Total de Gastos
-        $totalGastos = $retiros->sum($montoCol);
+        $gastosSueldos     = $retiros->where('tipo', 3)->sum($montoCol);
+        $totalGastos       = $retiros->sum($montoCol);
 
         // Subtotales antes de descuento
-        $subtotalCredito   = array_sum($credito);
-        $subtotalContado   = array_sum($contado);
-        $totalLiquidado    = array_sum($liquidado);
+        $subtotalCredito = array_sum($credito);
+        $subtotalContado = array_sum($contado);
+        $totalLiquidado  = array_sum($liquidado);
 
-        // Totales netos descontando el descuento de ventas
-        $totalCredito = $subtotalCredito - $descuentoCredito;
-        $totalContado = $subtotalContado - $descuentoContado;
+        // Totales netos
+        $totalCredito = max(0, $subtotalCredito - $descuentoCredito);
+        $totalContado = max(0, $subtotalContado - $descuentoContado);
 
         // FÓRMULAS DE TOTALES FINAL EN CAJA:
-        // Efectivo en Caja = Contado Neto + Abonos Cobrados - Gastos Totales
         $totalEfectivoNeto       = ($totalContado + $totalAbonos) - $totalGastos;
-
-        // Total Neto con Crédito = Efectivo Neto + Crédito Neto
         $totalEfectivoMasCredito = $totalEfectivoNeto + $totalCredito;
 
         $pdf = Pdf::loadView('cash_closing.daily', compact(

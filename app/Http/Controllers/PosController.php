@@ -331,6 +331,49 @@ class PosController extends Controller
                 }
 
                 if ($canChangeSeller && $newSeller) {
+
+                    // Determinar el ID y Nombre de la nueva sucursal
+                    $newBranchId = $newSeller->branch_id 
+                        ?? $newSeller->sucursal_id 
+                        ?? Branch::where('name', $newSeller->sucursal)->value('id') 
+                        ?? 1;
+
+                    $newBranchName = Branch::find($newBranchId)?->name 
+                        ?? $newSeller->sucursal 
+                        ?? $sale->venta_sucursal;
+
+                    // -------------------------------------------------------------
+                    // VALIDACIÓN DE INVENTARIO EN LA NUEVA SUCURSAL
+                    // -------------------------------------------------------------
+                    if ($sale->venta_sucursal !== $newBranchName && $sale->items->count() > 0) {
+                        $stockErrors = [];
+
+                        foreach ($sale->items as $item) {
+                            $pId = (int) ($item->producto_id ?? $item->product_id ?? 0);
+                            
+                            // Si es consulta/servicio (pId <= 0), se omite
+                            if ($pId <= 0) continue;
+
+                            // Consultar stock en la tabla pivote de la nueva sucursal
+                            $pivot = DB::table('branch_product')
+                                ->where('product_id', $pId)
+                                ->where('branch_id', $newBranchId)
+                                ->first();
+
+                            $availableStock = $pivot ? (int) $pivot->stock_current : 0;
+
+                            if ($availableStock < $item->cantidad) {
+                                $stockErrors[] = "• {$item->nombre}: Solicitado {$item->cantidad}, Disponible: {$availableStock}";
+                            }
+                        }
+
+                        // Si hay productos sin stock suficiente, rechazar el cambio
+                        if (count($stockErrors) > 0) {
+                            $msg = "No se puede cambiar al vendedor a la sucursal ({$newBranchName}) por falta de stock:\n" . implode("\n", $stockErrors);
+                            return response()->json(['success' => false, 'message' => $msg], 422);
+                        }
+                    }
+
                     $fields['venta_idempleado'] = $newSellerId;
                     $branchName = Branch::find($newSeller->branch_id ?? $newSeller->sucursal_id)?->name 
                         ?? $newSeller->sucursal 
@@ -636,4 +679,90 @@ class PosController extends Controller
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
     }
+
+    public function checkBranchStock(Request $request)
+    {
+        $request->validate([
+            'employee_id' => 'required',
+            'items'       => 'required|array',
+        ]);
+
+        // 1. Obtener el nuevo empleado y su sucursal
+        $newEmployee = User::find($request->employee_id);
+
+        if (!$newEmployee) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El empleado seleccionado no existe.'
+            ], 404);
+        }
+
+        $newBranch = $newEmployee->branch?->name ?? $newEmployee->branch_name ?? $newEmployee->sucursal ?? 'MATRIZ';
+
+        $itemsWithErrors = [];
+
+        // 2. Recorrer los artículos del carrito
+        foreach ($request->items as $item) {
+            $productId = (int)($item['producto_id'] ?? $item['id'] ?? 0);
+            $requestedQty = (float)($item['cantidad'] ?? 1);
+
+            // Si es una consulta / servicio (ID 0), no requiere stock físico
+            if ($productId === 0) {
+                continue;
+            }
+
+            // 3. Buscar el producto y consultar su stock en la nueva sucursal
+            // Si manejas stock general en 'products' o por sucursal en 'product_branch' / 'inventarios':
+            $product = Product::find($productId);
+
+            if (!$product) {
+                $itemsWithErrors[] = [
+                    'id' => $productId,
+                    'nombre' => $item['nombre'] ?? 'Producto no encontrado',
+                    'reason' => 'El producto no existe en el catálogo general.',
+                    'available' => 0
+                ];
+                continue;
+            }
+
+            // EJEMPLO A: Si tienes una tabla pivote o de stock por sucursal
+            /*
+            $stock = DB::table('inventario_sucursal')
+                ->where('producto_id', $productId)
+                ->where('sucursal', $newBranch)
+                ->value('stock') ?? 0;
+            */
+
+            // EJEMPLO B: Si la columna de stock está directo en la tabla de productos
+            $stock = (float)($product->stock ?? 0);
+
+            if ($stock < $requestedQty) {
+                $itemsWithErrors[] = [
+                    'id' => $productId,
+                    'nombre' => $product->name ?? $product->nombre ?? $item['nombre'] ?? "Artículo #{$productId}",
+                    'requested' => $requestedQty,
+                    'available' => $stock,
+                    'reason' => $stock <= 0 
+                        ? 'No existe en la nueva sucursal' 
+                        : "Stock insuficiente (Disponible: {$stock}, Solicitado: {$requestedQty})"
+                ];
+            }
+        }
+
+        if (count($itemsWithErrors) > 0) {
+            return response()->json([
+                'success' => false,
+                'new_branch' => $newBranch,
+                'errors' => $itemsWithErrors,
+                'message' => 'Algunos artículos del carrito no están disponibles en la sucursal del nuevo empleado.'
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'new_branch' => $newBranch,
+            'message' => 'Todos los artículos están disponibles en la nueva sucursal.'
+        ]);
+    }
+
 }
