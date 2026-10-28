@@ -33,8 +33,13 @@ class Sale extends Model
         'venta_tipo_factura',
         'venta_tipo',
         'total',
+        'status',
     ];
 
+    protected $attributes = [
+        'status' => 'Pendiente',
+    ];
+    
     public function items()
     {
         return $this->hasMany(SaleItem::class, 'venta_id', 'venta_id');

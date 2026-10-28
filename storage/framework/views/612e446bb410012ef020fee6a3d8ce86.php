@@ -431,8 +431,72 @@
                     </div>
 
                     
+                    <div class="row g-3 mt-1">
+                        <div class="col-12">
+                            <div class="card border-0 shadow-sm rounded-4 p-3 bg-light border-start border-4 border-info">
+                                <?php
+                                    $totalFormasPago = $summary['pago_efectivo'] + $summary['pago_tarjeta_credito'] + $summary['pago_tarjeta_debito'] + $summary['pago_transferencia'] + ($summary['pago_otros'] ?? 0);
+                                ?>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="fw-bold text-info-emphasis">
+                                        <i class="fa-solid fa-wallet me-1"></i> Desglose por Forma de Pago
+                                    </span>
+                                    <span class="badge bg-info text-white rounded-pill px-3">
+                                        Total Formas de Pago: $<?php echo e(number_format($totalFormasPago, 2)); ?>
+
+                                    </span>
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-6 col-md-2-4 col-lg">
+                                        <div class="bg-white p-2 rounded-3 text-center border">
+                                            <small class="text-muted extra-small d-block fw-semibold">
+                                                <i class="fa-solid fa-money-bill text-success me-1"></i>EFECTIVO
+                                            </small>
+                                            <span class="fw-bold text-dark fs-6">$<?php echo e(number_format($summary['pago_efectivo'], 2)); ?></span>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 col-md-2-4 col-lg">
+                                        <div class="bg-white p-2 rounded-3 text-center border">
+                                            <small class="text-muted extra-small d-block fw-semibold">
+                                                <i class="fa-solid fa-credit-card text-primary me-1"></i>T. CRÉDITO
+                                            </small>
+                                            <span class="fw-bold text-dark fs-6">$<?php echo e(number_format($summary['pago_tarjeta_credito'], 2)); ?></span>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 col-md-2-4 col-lg">
+                                        <div class="bg-white p-2 rounded-3 text-center border">
+                                            <small class="text-muted extra-small d-block fw-semibold">
+                                                <i class="fa-solid fa-credit-card text-info me-1"></i>T. DÉBITO
+                                            </small>
+                                            <span class="fw-bold text-dark fs-6">$<?php echo e(number_format($summary['pago_tarjeta_debito'], 2)); ?></span>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 col-md-2-4 col-lg">
+                                        <div class="bg-white p-2 rounded-3 text-center border">
+                                            <small class="text-muted extra-small d-block fw-semibold">
+                                                <i class="fa-solid fa-building-columns text-warning me-1"></i>TRANSFERENCIA
+                                            </small>
+                                            <span class="fw-bold text-dark fs-6">$<?php echo e(number_format($summary['pago_transferencia'], 2)); ?></span>
+                                        </div>
+                                    </div>
+                                    <?php if(($summary['pago_otros'] ?? 0) > 0): ?>
+                                        <div class="col-6 col-md-2-4 col-lg">
+                                            <div class="bg-white p-2 rounded-3 text-center border">
+                                                <small class="text-muted extra-small d-block fw-semibold">
+                                                    <i class="fa-solid fa-circle-ellipsis text-secondary me-1"></i>OTROS
+                                                </small>
+                                                <span class="fw-bold text-dark fs-6">$<?php echo e(number_format($summary['pago_otros'], 2)); ?></span>
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    
                     <div class="d-flex flex-wrap justify-content-between align-items-center mt-3 pt-2">
-                        <div class="d-flex gap-3 text-muted extra-small fw-semibold">
+                        <div class="d-flex flex-wrap gap-3 text-muted extra-small fw-semibold">
                             <span>Total Calzado: <strong class="text-dark">$<?php echo e(number_format($summary['total_calzado'], 2)); ?></strong></span>
                             <span>|</span>
                             <span>Total Medicamento: <strong class="text-dark">$<?php echo e(number_format($summary['total_medicamento'], 2)); ?></strong></span>

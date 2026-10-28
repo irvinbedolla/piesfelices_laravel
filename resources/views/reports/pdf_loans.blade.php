@@ -62,9 +62,19 @@
             text-align: left;
         }
         td {
-            padding: 8px 10px;
+            padding: 6px 10px;
             border-bottom: 1px solid #e9ecef;
             font-size: 11px;
+        }
+        .loan-row {
+            background-color: #ffffff;
+            font-weight: bold;
+        }
+        .abono-row td {
+            padding-top: 3px;
+            padding-bottom: 3px;
+            border-bottom: 1px dashed #f0f0f0;
+            font-size: 10px;
         }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
@@ -122,15 +132,48 @@
         </thead>
         <tbody>
             @forelse($loans as $l)
-                <tr>
+                @php
+                    // Obtener los abonos correspondientes al préstamo
+                    $abonosDelPrestamo = $abonosPorPrestamo->get($l->pres_id, collect());
+                    $totalAbonadoPrestamo = $abonosDelPrestamo->sum('monto');
+                    $restanteReal = $l->pres_costo - $totalAbonadoPrestamo;
+                @endphp
+
+                <!-- Renglón Principal del Préstamo -->
+                <tr class="loan-row">
                     <td>
                         <div class="fw-bold">{{ strtoupper($l->pres_descripcion) }}</div>
-                        <small style="color: #6c757d;">Abonos: ----------</small>
                     </td>
                     <td class="text-center">{{ $l->pres_fecha }}</td>
                     <td class="text-right fw-bold">${{ number_format($l->pres_costo, 2) }}</td>
-                    <td class="text-right fw-bold text-danger">${{ number_format($l->pres_restante, 2) }}</td>
+                    <td class="text-right fw-bold text-danger">${{ number_format($restanteReal, 2) }}</td>
                 </tr>
+
+                <!-- Desglose de Abonos (Incluye abonos con fechas posteriores) -->
+                @if($abonosDelPrestamo->count() > 0)
+                    <tr class="abono-row">
+                        <td colspan="4" style="color: #8e24aa; font-weight: bold; padding-left: 15px; background-color: #fcf4ff;">
+                            Abonos:
+                        </td>
+                    </tr>
+                    @foreach($abonosDelPrestamo as $abono)
+                        <tr class="abono-row">
+                            <td colspan="2" style="padding-left: 25px; color: #495057;">
+                                Fecha abono: {{ $abono->fechaPretamo }}
+                            </td>
+                            <td colspan="2" class="text-right" style="color: #2e7d32; font-weight: bold;">
+                                Total de abono: ${{ number_format($abono->monto, 2) }}
+                            </td>
+                        </tr>
+                    @endforeach
+                @else
+                    <tr class="abono-row">
+                        <td colspan="4" style="padding-left: 25px; color: #adb5bd; font-style: italic;">
+                            Sin abonos registrados
+                        </td>
+                    </tr>
+                @endif
+
             @empty
                 <tr>
                     <td colspan="4" class="text-center py-3" style="color: #6c757d;">
@@ -141,7 +184,7 @@
         </tbody>
     </table>
 
-    {{-- BLOQUE DE TOTALES TIPO TICKET / EJECUTIVO --}}
+    {{-- BLOQUE DE TOTALES --}}
     <div class="summary-box">
         <div class="summary-row">
             <span class="summary-label">Total Préstamo:</span>
@@ -156,13 +199,11 @@
             <span class="summary-label">Restante:</span>
             <span class="summary-value" style="color: #c62828;">${{ number_format($totalRestante, 2) }}</span>
         </div>
-        @if($prestamosPersonales > 0)
-            <div class="divider"></div>
-            <div class="summary-row">
-                <span class="summary-label">Préstamos Personales:</span>
-                <span class="summary-value" style="color: #8e24aa;">${{ number_format($prestamosPersonales, 2) }}</span>
-            </div>
-        @endif
+        <div class="divider"></div>
+        <div class="summary-row">
+            <span class="summary-label">Préstamos Personales:</span>
+            <span class="summary-value" style="color: #8e24aa;">${{ number_format($prestamosPersonales, 2) }}</span>
+        </div>
     </div>
 
 </body>

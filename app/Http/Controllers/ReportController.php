@@ -218,20 +218,57 @@ class ReportController extends Controller
             $sucursal = $userBranch;
         }
 
-        $queryLoans = Loan::whereBetween('pres_fecha', [$fecha1, $fecha2]);
+        // 1. Obtener SÓLO los préstamos creados en el rango de fechas
+        $queryLoans = DB::table('prestamos')
+            ->whereBetween('pres_fecha', [$fecha1, $fecha2]);
+
         if ($sucursal !== 'TODOS' && !empty($sucursal)) {
             $queryLoans->where('sucursal', $sucursal);
         }
+
         $loans = $queryLoans->orderBy('pres_fecha', 'desc')->get();
 
+        // Obtener los IDs de los préstamos filtrados
+        $prestamoIds = $loans->pluck('pres_id')->toArray();
+
+        // 2. Traer TODOS los abonos de esos préstamos (SIN filtrar por fechaPretamo)
+        // Esto permite incluir abonos posteriores al rango (ej. día 21) tal como en el sistema legacy
+        $abonos = [];
+        $totalAbonos = 0;
+
+        if (!empty($prestamoIds)) {
+            $queryAbonos = DB::table('pago_prestamo')
+                ->whereIn('idPrestamo', $prestamoIds);
+
+            if ($sucursal !== 'TODOS' && !empty($sucursal)) {
+                $queryAbonos->where('sucursal', $sucursal);
+            }
+
+            $abonos = $queryAbonos->get();
+            // Suma acumulada idéntica a la variable $total_abono del 'while' legacy
+            $totalAbonos = $abonos->sum('monto');
+        }
+
+        // 3. Totales exactos del reporte
         $totalPrestamos = $loans->sum('pres_costo');
-        $totalRestante  = $loans->sum('pres_restante');
-        $totalAbonos    = $totalPrestamos - $totalRestante;
+        $totalRestante  = $totalPrestamos - $totalAbonos;
 
-        $prestamosPersonales = Loan::whereBetween('pres_fecha', [$fecha1, $fecha2])
-            ->where('pres_descripcion', 'LIKE', '%PERSONAL%')
-            ->sum('pres_costo');
+        // 4. Préstamos Personales (Fórmula legacy: Totalprestamo_pagos - total_abono)
+        // $Totalprestamo_pagos en legacy sumaba los abonos cuya fechaPretamo SÍ estaba en el rango
+        $queryPagosRango = DB::table('pago_prestamo')
+            ->whereBetween('fechaPretamo', [$fecha1, $fecha2]);
 
+        if ($sucursal !== 'TODOS' && !empty($sucursal)) {
+            $queryPagosRango->where('sucursal', $sucursal);
+        }
+
+        $totalPrestamoPagos = $queryPagosRango->sum('monto');
+        $prestamosPersonales = $totalPrestamoPagos - $totalAbonos;
+
+        // Agrupar abonos por préstamo para pasarlos organizados a la vista Blade
+        $abonosPorPrestamo = collect($abonos)->groupBy('idPrestamo');
+
+        // EXCEL
         if ($formato === 'excel') {
             $spreadsheet = new Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
@@ -254,7 +291,7 @@ class ReportController extends Controller
                 $sheet->setCellValue('B' . $row, $l->pres_fecha);
                 $sheet->setCellValue('C' . $row, $l->sucursal);
                 $sheet->setCellValue('D' . $row, $l->pres_costo);
-                $sheet->setCellValue('E' . $row, $l->pres_restante);
+                $sheet->setCellValue('E' . $row, $l->pres_costo - ($abonosPorPrestamo->get($l->pres_id)?->sum('monto') ?? 0));
                 $sheet->getStyle("D{$row}:E{$row}")->getNumberFormat()->setFormatCode('$#,##0.00');
                 $row++;
             }
@@ -267,7 +304,12 @@ class ReportController extends Controller
             exit;
         }
 
-        $pdf = Pdf::loadView('reports.pdf_loans', compact('loans', 'fecha1', 'fecha2', 'sucursal', 'totalPrestamos', 'totalAbonos', 'totalRestante', 'prestamosPersonales'));
+        // PDF
+        $pdf = Pdf::loadView('reports.pdf_loans', compact(
+            'loans', 'abonosPorPrestamo', 'fecha1', 'fecha2', 'sucursal', 
+            'totalPrestamos', 'totalAbonos', 'totalRestante', 'prestamosPersonales'
+        ));
+
         return $pdf->setPaper('letter', 'portrait')->stream("Reporte_Prestamos_{$fecha1}_al_{$fecha2}.pdf");
     }
 
@@ -286,7 +328,9 @@ class ReportController extends Controller
             $sucursal = $userBranch;
         }
 
-        $query = Sale::whereBetween('venta_fecha', [$fecha1, $fecha2])
+        // Cargamos la relación con 'customer' para asegurar que tengamos acceso al correo
+        $query = Sale::with('customer')
+            ->whereBetween('venta_fecha', [$fecha1, $fecha2])
             ->where('venta_factura', 'SI')
             ->where('venta_tipo', '!=', 3);
 
@@ -294,19 +338,34 @@ class ReportController extends Controller
             $query->where('venta_sucursal', $sucursal);
         }
 
-        $sales = $query->orderBy('venta_fecha', 'desc')->get();
+        $sales = $query->orderBy('numero_factura', 'desc')->get();
 
         if ($formato === 'excel') {
             $spreadsheet = new Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
             $sheet->setTitle('Facturación');
 
-            $headers = ['A1' => 'FOLIO / N° VENTA', 'B1' => 'N° FACTURA', 'C1' => 'FECHA', 'D1' => 'HORA', 'E1' => 'CLIENTE', 'F1' => 'RFC / CFDI', 'G1' => 'SUCURSAL', 'H1' => 'TIPO PAGO', 'I1' => 'SUBTOTAL', 'J1' => 'DESCUENTO', 'K1' => 'TOTAL FACTURADO'];
+            // Se agrega 'F1' => 'CORREO' y se recorren las demás columnas hasta L1
+            $headers = [
+                'A1' => 'FOLIO / N° VENTA', 
+                'B1' => 'N° FACTURA', 
+                'C1' => 'FECHA', 
+                'D1' => 'HORA', 
+                'E1' => 'CLIENTE', 
+                'F1' => 'CORREO',
+                'G1' => 'RFC / CFDI', 
+                'H1' => 'SUCURSAL', 
+                'I1' => 'TIPO PAGO', 
+                'J1' => 'SUBTOTAL', 
+                'K1' => 'DESCUENTO', 
+                'L1' => 'TOTAL FACTURADO'
+            ];
+
             foreach ($headers as $cell => $text) {
                 $sheet->setCellValue($cell, $text);
             }
 
-            $sheet->getStyle('A1:K1')->applyFromArray([
+            $sheet->getStyle('A1:L1')->applyFromArray([
                 'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
                 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '8E24AA']],
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
@@ -315,18 +374,27 @@ class ReportController extends Controller
             $row = 2;
             foreach ($sales as $sale) {
                 $subtotal = $sale->venta_total + $sale->venta_descuento;
+                
+                // Prioridad: 1. correo_cliente de la venta | 2. correo de la tabla clientes | 3. 'N/A'
+                $correoCliente = $sale->correo_cliente 
+                    ?? $sale->customer->correo 
+                    ?? $sale->customer->email 
+                    ?? 'N/A';
+
                 $sheet->setCellValue('A' . $row, $sale->venta_id);
                 $sheet->setCellValue('B' . $row, $sale->numero_factura ?? 'S/N');
                 $sheet->setCellValue('C' . $row, $sale->venta_fecha);
                 $sheet->setCellValue('D' . $row, $sale->venta_hora);
                 $sheet->setCellValue('E' . $row, $sale->nombre_cliente ?? 'Cliente General');
-                $sheet->setCellValue('F' . $row, $sale->venta_cfdi ?? 'G03');
-                $sheet->setCellValue('G' . $row, $sale->venta_sucursal);
-                $sheet->setCellValue('H' . $row, $sale->venta_tipopago);
-                $sheet->setCellValue('I' . $row, $subtotal);
-                $sheet->setCellValue('J' . $row, $sale->venta_descuento);
-                $sheet->setCellValue('K' . $row, $sale->venta_total);
-                $sheet->getStyle("I{$row}:K{$row}")->getNumberFormat()->setFormatCode('$#,##0.00');
+                $sheet->setCellValue('F' . $row, $correoCliente);
+                $sheet->setCellValue('G' . $row, $sale->venta_cfdi ?? 'G03');
+                $sheet->setCellValue('H' . $row, $sale->venta_sucursal);
+                $sheet->setCellValue('I' . $row, $sale->venta_tipopago);
+                $sheet->setCellValue('J' . $row, $subtotal);
+                $sheet->setCellValue('K' . $row, $sale->venta_descuento);
+                $sheet->setCellValue('L' . $row, $sale->venta_total);
+                
+                $sheet->getStyle("J{$row}:L{$row}")->getNumberFormat()->setFormatCode('$#,##0.00');
                 $row++;
             }
 

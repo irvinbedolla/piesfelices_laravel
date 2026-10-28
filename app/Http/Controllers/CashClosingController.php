@@ -65,12 +65,12 @@ class CashClosingController extends Controller
 
         $typeStrCol = Schema::hasColumn('products', 'type') ? 'products.type' : DB::raw("''");
 
-        // Consulta de ventas usando LEFT JOIN en caso de que venta_producto esté vacío o use producto_id = 0
+        // Consulta de ventas usando LEFT JOIN
         $querySales = DB::table('ventas')
             ->leftJoin('venta_producto', 'ventas.venta_id', '=', 'venta_producto.venta_id')
             ->leftJoin('products', 'venta_producto.producto_id', '=', 'products.id')
             ->whereBetween('ventas.venta_fecha', [$fecha1, $fecha2])
-            ->where('ventas.venta_tipo', '!=', 3) // Excluir cancelados si aplica
+            ->where('ventas.venta_tipo', '!=', 3) // Excluir cancelados
             ->where('ventas.venta_tipo', '!=', 'CANCELADO')
             ->select(
                 'ventas.venta_id',
@@ -97,32 +97,35 @@ class CashClosingController extends Controller
 
         $salesData = $querySales->get();
 
-        // Acumuladores iniciales
-        $credito   = ['medicamento' => 0, 'calzado' => 0, 'consulta' => 0, 'descuento' => 0];
-        $contado   = ['medicamento' => 0, 'calzado' => 0, 'consulta' => 0, 'descuento' => 0];
-        $liquidado = ['medicamento' => 0, 'calzado' => 0, 'consulta' => 0, 'descuento' => 0];
+        // Acumuladores
+        $credito   = ['medicamento' => 0, 'calzado' => 0, 'consulta' => 0];
+        $contado   = ['medicamento' => 0, 'calzado' => 0, 'consulta' => 0];
+        $liquidado = ['medicamento' => 0, 'calzado' => 0, 'consulta' => 0];
+
+        $descuentoContado = 0;
+        $descuentoCredito = 0;
+
+        // Rastreo de IDs procesados para no duplicar el descuento de la misma venta por cada producto
+        $processedSalesForDiscount = [];
 
         foreach ($salesData as $item) {
-            // Calcular subtotal de la fila
             $monto = (float)($item->cantidad ?? 1) * (float)($item->precio ?? $item->venta_total ?? 0);
             $productId = (int)($item->producto_id ?? 0);
             $catId     = (int)($item->producto_categoria ?? 0);
             $tipoStr   = strtoupper($item->producto_tipo_str ?? '');
 
-            // Clasificación por categoría
-            $cat = 'consulta'; // Por defecto (producto_id == 0)
-            
+            // Clasificación de Categoria
+            $cat = 'consulta';
             if ($productId !== 0) {
                 if ($catId === 3 || $tipoStr === 'CALZADO' || $item->producto_categoria == 3) {
                     $cat = 'calzado';
                 } elseif ($catId === 2 || $tipoStr === 'MEDICAMENTO' || $item->producto_categoria == 2) {
                     $cat = 'medicamento';
                 } else {
-                    $cat = 'consulta'; // O categoría general
+                    $cat = 'consulta';
                 }
             }
 
-            // Tipo de Venta (1: Contado/Pagado, 2: Crédito, 3: Liquidada/Cancelada)
             $tipoVenta = (int)$item->venta_tipo;
 
             if ($tipoVenta === 2 || $tipoVenta === 'CREDITO') {
@@ -132,14 +135,25 @@ class CashClosingController extends Controller
             } elseif ($tipoVenta === 3) {
                 $liquidado[$cat] += $monto;
             } else {
-                // Por defecto si no coincide el entero
                 $contado[$cat] += $monto;
+            }
+
+            // Sumar el descuento en pesos ($) de la cabecera de la venta solo una vez por venta
+            if (!in_array($item->venta_id, $processedSalesForDiscount)) {
+                $processedSalesForDiscount[] = $item->venta_id;
+                $desc = (float)($item->venta_descuento ?? 0);
+
+                if ($tipoVenta === 2 || $tipoVenta === 'CREDITO') {
+                    $descuentoCredito += $desc;
+                } else {
+                    $descuentoContado += $desc;
+                }
             }
         }
 
-        // Consultar Abonos en el Periodo
+        // Consultar Abonos
         $queryAbonos = DB::table('abonos')->whereBetween('abono_fecha', [$fecha1, $fecha2]);
-        if (!empty($branchesSelected)) {
+        if (!empty($branchesSelected) && is_array($branchesSelected)) {
             $queryAbonos->whereIn('abono_sucursal', $branchesSelected);
         } elseif ($sucursalSingle && $sucursalSingle !== 'TODOS') {
             $queryAbonos->where('abono_sucursal', $sucursalSingle);
@@ -149,35 +163,68 @@ class CashClosingController extends Controller
         // Consultar Retiros / Gastos
         $queryRetiros = DB::table('retiros')
             ->whereBetween('fecha', [$fecha1, $fecha2])
-            ->where('status', 'Activo');
+            ->where(function($q) {
+                $q->where('status', 'Activo')
+                ->orWhere('status', 'activo');
+            });
 
-        if (!empty($branchesSelected)) {
+        if (!empty($branchesSelected) && is_array($branchesSelected)) {
             $queryRetiros->whereIn('sucursal', $branchesSelected);
         } elseif ($sucursalSingle && $sucursalSingle !== 'TODOS') {
             $queryRetiros->where('sucursal', $sucursalSingle);
         }
 
         $retiros = $queryRetiros->get();
-        $gastosProveedor   = $retiros->where('tipo', 1)->sum('cantidad');
-        $gastosConsultorio = $retiros->where('tipo', 2)->sum('cantidad');
-        $gastosSueldos     = $retiros->where('tipo', 3)->sum('cantidad');
-        $totalGastos       = $retiros->sum('cantidad');
 
-        // Totales Generales
-        $totalCredito   = array_sum($credito);
-        $totalContado   = array_sum($contado);
-        $totalLiquidado = array_sum($liquidado);
+        // Detectar el campo de monto de retiros
+        $montoCol = Schema::hasColumn('retiros', 'cantidad') ? 'cantidad' : 'cantidad';
 
+        // Gastos Proveedores (Tipo 1)
+        $gastosProveedor = $retiros->where('tipo', 1)->sum($montoCol);
+        $gastosConsultorio = $retiros->where('tipo', 2)->sum($montoCol);
+        $gastosSueldos = $retiros->where('tipo', 3)->sum($montoCol);
+
+        /*
+        // Gastos Consultorio: Tipo 2 descartando los que digan 'SUELDO'
+        $gastosConsultorio = $retiros->filter(function($r) {
+            $concepto = strtoupper($r->concepto ?? $r->motivo ?? '');
+            return (int)$r->tipo === 2 && !str_contains($concepto, 'SUELDO');
+        })->sum($montoCol);
+
+        // Gastos Sueldos: Tipo 3 O cualquier concepto que diga 'SUELDO'
+        $gastosSueldos = $retiros->filter(function($r) {
+            $concepto = strtoupper($r->concepto ?? $r->motivo ?? '');
+            return (int)$r->tipo === 3 || str_contains($concepto, 'SUELDO');
+        })->sum($montoCol);
+        */
+        // Total de Gastos
+        $totalGastos = $retiros->sum($montoCol);
+
+        // Subtotales antes de descuento
+        $subtotalCredito   = array_sum($credito);
+        $subtotalContado   = array_sum($contado);
+        $totalLiquidado    = array_sum($liquidado);
+
+        // Totales netos descontando el descuento de ventas
+        $totalCredito = $subtotalCredito - $descuentoCredito;
+        $totalContado = $subtotalContado - $descuentoContado;
+
+        // FÓRMULAS DE TOTALES FINAL EN CAJA:
+        // Efectivo en Caja = Contado Neto + Abonos Cobrados - Gastos Totales
         $totalEfectivoNeto       = ($totalContado + $totalAbonos) - $totalGastos;
+
+        // Total Neto con Crédito = Efectivo Neto + Crédito Neto
         $totalEfectivoMasCredito = $totalEfectivoNeto + $totalCredito;
 
         $pdf = Pdf::loadView('cash_closing.daily', compact(
             'fecha1', 'fecha2', 'sucursalTitle',
             'credito', 'contado', 'liquidado',
+            'subtotalCredito', 'subtotalContado',
             'totalCredito', 'totalContado', 'totalLiquidado',
             'totalAbonos', 'gastosProveedor', 'gastosConsultorio', 'gastosSueldos', 'totalGastos',
-            'totalEfectivoNeto', 'totalEfectivoMasCredito','retiros'
-        ))->setPaper([0, 0, 226.77, 650], 'portrait');
+            'descuentoContado', 'descuentoCredito',
+            'totalEfectivoNeto', 'totalEfectivoMasCredito', 'retiros'
+        ))->setPaper([0, 0, 226.77, 720], 'portrait');
 
         return $pdf->stream("cierre_diario_{$fecha1}_{$fecha2}.pdf");
     }
