@@ -65,7 +65,7 @@ class CashClosingController extends Controller
 
         $typeStrCol = Schema::hasColumn('products', 'type') ? 'products.type' : DB::raw("''");
 
-        // Consulta de ventas usando LEFT JOIN (Filtrando pagadas y activas)
+        // Consulta de ventas usando LEFT JOIN (Todas las ventas pagadas, incluyendo facturadas)
         $querySales = DB::table('ventas')
             ->leftJoin('venta_producto', 'ventas.venta_id', '=', 'venta_producto.venta_id')
             ->leftJoin('products', 'venta_producto.producto_id', '=', 'products.id')
@@ -109,7 +109,7 @@ class CashClosingController extends Controller
         $processedSalesForDiscount = [];
 
         foreach ($salesData as $item) {
-            $qty = (float)($item->cantidad ?? 1);
+            $qty   = (float)($item->cantidad ?? 1);
             $price = (float)($item->precio ?? 0);
             $monto = $qty * $price;
 
@@ -117,14 +117,10 @@ class CashClosingController extends Controller
             $catId     = (int)($item->producto_categoria ?? 0);
             $tipoStr   = strtoupper($item->producto_tipo_str ?? '');
 
-            // ------------------------------------------------------------------
-            // REGLA DE CLASIFICACIÓN CORREGIDA:
-            // ------------------------------------------------------------------
+            // Clasificación de Categoria (Si no es calzado, todo entra a medicamento)
             if ($productId === 0) {
-                // Si no hay ID de producto, es un Servicio / Consulta
                 $cat = 'consulta';
             } else {
-                // Si hay producto, verificar si es Calzado; de lo contrario, TODO es MEDICAMENTO
                 if ($catId === 3 || $tipoStr === 'CALZADO' || $item->producto_categoria == 3) {
                     $cat = 'calzado';
                 } else {
@@ -144,7 +140,7 @@ class CashClosingController extends Controller
                 $contado[$cat] += $monto;
             }
 
-            // Descuentos por venta
+            // Descuentos por venta (Una sola vez por ticket)
             if (!in_array($item->venta_id, $processedSalesForDiscount)) {
                 $processedSalesForDiscount[] = $item->venta_id;
                 $desc = (float)($item->venta_descuento ?? 0);

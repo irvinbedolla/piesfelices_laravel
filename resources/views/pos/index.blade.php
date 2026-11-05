@@ -218,9 +218,14 @@
                 <div class="modal-body py-3">
                     <h3 class="fw-bold text-dark mb-3">Total: <span class="text-success">${{ number_format($sale->venta_total, 2) }}</span></h3>
                     
+                    {{-- ALERTA DE ERROR DE VALIDACIÓN DE PAGO --}}
+                    <div id="payErrorAlert" class="alert alert-danger py-2 mb-3 d-none fw-semibold small rounded-3">
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i> <span id="payErrorMessage">El monto ingresado es insuficiente.</span>
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label fw-bold">Efectivo Recibido ($):</label>
-                        <input type="number" step="0.01" id="receivedInput" class="form-control form-control-lg text-center fw-bold border-primary rounded-3" placeholder="0.00" autofocus>
+                        <input type="number" step="0.01" id="receivedInput" class="form-control form-control-lg text-center fw-bold border-primary rounded-3" placeholder="{{ number_format($sale->venta_total, 2, '.', '') }}" autofocus>
                     </div>
 
                     <div class="mb-3">
@@ -229,7 +234,6 @@
                     </div>
 
                     <div class="form-check form-switch d-flex align-items-center justify-content-center gap-2 mb-3 fs-6">
-                        {{-- SIN 'checked' PARA QUE APAREZCA DESACTIVADO POR DEFECTO --}}
                         <input class="form-check-input" type="checkbox" id="printTicketCheck" style="cursor: pointer; width: 2.5em; height: 1.25em;">
                         <label class="form-check-label fw-bold text-dark" for="printTicketCheck" style="cursor: pointer;">
                             <i class="fa-solid fa-print me-1 text-primary"></i> Imprimir Ticket al finalizar
@@ -640,6 +644,27 @@
             const saleId = "{{ $sale->venta_id }}";
             const totalSale = parseFloat("{{ $sale->venta_total }}");
 
+            // BUSCADOR EN VIVO DEL CATÁLOGO DE PRODUCTOS
+            const searchCatalogInput = document.getElementById('searchCatalog');
+            if (searchCatalogInput) {
+                searchCatalogInput.addEventListener('input', function () {
+                    const query = this.value.toLowerCase().trim();
+                    const items = document.querySelectorAll('.catalog-item');
+
+                    items.forEach(item => {
+                        const name = item.getAttribute('data-name') || '';
+                        const code = item.getAttribute('data-code') || '';
+                        const textContent = item.textContent.toLowerCase();
+
+                        if (name.includes(query) || code.includes(query) || textContent.includes(query)) {
+                            item.classList.remove('d-none');
+                        } else {
+                            item.classList.add('d-none');
+                        }
+                    });
+                });
+            }
+            
             // CONTROL SEGURO DE APERTURA DE MODALES
             document.querySelectorAll('.open-modal-btn').forEach(btn => {
                 btn.addEventListener('click', function (e) {
@@ -1113,17 +1138,57 @@
                 });
             }
 
-            // 12. CONFIRMAR PAGO
+            // 12. CONFIRMAR PAGO CON VALIDACIÓN DE MONTO MÍNIMO
             const confirmPayBtn = document.getElementById('confirmPayBtn');
             if (confirmPayBtn) {
                 confirmPayBtn.addEventListener('click', function () {
                     if (isProcessing) return;
+
+                    const receivedInput = document.getElementById('receivedInput');
+                    const payErrorAlert = document.getElementById('payErrorAlert');
+                    const payErrorMessage = document.getElementById('payErrorMessage');
+                    
+                    // Si no se teclea nada en receivedInput, asumimos el total entero de la venta
+                    const rawVal = receivedInput ? receivedInput.value.trim() : '';
+                    const received = rawVal !== '' ? parseFloat(rawVal) : totalSale;
+                    const saleType = "{{ $sale->venta_tipo }}"; // '1' = Contado, '2' = Crédito
+
+                    // Ocultar alertas previas
+                    if (payErrorAlert) payErrorAlert.classList.add('d-none');
+                    if (receivedInput) receivedInput.classList.remove('is-invalid');
+
+                    // ------------------------------------------------------------------
+                    // VALIDACIÓN DE MONTO MÍNIMO
+                    // ------------------------------------------------------------------
+                    if (isNaN(received) || received < 0) {
+                        showPayError('Por favor ingresa un monto válido.');
+                        return;
+                    }
+
+                    // Si es venta a CONTADO (1), no permitir montos menores al total
+                    if ((saleType === '1' || saleType === 1) && received < totalSale) {
+                        const faltante = (totalSale - received).toFixed(2);
+                        showPayError(`Monto insuficiente. Falta $${faltante} para completar el total ($${totalSale.toFixed(2)}).`);
+                        return;
+                    }
+
+                    // Función auxiliar para mostrar el error en el modal
+                    function showPayError(msg) {
+                        if (payErrorMessage) payErrorMessage.textContent = msg;
+                        if (payErrorAlert) payErrorAlert.classList.remove('d-none');
+                        if (receivedInput) {
+                            receivedInput.classList.add('is-invalid');
+                            receivedInput.focus();
+                        }
+                    }
+
+                    // ------------------------------------------------------------------
+                    // CONTINUAR CON EL COBRO SI LA VALIDACIÓN PASÓ EXITOSAMENTE
+                    // ------------------------------------------------------------------
                     isProcessing = true;
                     confirmPayBtn.disabled = true;
                     showLoading();
 
-                    const receivedInput = document.getElementById('receivedInput');
-                    const received = receivedInput ? (parseFloat(receivedInput.value) || totalSale) : totalSale;
                     const printTicket = document.getElementById('printTicketCheck') ? document.getElementById('printTicketCheck').checked : true;
 
                     fetch("{{ url('pos') }}/" + saleId + "/finish", {
@@ -1154,7 +1219,7 @@
                         isProcessing = false;
                         confirmPayBtn.disabled = false;
                         hideLoading();
-                        alert('Error: ' + error.message);
+                        showPayError('Error: ' + error.message);
                     });
                 });
             }

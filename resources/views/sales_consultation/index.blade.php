@@ -40,7 +40,7 @@
                 </div>
             </div>
 
-            {{-- NAVEGACIÓN POR PESTAÑAS --}}
+            {{-- NAVEGACIÓN POR PESTAÑAS (INCLUYENDO 'SIN FACTURA') --}}
             <ul class="nav nav-pills nav-fill bg-light p-1 rounded-pill mb-4 border">
                 <li class="nav-item">
                     <a class="nav-link rounded-pill fw-bold {{ $tab === 'general' ? 'active bg-primary' : 'text-secondary' }}" 
@@ -52,6 +52,12 @@
                     <a class="nav-link rounded-pill fw-bold {{ $tab === 'facturadas' ? 'active bg-success' : 'text-secondary' }}" 
                        href="{{ route('sales.consultation.index', array_merge(request()->query(), ['tab' => 'facturadas'])) }}">
                         <i class="fa-solid fa-file-invoice-dollar me-1"></i> Facturadas
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link rounded-pill fw-bold {{ $tab === 'sin_factura' ? 'active bg-warning text-dark' : 'text-secondary' }}" 
+                       href="{{ route('sales.consultation.index', array_merge(request()->query(), ['tab' => 'sin_factura'])) }}">
+                        <i class="fa-solid fa-file-circle-xmark me-1"></i> Sin Factura
                     </a>
                 </li>
                 <li class="nav-item">
@@ -68,11 +74,10 @@
                 </li>
             </ul>
 
-            {{-- FILTROS DE BÚSQUEDA, FECHA, SUCURSAL Y TRABAJADOR --}}
+            {{-- FILTROS DE BÚSQUEDA --}}
             <form method="GET" action="{{ route('sales.consultation.index') }}" data-loading-text="Filtrando ventas..." class="row g-2 mb-4 align-items-end">
                 <input type="hidden" name="tab" value="{{ $tab }}">
 
-                {{-- Buscar por Folio o Cliente --}}
                 <div class="col-12 col-md-3 col-lg-2">
                     <label class="form-label extra-small fw-bold text-muted mb-1">Buscar</label>
                     <div class="input-group input-group-sm">
@@ -83,28 +88,23 @@
                     </div>
                 </div>
 
-                {{-- Fecha Desde --}}
                 <div class="col-6 col-md-2 col-lg-2">
                     <label class="form-label extra-small fw-bold text-muted mb-1">Desde</label>
                     <input type="date" name="fecha1" value="{{ $fecha1 }}" class="form-control form-control-sm rounded-3">
                 </div>
 
-                {{-- Fecha Hasta --}}
                 <div class="col-6 col-md-2 col-lg-2">
                     <label class="form-label extra-small fw-bold text-muted mb-1">Hasta</label>
                     <input type="date" name="fecha2" value="{{ $fecha2 }}" class="form-control form-control-sm rounded-3">
                 </div>
 
-                {{-- Seleccionar Sucursal --}}
                 <div class="col-12 col-md-3 col-lg-2">
                     <label class="form-label extra-small fw-bold text-muted mb-1">Sucursal</label>
                     @if($isAdmin)
                         <select name="branch" class="form-select form-select-sm rounded-3 border-primary">
                             <option value="TODOS" {{ (empty($selectedBranch) || $selectedBranch == 'TODOS') ? 'selected' : '' }}>-- TODAS --</option>
                             @foreach($branches as $b)
-                                <option value="{{ $b->name }}" {{ $selectedBranch == $b->name ? 'selected' : '' }}>
-                                    {{ $b->name }}
-                                </option>
+                                <option value="{{ $b->name }}" {{ $selectedBranch == $b->name ? 'selected' : '' }}>{{ $b->name }}</option>
                             @endforeach
                         </select>
                     @else
@@ -113,20 +113,16 @@
                     @endif
                 </div>
 
-                {{-- Seleccionar Trabajador / Empleado --}}
                 <div class="col-12 col-md-3 col-lg-2">
                     <label class="form-label extra-small fw-bold text-muted mb-1">Trabajador</label>
                     <select name="user_id" class="form-select form-select-sm rounded-3 border-info">
                         <option value="TODOS" {{ (empty($selectedUser) || $selectedUser == 'TODOS') ? 'selected' : '' }}>-- TODOS --</option>
                         @foreach($users as $u)
-                            <option value="{{ $u->id }}" {{ $selectedUser == $u->id ? 'selected' : '' }}>
-                                {{ $u->name ?? $u->username }}
-                            </option>
+                            <option value="{{ $u->id }}" {{ $selectedUser == $u->id ? 'selected' : '' }}>{{ $u->name ?? $u->username }}</option>
                         @endforeach
                     </select>
                 </div>
 
-                {{-- Botones Filtrar y Limpiar --}}
                 <div class="col-12 col-md-2 col-lg-2 d-flex gap-2">
                     <button type="submit" class="btn btn-sm btn-primary rounded-pill fw-bold w-100">
                         <i class="fa-solid fa-filter me-1"></i> Filtrar
@@ -142,21 +138,14 @@
                     <table class="table table-hover align-middle text-nowrap extra-small">
                         <thead class="table-light">
                             <tr class="fw-bold text-uppercase border-bottom">
-                                <th>N° Venta</th>
-                                <th>Hora</th>
-                                <th>Fecha</th>
-                                <th>Vendedor</th>
+                                <th>Folio</th>
+                                <th>Fecha y Hora</th>
                                 <th>Cliente</th>
-                                <th>Tipo Pago</th>
-                                <th>Sucursal</th>
-                                <th class="text-end">Medicamento</th>
-                                <th class="text-end">Consulta</th>
-                                <th class="text-end">Calzado</th>
-                                <th class="text-center">Desc.</th>
+                                <th>Vendedor</th>
                                 <th class="text-end">Total</th>
-                                <th class="text-end">Último Abono</th>
-                                <th class="text-center">Tipo</th>
-                                <th class="text-center">Detalles</th>
+                                <th class="text-center">Info Venta</th>
+                                <th class="text-center">Desglose Montos</th>
+                                <th class="text-center">Artículos</th>
                                 @if($isAdmin)
                                     <th class="text-center">Eliminar</th>
                                 @endif
@@ -166,57 +155,49 @@
                             @forelse($records as $v)
                                 @php
                                     $isCred = in_array($v->venta_tipo, [2, '2', 'CREDITO']) || str_contains(strtoupper($v->venta_tipopago ?? ''), 'CREDITO');
+                                    $sellerUser = $v->seller ?? $users->firstWhere('id', $v->venta_idempleado);
+                                    $sellerName = $sellerUser->name ?? $sellerUser->username ?? $v->vendedor_nombre ?? ('Usuario #' . $v->venta_idempleado);
+                                    $fechaHora = \Carbon\Carbon::parse($v->venta_fecha . ' ' . ($v->venta_hora ?? '00:00:00'))->format('d/m/Y h:i A');
+                                    $clientName = $v->customer->nombre ?? $v->nombre_cliente ?: 'Cliente General';
                                 @endphp
                                 <tr>
+                                    {{-- 1. FOLIO (ID VENTA) --}}
                                     <td class="fw-bold text-primary">#{{ $v->venta_id }}</td>
-                                    <td>{{ $v->venta_hora ?? '00:00:00' }}</td>
-                                    <td>{{ $v->venta_fecha }}</td>
-                                    <td class="fw-semibold text-uppercase">
-                                        @php
-                                            // Intentar obtener el usuario mediante la relación o buscando por ID en la colección $users
-                                            $sellerUser = $v->seller ?? $users->firstWhere('id', $v->venta_idempleado);
-                                        @endphp
-                                        {{ $sellerUser->name ?? $sellerUser->username ?? $v->vendedor_nombre ?? ('Usuario #' . $v->venta_idempleado) }}
-                                    </td>
-                                    <td class="fw-semibold">{{ $v->nombre_cliente ?? 'Selecciona' }}</td>
-                                    <td>
-                                        <span class="badge bg-info-subtle text-info border border-info-subtle">
-                                            {{ $v->venta_tipopago ?? 'Efectivo' }}
-                                        </span>
-                                    </td>
-                                    <td><span class="badge bg-light text-dark border">{{ $v->venta_sucursal }}</span></td>
                                     
-                                    {{-- SUBTOTALES DESGLOSADOS POR FILA --}}
-                                    <td class="text-end fw-semibold">${{ number_format($v->sum_medicamento ?? 0, 2) }}</td>
-                                    <td class="text-end fw-semibold">${{ number_format($v->sum_consulta ?? 0, 2) }}</td>
-                                    <td class="text-end fw-semibold">${{ number_format($v->sum_calzado ?? 0, 2) }}</td>
+                                    {{-- 2. FECHA Y HORA JUNTOS --}}
+                                    <td>{{ $fechaHora }}</td>
 
-                                    {{-- DESCUENTO --}}
-                                    <td class="text-center">${{ number_format($v->venta_descuento ?? 0) }}</td>
+                                    {{-- 4. CLIENTE --}}
+                                    <td class="fw-semibold text-dark">{{ $clientName }}</td>
+
+                                    {{-- 3. VENDEDOR --}}
+                                    <td class="fw-semibold text-uppercase">{{ $sellerName }}</td>
                                     
-                                    {{-- TOTAL DE LA VENTA --}}
+                                    {{-- 4. TOTAL --}}
                                     <td class="text-end fw-bold text-dark fs-6">${{ number_format($v->venta_total, 2) }}</td>
-                                    
-                                    {{-- ÚLTIMO ABONO --}}
-                                    <td class="text-end text-success fw-bold">${{ number_format($v->ultimo_abono ?? 0, 2) }}</td>
-                                    
-                                    {{-- TIPO DE VENTA (CONTADO / CRÉDITO) --}}
-                                    <td class="text-center">
-                                        @if($isCred)
-                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-bold">CRÉDITO</span>
-                                        @else
-                                            <span class="badge bg-success-subtle text-success border border-success-subtle fw-bold">CONTADO</span>
-                                        @endif
-                                    </td>
 
-                                    {{-- BOTÓN DETALLES --}}
+                                    {{-- 5. BOTÓN MODAL: INFO VENTA (Forma Pago, Tipo Venta, Sucursal) --}}
                                     <td class="text-center">
-                                        <button type="button" class="btn btn-sm btn-link text-decoration-underline p-0 fw-bold" data-bs-toggle="modal" data-bs-target="#saleItemsModal{{ $v->venta_id }}">
-                                            Detalles
+                                        <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-3 fw-bold" data-bs-toggle="modal" data-bs-target="#infoVentaModal{{ $v->venta_id }}">
+                                            <i class="fa-solid fa-circle-info me-1"></i> Info Venta
                                         </button>
                                     </td>
 
-                                    {{-- BOTÓN ELIMINAR / CANCELAR VENTA --}}
+                                    {{-- 6. BOTÓN MODAL: DESGLOSE MONTOS (Medicamento, Consulta, Calzado) --}}
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 fw-bold" data-bs-toggle="modal" data-bs-target="#desgloseMontosModal{{ $v->venta_id }}">
+                                            <i class="fa-solid fa-receipt me-1"></i> Desglose
+                                        </button>
+                                    </td>
+
+                                    {{-- 7. BOTÓN MODAL: ARTÍCULOS --}}
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-sm btn-link text-decoration-underline p-0 fw-bold" data-bs-toggle="modal" data-bs-target="#saleItemsModal{{ $v->venta_id }}">
+                                            Artículos
+                                        </button>
+                                    </td>
+
+                                    {{-- 8. ELIMINAR --}}
                                     @if($isAdmin || in_array((int)(auth()->user()->role_id ?? auth()->user()->user_type ?? 2), [1, 2]))
                                         <td class="text-center">
                                             @if($tab !== 'canceladas')
@@ -234,12 +215,80 @@
                                     @endif
                                 </tr>
 
-                                {{-- MODAL DETALLES DE VENTA --}}
+                                {{-- MODAL 1: INFO VENTA (Forma de pago, Tipo Venta, Sucursal) --}}
+                                <div class="modal fade" id="infoVentaModal{{ $v->venta_id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered modal-sm">
+                                        <div class="modal-content rounded-4 border-0 p-3 text-center">
+                                            <div class="modal-header border-0 pb-0">
+                                                <h6 class="fw-bold text-primary m-0 w-100">Información Venta #{{ $v->venta_id }}</h6>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body py-3">
+                                                <div class="mb-3">
+                                                    <small class="text-muted d-block fw-bold mb-1">Forma de Pago:</small>
+                                                    <span class="badge bg-info-subtle text-info border border-info-subtle fs-6 px-3 py-2 rounded-pill">
+                                                        {{ $v->venta_tipopago ?? 'Efectivo' }}
+                                                    </span>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <small class="text-muted d-block fw-bold mb-1">Tipo de Venta:</small>
+                                                    @if($isCred)
+                                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-bold fs-6 px-3 py-2 rounded-pill">CRÉDITO</span>
+                                                    @else
+                                                        <span class="badge bg-success-subtle text-success border border-success-subtle fw-bold fs-6 px-3 py-2 rounded-pill">CONTADO</span>
+                                                    @endif
+                                                </div>
+                                                <div>
+                                                    <small class="text-muted d-block fw-bold mb-1">Sucursal:</small>
+                                                    <span class="badge bg-light text-dark border fs-6 px-3 py-2 rounded-pill">{{ $v->venta_sucursal }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {{-- MODAL 2: DESGLOSE DE MONTOS --}}
+                                <div class="modal fade" id="desgloseMontosModal{{ $v->venta_id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered modal-sm">
+                                        <div class="modal-content rounded-4 border-0 p-3">
+                                            <div class="modal-header border-0 pb-0">
+                                                <h6 class="fw-bold text-success m-0 w-100 text-center">Desglose Venta #{{ $v->venta_id }}</h6>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body py-3">
+                                                <ul class="list-group list-group-flush">
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                                        <span class="fw-semibold text-muted">Medicamento:</span>
+                                                        <strong class="text-dark">${{ number_format($v->sum_medicamento ?? 0, 2) }}</strong>
+                                                    </li>
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                                        <span class="fw-semibold text-muted">Consulta:</span>
+                                                        <strong class="text-dark">${{ number_format($v->sum_consulta ?? 0, 2) }}</strong>
+                                                    </li>
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                                        <span class="fw-semibold text-muted">Calzado:</span>
+                                                        <strong class="text-dark">${{ number_format($v->sum_calzado ?? 0, 2) }}</strong>
+                                                    </li>
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0 text-danger">
+                                                        <span class="fw-semibold">Descuento:</span>
+                                                        <strong>-${{ number_format($v->venta_descuento ?? 0, 2) }}</strong>
+                                                    </li>
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0 fw-bold border-top pt-2">
+                                                        <span>TOTAL:</span>
+                                                        <strong class="text-success fs-6">${{ number_format($v->venta_total, 2) }}</strong>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {{-- MODAL 3: ARTÍCULOS --}}
                                 <div class="modal fade" id="saleItemsModal{{ $v->venta_id }}" tabindex="-1" aria-hidden="true">
                                     <div class="modal-dialog modal-dialog-centered">
                                         <div class="modal-content rounded-4 border-0 p-3">
                                             <div class="modal-header border-0">
-                                                <h5 class="fw-bold text-primary m-0">Detalle Venta #{{ $v->venta_id }}</h5>
+                                                <h5 class="fw-bold text-primary m-0">Artículos Venta #{{ $v->venta_id }}</h5>
                                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                             </div>
                                             <div class="modal-body">
@@ -263,7 +312,7 @@
 
                             @empty
                                 <tr>
-                                    <td colspan="{{ $isAdmin ? '16' : '15' }}" class="text-center py-4 text-muted">
+                                    <td colspan="{{ $isAdmin ? '8' : '7' }}" class="text-center py-4 text-muted">
                                         <i class="fa-solid fa-circle-info me-1"></i> No se encontraron ventas para los criterios seleccionados.
                                     </td>
                                 </tr>
@@ -317,7 +366,7 @@
                 @endif
             </div>
 
-            {{-- PAGINACIÓN --}}
+            {{-- PAGINACIÓN Y RESUMEN FINAL --}}
             <div class="d-flex flex-wrap justify-content-between align-items-center mt-2 pt-2 border-top">
                 <div class="small text-muted mb-2">
                     Mostrando del <strong>{{ $records->firstItem() ?? 0 }}</strong> al <strong>{{ $records->lastItem() ?? 0 }}</strong> de <strong>{{ $records->total() }}</strong> registros
@@ -327,7 +376,6 @@
                 </div>
             </div>
 
-            {{-- BLOQUE DE TARJETAS DE RESUMEN AL PIE --}}
             @if($tab !== 'abonos')
                 <div class="mt-4 pt-3 border-top">
                     <div class="d-flex align-items-center justify-content-between mb-3">
@@ -338,7 +386,6 @@
                     </div>
 
                     <div class="row g-3">
-                        {{-- BLOQUE DE VENTAS A CONTADO --}}
                         <div class="col-12 col-lg-6">
                             <div class="card border-0 shadow-sm rounded-4 p-3 bg-light border-start border-4 border-success h-100">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
@@ -368,7 +415,6 @@
                             </div>
                         </div>
 
-                        {{-- BLOQUE DE VENTAS A CRÉDITO --}}
                         <div class="col-12 col-lg-6">
                             <div class="card border-0 shadow-sm rounded-4 p-3 bg-light border-start border-4 border-warning h-100">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
@@ -399,7 +445,6 @@
                         </div>
                     </div>
 
-                    {{-- TARJETA DESGLOSADA DE FORMAS DE PAGO CON TOTALES --}}
                     <div class="row g-3 mt-1">
                         <div class="col-12">
                             <div class="card border-0 shadow-sm rounded-4 p-3 bg-light border-start border-4 border-info">
@@ -462,7 +507,6 @@
                         </div>
                     </div>
 
-                    {{-- TOTALES CATEGORÍAS Y GRAN TOTAL --}}
                     <div class="d-flex flex-wrap justify-content-between align-items-center mt-3 pt-2">
                         <div class="d-flex flex-wrap gap-3 text-muted extra-small fw-semibold">
                             <span>Total Calzado: <strong class="text-dark">${{ number_format($summary['total_calzado'], 2) }}</strong></span>
@@ -486,7 +530,6 @@
                     </div>
                 </div>
             @else
-                {{-- RESUMEN EN PESTAÑA ABONOS --}}
                 <div class="d-flex justify-content-end mt-4 pt-3 border-top">
                     <div class="card border-0 text-white rounded-4 p-3 shadow" style="background: linear-gradient(135deg, #0288d1 0%, #03a9f4 100%); min-width: 320px;">
                         <div class="d-flex justify-content-between align-items-center fs-5 fw-bold">

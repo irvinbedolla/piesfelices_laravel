@@ -179,7 +179,7 @@ class InventoryController extends Controller
             'products', 'branches', 'matrixBranch', 'selectedBranchId', 
             'selectedType', 'onlyLowStock', 'productsJson', 'user', 'userType', 
             'perPage', 'sortBy', 'sortOrder', 'totalArticulos', 'totalPiezasStock', 
-            'inversionTotal', 'gananciaEstimada', 'isAdmin', 'statsByType'
+            'inversionTotal', 'gananciaEstimada', 'isAdmin', 'statsByType', 'suppliers'
         ));
     }
 

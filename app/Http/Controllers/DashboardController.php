@@ -55,7 +55,7 @@ class DashboardController extends Controller
             }
         }
 
-        $upcomingAppointments = $appointmentsQuery->orderBy($timeCol, 'asc')
+        $upcomingAppointments = $appointmentsQuery->orderBy('start', 'asc')
             ->take(10)
             ->get();
 

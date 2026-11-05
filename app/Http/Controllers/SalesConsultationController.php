@@ -79,22 +79,49 @@ class SalesConsultationController extends Controller
                 $query->whereBetween('venta_fecha', [$fecha1, $fecha2]);
             }
 
+            // -------------------------------------------------------------
+            // LÓGICA DE PESTAÑAS (TABS) REVISADA
+            // -------------------------------------------------------------
             if ($tab === 'facturadas') {
+                // 1. SOLO VENTAS FACTURADAS
                 $query->where(function($q) {
                     $q->where('venta_factura', 'SI')
-                    ->orWhere('venta_factura', 'si')
-                    ->orWhere('venta_factura', '1')
-                    ->orWhere('venta_factura', 1);
-                })->where('venta_tipo', '!=', 3);
+                      ->orWhere('venta_factura', 'si')
+                      ->orWhere('venta_factura', '1')
+                      ->orWhere('venta_factura', 1);
+                })
+                ->where('venta_tipo', '!=', 3)
+                ->where('venta_tipo', '!=', '3')
+                ->where('status', '!=', 'CANCELADO')
+                ->where('status', '!=', 'Cancelado');
+
+            } elseif ($tab === 'sin_factura') {
+                // 2. COMPLEMENTO EXACTO (TODAS MENOS LAS FACTURADAS)
+                $query->where(function($q) {
+                    $q->whereNull('venta_factura')
+                      ->orWhereNotIn(DB::raw('UPPER(TRIM(venta_factura))'), ['SI', '1']);
+                })
+                ->where('venta_tipo', '!=', 3)
+                ->where('venta_tipo', '!=', '3')
+                ->where('status', '!=', 'CANCELADO')
+                ->where('status', '!=', 'Cancelado');
+
             } elseif ($tab === 'canceladas') {
+                // 3. SOLO CANCELADAS
                 $query->where(function($q) {
                     $q->where('venta_tipo', 3)
-                    ->orWhere('venta_tipo', 'CANCELADO')
-                    ->orWhere('venta_tipo', '3');
+                      ->orWhere('venta_tipo', '3')
+                      ->orWhere('venta_tipo', 'CANCELADO')
+                      ->orWhere('status', 'CANCELADO')
+                      ->orWhere('status', 'Cancelado');
                 });
+
             } else {
-                // "Ventas en General": Excluir canceladas y excluidas las facturadas
-                $query->where('venta_tipo', '!=', 3)->Where('venta_factura', 'NO');
+                // 4. VENTAS EN GENERAL (FACTURADAS + SIN FACTURA - EXCLUYENDO CANCELADAS)
+                $query->where('venta_tipo', '!=', 3)
+                      ->where('venta_tipo', '!=', '3')
+                      ->where('status', '!=', 'CANCELADO')
+                      ->where('status', '!=', 'Cancelado');
             }
 
             if (!empty($selectedBranch) && $selectedBranch !== 'TODOS') {
@@ -157,7 +184,6 @@ class SalesConsultationController extends Controller
                             }
                             $summary['total_calzado'] += $subtotal;
                         } else {
-                            // TODO LO DEMÁS PASA A SER MEDICAMENTO
                             if ($isCredito) {
                                 $summary['credito_medicamento'] += $subtotal;
                             } else {
@@ -187,7 +213,7 @@ class SalesConsultationController extends Controller
                     $pId = (int)($d->producto_id ?? $d->product_id ?? 0);
 
                     if ($pId === 0) {
-                        $rowCon += $sub; // Consulta
+                        $rowCon += $sub;
                     } else {
                         $cId = (int)($d->product?->category_id ?? 0);
                         $pType = strtoupper($d->product?->type ?? $d->tipo ?? '');
@@ -195,7 +221,6 @@ class SalesConsultationController extends Controller
                         if ($cId === 3 || $pType === 'CALZADO') {
                             $rowCal += $sub;
                         } else {
-                            // TODOS los artículos pasan a Medicamentos
                             $rowMed += $sub;
                         }
                     }
@@ -252,7 +277,8 @@ class SalesConsultationController extends Controller
             'search', 'fecha1', 'fecha2', 'userRole', 'userBranch', 'summary', 'isAdmin'
         ));
     }
-    
+
+
     /**
      * Cancelar/Borrar Venta
      */
@@ -273,7 +299,7 @@ class SalesConsultationController extends Controller
 
                 // Evitar re-cancelar si ya está cancelada
                 if ($sale->venta_tipo == 3 || strtoupper($sale->status) === 'CANCELADO') {
-                    throw new \Exception("La Venta #{$id} ya se encuentra cancelada.");
+                    throw new Exception("La Venta #{$id} ya se encuentra cancelada.");
                 }
 
                 $sellerUser = User::find($sale->venta_idempleado) ?? $user;
@@ -322,7 +348,7 @@ class SalesConsultationController extends Controller
                                 'reference'      => "Cancelación Venta #{$sale->venta_id}",
                                 'notes'          => "Cancelación desde consulta de ventas",
                             ]);
-                        } catch (\Exception $e) {
+                        } catch (Exception $e) {
                             Log::error("Error al registrar movimiento en destroySale Venta #{$sale->venta_id}: " . $e->getMessage());
                         }
                     }
@@ -347,7 +373,7 @@ class SalesConsultationController extends Controller
 
             return redirect()->back()->with('success', "Venta #{$id} cancelada e inventario reincorporado correctamente.");
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error("Error al cancelar venta #{$id} en destroySale: " . $e->getMessage());
             return redirect()->back()->with('error', 'Error al cancelar la venta: ' . $e->getMessage());
         }

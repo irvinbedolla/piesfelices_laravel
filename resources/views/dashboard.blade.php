@@ -69,9 +69,9 @@
                                 <tbody class="small">
                                     @forelse($upcomingAppointments as $app)
                                         @php
-                                            $hora = $app->cita_hora ?? $app->hora_cita ?? $app->hora ?? '';
-                                            $cliente = $app->nombre_cliente ?? $app->cliente ?? $app->paciente ?? 'Cliente General';
-                                            $servicio = $app->servicio ?? $app->motivo ?? 'Consulta Podológica';
+                                            $hora = $app->start ?? $app->start ?? $app->start ?? '';
+                                            $cliente = $app->title ?? $app->title ?? $app->title ?? 'Cliente General';
+                                            $servicio = $app->notes ?? $app->notes ?? 'Consulta Podológica';
                                             $estatus = $app->estatus ?? $app->status ?? 'PROGRAMADA';
                                         @endphp
                                         <tr>

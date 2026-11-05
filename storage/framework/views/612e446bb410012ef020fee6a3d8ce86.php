@@ -67,6 +67,12 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link rounded-pill fw-bold <?php echo e($tab === 'sin_factura' ? 'active bg-warning text-dark' : 'text-secondary'); ?>" 
+                       href="<?php echo e(route('sales.consultation.index', array_merge(request()->query(), ['tab' => 'sin_factura']))); ?>">
+                        <i class="fa-solid fa-file-circle-xmark me-1"></i> Sin Factura
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link rounded-pill fw-bold <?php echo e($tab === 'canceladas' ? 'active bg-danger' : 'text-secondary'); ?>" 
                        href="<?php echo e(route('sales.consultation.index', array_merge(request()->query(), ['tab' => 'canceladas']))); ?>">
                         <i class="fa-solid fa-ban me-1"></i> Canceladas
@@ -84,7 +90,6 @@
             <form method="GET" action="<?php echo e(route('sales.consultation.index')); ?>" data-loading-text="Filtrando ventas..." class="row g-2 mb-4 align-items-end">
                 <input type="hidden" name="tab" value="<?php echo e($tab); ?>">
 
-                
                 <div class="col-12 col-md-3 col-lg-2">
                     <label class="form-label extra-small fw-bold text-muted mb-1">Buscar</label>
                     <div class="input-group input-group-sm">
@@ -95,29 +100,23 @@
                     </div>
                 </div>
 
-                
                 <div class="col-6 col-md-2 col-lg-2">
                     <label class="form-label extra-small fw-bold text-muted mb-1">Desde</label>
                     <input type="date" name="fecha1" value="<?php echo e($fecha1); ?>" class="form-control form-control-sm rounded-3">
                 </div>
 
-                
                 <div class="col-6 col-md-2 col-lg-2">
                     <label class="form-label extra-small fw-bold text-muted mb-1">Hasta</label>
                     <input type="date" name="fecha2" value="<?php echo e($fecha2); ?>" class="form-control form-control-sm rounded-3">
                 </div>
 
-                
                 <div class="col-12 col-md-3 col-lg-2">
                     <label class="form-label extra-small fw-bold text-muted mb-1">Sucursal</label>
                     <?php if($isAdmin): ?>
                         <select name="branch" class="form-select form-select-sm rounded-3 border-primary">
                             <option value="TODOS" <?php echo e((empty($selectedBranch) || $selectedBranch == 'TODOS') ? 'selected' : ''); ?>>-- TODAS --</option>
                             <?php $__currentLoopData = $branches; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $b): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                                <option value="<?php echo e($b->name); ?>" <?php echo e($selectedBranch == $b->name ? 'selected' : ''); ?>>
-                                    <?php echo e($b->name); ?>
-
-                                </option>
+                                <option value="<?php echo e($b->name); ?>" <?php echo e($selectedBranch == $b->name ? 'selected' : ''); ?>><?php echo e($b->name); ?></option>
                             <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                         </select>
                     <?php else: ?>
@@ -126,21 +125,16 @@
                     <?php endif; ?>
                 </div>
 
-                
                 <div class="col-12 col-md-3 col-lg-2">
                     <label class="form-label extra-small fw-bold text-muted mb-1">Trabajador</label>
                     <select name="user_id" class="form-select form-select-sm rounded-3 border-info">
                         <option value="TODOS" <?php echo e((empty($selectedUser) || $selectedUser == 'TODOS') ? 'selected' : ''); ?>>-- TODOS --</option>
                         <?php $__currentLoopData = $users; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $u): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                            <option value="<?php echo e($u->id); ?>" <?php echo e($selectedUser == $u->id ? 'selected' : ''); ?>>
-                                <?php echo e($u->name ?? $u->username); ?>
-
-                            </option>
+                            <option value="<?php echo e($u->id); ?>" <?php echo e($selectedUser == $u->id ? 'selected' : ''); ?>><?php echo e($u->name ?? $u->username); ?></option>
                         <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                     </select>
                 </div>
 
-                
                 <div class="col-12 col-md-2 col-lg-2 d-flex gap-2">
                     <button type="submit" class="btn btn-sm btn-primary rounded-pill fw-bold w-100">
                         <i class="fa-solid fa-filter me-1"></i> Filtrar
@@ -156,21 +150,13 @@
                     <table class="table table-hover align-middle text-nowrap extra-small">
                         <thead class="table-light">
                             <tr class="fw-bold text-uppercase border-bottom">
-                                <th>N° Venta</th>
-                                <th>Hora</th>
-                                <th>Fecha</th>
+                                <th>Folio</th>
+                                <th>Fecha y Hora</th>
                                 <th>Vendedor</th>
-                                <th>Cliente</th>
-                                <th>Tipo Pago</th>
-                                <th>Sucursal</th>
-                                <th class="text-end">Medicamento</th>
-                                <th class="text-end">Consulta</th>
-                                <th class="text-end">Calzado</th>
-                                <th class="text-center">Desc.</th>
                                 <th class="text-end">Total</th>
-                                <th class="text-end">Último Abono</th>
-                                <th class="text-center">Tipo</th>
-                                <th class="text-center">Detalles</th>
+                                <th class="text-center">Info Venta</th>
+                                <th class="text-center">Desglose Montos</th>
+                                <th class="text-center">Artículos</th>
                                 <?php if($isAdmin): ?>
                                     <th class="text-center">Eliminar</th>
                                 <?php endif; ?>
@@ -180,55 +166,41 @@
                             <?php $__empty_1 = true; $__currentLoopData = $records; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $v): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                                 <?php
                                     $isCred = in_array($v->venta_tipo, [2, '2', 'CREDITO']) || str_contains(strtoupper($v->venta_tipopago ?? ''), 'CREDITO');
+                                    $sellerUser = $v->seller ?? $users->firstWhere('id', $v->venta_idempleado);
+                                    $sellerName = $sellerUser->name ?? $sellerUser->username ?? $v->vendedor_nombre ?? ('Usuario #' . $v->venta_idempleado);
+                                    $fechaHora = \Carbon\Carbon::parse($v->venta_fecha . ' ' . ($v->venta_hora ?? '00:00:00'))->format('d/m/Y h:i A');
                                 ?>
                                 <tr>
+                                    
                                     <td class="fw-bold text-primary">#<?php echo e($v->venta_id); ?></td>
-                                    <td><?php echo e($v->venta_hora ?? '00:00:00'); ?></td>
-                                    <td><?php echo e($v->venta_fecha); ?></td>
-                                    <td class="fw-semibold text-uppercase">
-                                        <?php
-                                            // Intentar obtener el usuario mediante la relación o buscando por ID en la colección $users
-                                            $sellerUser = $v->seller ?? $users->firstWhere('id', $v->venta_idempleado);
-                                        ?>
-                                        <?php echo e($sellerUser->name ?? $sellerUser->username ?? $v->vendedor_nombre ?? ('Usuario #' . $v->venta_idempleado)); ?>
-
-                                    </td>
-                                    <td class="fw-semibold"><?php echo e($v->nombre_cliente ?? 'Selecciona'); ?></td>
-                                    <td>
-                                        <span class="badge bg-info-subtle text-info border border-info-subtle">
-                                            <?php echo e($v->venta_tipopago ?? 'Efectivo'); ?>
-
-                                        </span>
-                                    </td>
-                                    <td><span class="badge bg-light text-dark border"><?php echo e($v->venta_sucursal); ?></span></td>
                                     
                                     
-                                    <td class="text-end fw-semibold">$<?php echo e(number_format($v->sum_medicamento ?? 0, 2)); ?></td>
-                                    <td class="text-end fw-semibold">$<?php echo e(number_format($v->sum_consulta ?? 0, 2)); ?></td>
-                                    <td class="text-end fw-semibold">$<?php echo e(number_format($v->sum_calzado ?? 0, 2)); ?></td>
-
+                                    <td><?php echo e($fechaHora); ?></td>
                                     
-                                    <td class="text-center">$<?php echo e(number_format($v->venta_descuento ?? 0)); ?></td>
+                                    
+                                    <td class="fw-semibold text-uppercase"><?php echo e($sellerName); ?></td>
                                     
                                     
                                     <td class="text-end fw-bold text-dark fs-6">$<?php echo e(number_format($v->venta_total, 2)); ?></td>
-                                    
-                                    
-                                    <td class="text-end text-success fw-bold">$<?php echo e(number_format($v->ultimo_abono ?? 0, 2)); ?></td>
-                                    
+
                                     
                                     <td class="text-center">
-                                        <?php if($isCred): ?>
-                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-bold">CRÉDITO</span>
-                                        <?php else: ?>
-                                            <span class="badge bg-success-subtle text-success border border-success-subtle fw-bold">CONTADO</span>
-                                        <?php endif; ?>
+                                        <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-3 fw-bold" data-bs-toggle="modal" data-bs-target="#infoVentaModal<?php echo e($v->venta_id); ?>">
+                                            <i class="fa-solid fa-circle-info me-1"></i> Info Venta
+                                        </button>
+                                    </td>
+
+                                    
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 fw-bold" data-bs-toggle="modal" data-bs-target="#desgloseMontosModal<?php echo e($v->venta_id); ?>">
+                                            <i class="fa-solid fa-receipt me-1"></i> Desglose
+                                        </button>
                                     </td>
 
                                     
                                     <td class="text-center">
                                         <button type="button" class="btn btn-sm btn-link text-decoration-underline p-0 fw-bold" data-bs-toggle="modal" data-bs-target="#saleItemsModal<?php echo e($v->venta_id); ?>">
-                                            Detalles
+                                            Artículos
                                         </button>
                                     </td>
 
@@ -251,11 +223,80 @@
                                 </tr>
 
                                 
+                                <div class="modal fade" id="infoVentaModal<?php echo e($v->venta_id); ?>" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered modal-sm">
+                                        <div class="modal-content rounded-4 border-0 p-3 text-center">
+                                            <div class="modal-header border-0 pb-0">
+                                                <h6 class="fw-bold text-primary m-0 w-100">Información Venta #<?php echo e($v->venta_id); ?></h6>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body py-3">
+                                                <div class="mb-3">
+                                                    <small class="text-muted d-block fw-bold mb-1">Forma de Pago:</small>
+                                                    <span class="badge bg-info-subtle text-info border border-info-subtle fs-6 px-3 py-2 rounded-pill">
+                                                        <?php echo e($v->venta_tipopago ?? 'Efectivo'); ?>
+
+                                                    </span>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <small class="text-muted d-block fw-bold mb-1">Tipo de Venta:</small>
+                                                    <?php if($isCred): ?>
+                                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-bold fs-6 px-3 py-2 rounded-pill">CRÉDITO</span>
+                                                    <?php else: ?>
+                                                        <span class="badge bg-success-subtle text-success border border-success-subtle fw-bold fs-6 px-3 py-2 rounded-pill">CONTADO</span>
+                                                    <?php endif; ?>
+                                                </div>
+                                                <div>
+                                                    <small class="text-muted d-block fw-bold mb-1">Sucursal:</small>
+                                                    <span class="badge bg-light text-dark border fs-6 px-3 py-2 rounded-pill"><?php echo e($v->venta_sucursal); ?></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                
+                                <div class="modal fade" id="desgloseMontosModal<?php echo e($v->venta_id); ?>" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered modal-sm">
+                                        <div class="modal-content rounded-4 border-0 p-3">
+                                            <div class="modal-header border-0 pb-0">
+                                                <h6 class="fw-bold text-success m-0 w-100 text-center">Desglose Venta #<?php echo e($v->venta_id); ?></h6>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body py-3">
+                                                <ul class="list-group list-group-flush">
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                                        <span class="fw-semibold text-muted">Medicamento:</span>
+                                                        <strong class="text-dark">$<?php echo e(number_format($v->sum_medicamento ?? 0, 2)); ?></strong>
+                                                    </li>
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                                        <span class="fw-semibold text-muted">Consulta:</span>
+                                                        <strong class="text-dark">$<?php echo e(number_format($v->sum_consulta ?? 0, 2)); ?></strong>
+                                                    </li>
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                                        <span class="fw-semibold text-muted">Calzado:</span>
+                                                        <strong class="text-dark">$<?php echo e(number_format($v->sum_calzado ?? 0, 2)); ?></strong>
+                                                    </li>
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0 text-danger">
+                                                        <span class="fw-semibold">Descuento:</span>
+                                                        <strong>-$<?php echo e(number_format($v->venta_descuento ?? 0, 2)); ?></strong>
+                                                    </li>
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0 fw-bold border-top pt-2">
+                                                        <span>TOTAL:</span>
+                                                        <strong class="text-success fs-6">$<?php echo e(number_format($v->venta_total, 2)); ?></strong>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                
                                 <div class="modal fade" id="saleItemsModal<?php echo e($v->venta_id); ?>" tabindex="-1" aria-hidden="true">
                                     <div class="modal-dialog modal-dialog-centered">
                                         <div class="modal-content rounded-4 border-0 p-3">
                                             <div class="modal-header border-0">
-                                                <h5 class="fw-bold text-primary m-0">Detalle Venta #<?php echo e($v->venta_id); ?></h5>
+                                                <h5 class="fw-bold text-primary m-0">Artículos Venta #<?php echo e($v->venta_id); ?></h5>
                                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                             </div>
                                             <div class="modal-body">
@@ -279,7 +320,7 @@
 
                             <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                                 <tr>
-                                    <td colspan="<?php echo e($isAdmin ? '16' : '15'); ?>" class="text-center py-4 text-muted">
+                                    <td colspan="<?php echo e($isAdmin ? '8' : '7'); ?>" class="text-center py-4 text-muted">
                                         <i class="fa-solid fa-circle-info me-1"></i> No se encontraron ventas para los criterios seleccionados.
                                     </td>
                                 </tr>
@@ -344,7 +385,6 @@
                 </div>
             </div>
 
-            
             <?php if($tab !== 'abonos'): ?>
                 <div class="mt-4 pt-3 border-top">
                     <div class="d-flex align-items-center justify-content-between mb-3">
@@ -355,7 +395,6 @@
                     </div>
 
                     <div class="row g-3">
-                        
                         <div class="col-12 col-lg-6">
                             <div class="card border-0 shadow-sm rounded-4 p-3 bg-light border-start border-4 border-success h-100">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
@@ -385,7 +424,6 @@
                             </div>
                         </div>
 
-                        
                         <div class="col-12 col-lg-6">
                             <div class="card border-0 shadow-sm rounded-4 p-3 bg-light border-start border-4 border-warning h-100">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
@@ -416,7 +454,6 @@
                         </div>
                     </div>
 
-                    
                     <div class="row g-3 mt-1">
                         <div class="col-12">
                             <div class="card border-0 shadow-sm rounded-4 p-3 bg-light border-start border-4 border-info">
@@ -480,7 +517,6 @@
                         </div>
                     </div>
 
-                    
                     <div class="d-flex flex-wrap justify-content-between align-items-center mt-3 pt-2">
                         <div class="d-flex flex-wrap gap-3 text-muted extra-small fw-semibold">
                             <span>Total Calzado: <strong class="text-dark">$<?php echo e(number_format($summary['total_calzado'], 2)); ?></strong></span>
@@ -504,7 +540,6 @@
                     </div>
                 </div>
             <?php else: ?>
-                
                 <div class="d-flex justify-content-end mt-4 pt-3 border-top">
                     <div class="card border-0 text-white rounded-4 p-3 shadow" style="background: linear-gradient(135deg, #0288d1 0%, #03a9f4 100%); min-width: 320px;">
                         <div class="d-flex justify-content-between align-items-center fs-5 fw-bold">

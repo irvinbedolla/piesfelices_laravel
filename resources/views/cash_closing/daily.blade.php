@@ -23,7 +23,6 @@
 </head>
 <body>
 
-    {{-- ENCABEZADO IDÉNTICO AL REPORTE ORIGINAL --}}
     <div class="text-center">
         <div class="fw-bold" style="font-size: 12px;">CIERRE DE CAJA GENERAL</div>
         <div class="fw-bold" style="font-size: 12px; margin-top: 2px;">PIES FELICES</div>
@@ -148,9 +147,6 @@
             <td class="text-right">-${{ number_format($totalGastos ?? 0, 0) }}</td>
         </tr>
     </table>
-
-    <div class="divider-dashed"></div>
-
 
     <div class="divider-double"></div>
 

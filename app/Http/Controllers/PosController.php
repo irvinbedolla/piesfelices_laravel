@@ -536,7 +536,7 @@ class PosController extends Controller
                 $sale = Sale::with('items')->findOrFail($saleId);
 
                 // Reintegrar inventario solo si estaba pagada previamente
-                if (strtoupper($sale->status) === 'Pagado') {
+                if (strtoupper($sale->status) === 'PAGADO') {
                     $sellerUser = User::find($sale->venta_idempleado) ?? Auth::user();
                     $branchId = $sellerUser->branch_id 
                         ?? $sellerUser->sucursal_id 
@@ -568,13 +568,13 @@ class PosController extends Controller
 
                 // ACTUALIZACIÓN DE ESTATUS Y TIPO EN BASE DE DATOS
                 $updatePayload = [
-                    'venta_tipo' => 3,             // 3 = Cancelado
-                    'status'     => 'Cancelado',    // CAMBIAR STATUS DE 'Pagado' A 'CANCELADO'
+                    'venta_tipo' => 3,           // 3 = Cancelado
+                    'status'     => 'CANCELADO', // Estatus unificado para la BD
                     'updated_at' => now(),
                 ];
 
                 if (Schema::hasColumn('ventas', 'venta_estado')) {
-                    $updatePayload['venta_estado'] = 'Cancelado';
+                    $updatePayload['venta_estado'] = 'CANCELADO';
                 }
 
                 DB::table('ventas')
@@ -582,13 +582,11 @@ class PosController extends Controller
                     ->update($updatePayload);
             });
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Venta cancelada correctamente.'
-            ]);
+            // REDIRECCIONAR LIMPIAMENTE A LA VISTA DEL POS
+            return redirect('pos')->with('success', 'Venta cancelada correctamente.');
 
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+            return redirect('pos')->with('error', 'Error al cancelar la venta: ' . $e->getMessage());
         }
     }
 
