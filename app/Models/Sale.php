@@ -12,29 +12,8 @@ class Sale extends Model
     protected $table = 'ventas';
     protected $primaryKey = 'venta_id';
 
-    protected $fillable = [
-        'venta_idempleado',
-        'venta_idcliente',
-        'nombre_cliente',
-        'correo_cliente',
-        'venta_fecha',
-        'venta_hora',
-        'venta_tipopago',
-        'venta_diagnostico',
-        'venta_abono',
-        'venta_total',
-        'venta_tipo',
-        'tipo',
-        'venta_sucursal',
-        'venta_descuento',
-        'venta_factura',
-        'numero_factura',
-        'venta_cfdi',
-        'venta_tipo_factura',
-        'venta_tipo',
-        'total',
-        'status',
-    ];
+    // Usar $guarded vacio para no tener restricciones de asignación masiva
+    protected $guarded = [];
 
     protected $attributes = [
         'status' => 'Pendiente',

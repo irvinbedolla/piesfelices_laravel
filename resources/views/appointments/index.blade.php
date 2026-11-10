@@ -5,8 +5,30 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     @php
-        $isAdmin = in_array($userRole, [0, 1, 3]);$listPodiatrists = (isset($podiatrists) && count($podiatrists) > 0) ? $podiatrists : ($users ?? []);
+        $isAdmin = in_array($userRole, [0, 1, 3]);
+        $listPodiatrists = (isset($podiatrists) && count($podiatrists) > 0) ? $podiatrists : ($users ?? []);
     @endphp
+
+    {{-- ESTILOS PARA CORREGIR LA VISUALIZACIÓN DE EVENTOS EN FULLCALENDAR --}}
+    <style>
+        .fc-timegrid-event {
+            min-height: 45px !important; /* Altura mínima para que no se aplasten */
+            border-radius: 6px !important;
+            padding: 2px 4px !important;
+        }
+        .fc-event-main {
+            white-space: normal !important; /* Permite saltos de línea */
+            word-wrap: break-word !important;
+            font-size: 0.82rem !important;
+            line-height: 1.15 !important;
+            font-weight: 600 !important;
+        }
+        .fc-timegrid-event .fc-event-time {
+            font-weight: 700 !important;
+            display: block !important;
+            margin-bottom: 2px !important;
+        }
+    </style>
 
     <div class="container-fluid py-3">
         <div class="card border-0 shadow-sm rounded-4 p-4">
@@ -37,7 +59,7 @@
                            style="max-width: 180px;">
                     <datalist id="customersList">
                         @foreach($customers as $c)
-                            <option data-id="{{ $c->id }}" value="{{ $c->nombre }}">
+                            <option data-id="{{ $c->cliente_id ?? $c->id }}" value="{{ $c->nombre }}">
                         @endforeach
                     </datalist>
 
@@ -100,12 +122,18 @@
                             <input type="hidden" name="branch_name" value="{{ $selectedBranch }}">
                         @endif
 
+                        {{-- SELECCIÓN DE CLIENTE + BOTÓN NUEVO CLIENTE --}}
                         <div class="mb-3">
-                            <label class="form-label extra-small fw-bold text-muted">Cliente / Paciente</label>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label extra-small fw-bold text-muted m-0">Cliente / Paciente</label>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-bold text-success" data-bs-toggle="modal" data-bs-target="#quickCustomerModal">
+                                    <i class="fa-solid fa-user-plus me-1"></i>+ Nuevo Cliente
+                                </button>
+                            </div>
                             <select name="customer_id" id="app_customer" class="form-select rounded-3" required>
                                 <option value="">-- Seleccionar Paciente --</option>
                                 @foreach($customers as $c)
-                                    <option value="{{ $c->cliente_id }}" data-name="{{ $c->nombre }}">{{ $c->nombre }}</option>
+                                    <option value="{{ $c->cliente_id ?? $c->id }}" data-name="{{ $c->nombre }}">{{ $c->nombre }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -169,6 +197,72 @@
         </div>
     </div>
 
+    {{-- MODAL NUEVO CLIENTE RÁPIDO DENTRO DE CITAS --}}
+    <div class="modal fade" id="quickCustomerModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 rounded-4 shadow-lg">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-success">
+                        <i class="fa-solid fa-user-plus me-2"></i>Registrar Nuevo Cliente
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="quickCustomerForm" action="{{ route('customers.store') }}" method="POST" data-no-loading="true">                    @csrf
+                    <div class="modal-body py-3">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Nombre Completo (*)</label>
+                                <input type="text" name="nombre" class="form-control rounded-3" placeholder="Ej. Juan Pérez" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Teléfono</label>
+                                <input type="text" name="telefono" class="form-control rounded-3" placeholder="4431234567">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Correo Electrónico</label>
+                                <input type="email" name="correo" class="form-control rounded-3" placeholder="correo@ejemplo.com">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">RFC</label>
+                                <input type="text" name="rfc" class="form-control rounded-3" placeholder="XAXX010101000">
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label small fw-bold">Dirección</label>
+                                <input type="text" name="direccion" class="form-control rounded-3" placeholder="Calle, Número, Colonia">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">Código Postal</label>
+                                <input type="text" name="cp" class="form-control rounded-3" placeholder="58000">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">Localidad / Ciudad</label>
+                                <input type="text" name="localidad" class="form-control rounded-3" placeholder="Morelia">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">Sucursal (*)</label>
+                                <select name="sucursal" class="form-select rounded-3" required>
+                                    @foreach($branches as $b)
+                                        <option value="{{ $b->name }}" {{ ($selectedBranch == $b->name || (isset($sale) && $sale->venta_sucursal == $b->name)) ? 'selected' : '' }}>{{ $b->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">Fecha Nacimiento</label>
+                                <input type="date" name="fecha_nacimiento" class="form-control rounded-3">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 pt-0">
+                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-success rounded-pill px-5 fw-semibold">
+                            Guardar Cliente
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     {{-- MODAL HISTORIAL DE CITAS POR CLIENTE --}}
     <div class="modal fade" id="customerHistoryModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -218,9 +312,14 @@
                 });
             }
 
+            // AJUSTES DE FULLCALENDAR PARA MOSTRAR LAS CITAS COMPLETAS Y BIEN FORMATEADAS
             var calendar = new FullCalendar.Calendar(calendarEl, {
                 locale: 'es',
                 initialView: 'timeGridWeek',
+                slotMinTime: '08:00:00', // Horario recomendado de inicio de jornada
+                slotMaxTime: '20:00:00', // Horario de cierre
+                eventMinHeight: 40,      // Altura mínima para asegurar visibilidad del título
+                slotDuration: '00:30:00',
                 headerToolbar: {
                     left: 'prev,next today',
                     center: 'title',
@@ -277,6 +376,96 @@
             });
 
             calendar.render();
+
+            // PROCESAMIENTO VÍA AJAX DEL NUEVO CLIENTE DESDE CITAS
+            var quickCustomerForm = document.getElementById('quickCustomerForm');
+            if (quickCustomerForm) {
+                quickCustomerForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+
+                    let formData = new FormData(this);
+                    let btnSubmit = this.querySelector('button[type="submit"]');
+                    
+                    if (btnSubmit) {
+                        btnSubmit.disabled = true;
+                        btnSubmit.innerText = 'Guardando...';
+                    }
+
+                    fetch(this.action, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: formData
+                    })
+                    .then(async res => {
+                        const data = await res.json();
+                        if (!res.ok) {
+                            // Capturar errores de validación de Laravel (422) o 500
+                            throw new Error(data.message || data.error || 'Error al procesar la solicitud en el servidor');
+                        }
+                        return data;
+                    })
+                    .then(data => {
+                        if (btnSubmit) {
+                            btnSubmit.disabled = false;
+                            btnSubmit.innerText = 'Guardar Cliente';
+                        }
+                        if (window.hideLoading) window.hideLoading();
+
+                        const newId = data.cliente_id || data.id;
+                        const newName = formData.get('nombre');
+
+                        // 1. Agregar nuevo cliente al select del modal de citas
+                        const customerSelect = document.getElementById('app_customer');
+                        if (customerSelect && newId) {
+                            const option = document.createElement('option');
+                            option.value = newId;
+                            option.textContent = newName;
+                            option.setAttribute('data-name', newName);
+                            option.selected = true;
+                            customerSelect.appendChild(option);
+
+                            // Trigger evento change para autocompletar el título
+                            customerSelect.dispatchEvent(new Event('change'));
+                        }
+
+                        // 2. Cerrar el modal del cliente
+                        const modalEl = document.getElementById('quickCustomerModal');
+                        if (modalEl) {
+                            const modalObj = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                            modalObj.hide();
+                        }
+
+                        this.reset();
+
+                        Swal.fire({
+                            title: '¡Éxito!',
+                            text: 'Cliente registrado y seleccionado correctamente.',
+                            icon: 'success',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    })
+                    .catch(err => {
+                        if (btnSubmit) {
+                            btnSubmit.disabled = false;
+                            btnSubmit.innerText = 'Guardar Cliente';
+                        }
+                        if (window.hideLoading) window.hideLoading();
+                        console.error('Error al guardar cliente:', err);
+                        
+                        Swal.fire({
+                            title: 'Error de Registro',
+                            text: err.message,
+                            icon: 'error'
+                        });
+                    });
+                });
+            }
 
             // 1. GUARDAR CITA SIN OVERLAY "Procesando solicitud..."
             var createForm = document.getElementById('createAppointmentForm');
@@ -359,17 +548,13 @@
                     return;
                 }
 
-                // Buscar si seleccionó una opción del datalist
                 const option = document.querySelector(`#customersList option[value="${inputVal}"]`);
-                
-                // Si seleccionó del datalist usa el data-id, si solo escribió texto usa el mismo texto (inputVal)
                 const customerIdentifier = (option && option.getAttribute('data-id')) 
                     ? option.getAttribute('data-id') 
                     : inputVal;
 
                 document.getElementById('modalCustomerTitle').innerText = `Historial de Citas - ${inputVal}`;
 
-                // Construcción limpia de la URL evitando barras vacías
                 const baseUrl = "{{ url('customer-appointments-history') }}";
                 const fetchUrl = `${baseUrl}/${encodeURIComponent(customerIdentifier)}`;
 

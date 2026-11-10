@@ -2,6 +2,14 @@
     @php
         $userRole = (int) (auth()->user()->role_id ?? auth()->user()->type ?? 2);
         $canManageSellers = auth()->user()->isAdmin() || in_array($userRole, [1, 2]);
+
+        // CÁLCULO DEL PORCENTAJE DE DESCUENTO ACTUAL (PARA LA VISTA)
+        $subtotalItems = $sale->items->sum(function($item) {
+            return $item->cantidad * $item->precio;
+        });
+        $currentPercent = ($subtotalItems > 0 && $sale->venta_descuento > 0)
+            ? round(($sale->venta_descuento / $subtotalItems) * 100, 2)
+            : 0;
     @endphp
     <div class="container-fluid px-3 py-3">
         
@@ -11,7 +19,7 @@
                 <div class="w-100">
                     <div class="d-flex align-items-center gap-2 mb-2">
                         <h4 class="fw-bold text-primary m-0">
-                            <i class="fa-solid fa-cart-shopping me-1"></i> Venta #{{ $sale->venta_id }}
+                            <i class="fa-solid fa-cart-shopping me-1"></i> Venta #{{ $sale->folio_sucursal + 1  }}
                         </h4>
                         <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2 fs-6">
                             <i class="fa-solid fa-hospital me-1"></i> {{ $sale->venta_sucursal }}
@@ -86,7 +94,7 @@
                         {{-- Descuento --}}
                         <div class="col-6 col-sm-auto">
                             <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate open-modal-btn" data-target="#discountModal">
-                                <i class="fa-solid fa-percent me-1 text-danger"></i> Desc: ${{ number_format($sale->venta_descuento, 2) }}
+                                <i class="fa-solid fa-percent me-1 text-danger"></i> Desc: {{ $currentPercent }}% (${{ number_format($sale->venta_descuento, 2) }})
                             </button>
                         </div>
                     </div>
@@ -411,11 +419,12 @@
                     <div class="mb-3">
                         <label class="form-label fw-semibold">¿Requiere Factura?</label>
                         <select id="invoiceRequiredSelect" class="form-select rounded-3">
-                            <option value="NO" {{ $sale->venta_factura == 'NO' ? 'selected' : '' }}>NO</option>
+                            <option value="NO" {{ $sale->venta_factura == 'NO' || empty($sale->venta_factura) ? 'selected' : '' }}>NO</option>
                             <option value="SI" {{ $sale->venta_factura == 'SI' ? 'selected' : '' }}>SI</option>
                         </select>
                     </div>
 
+                    {{-- CONTENEDOR DE CAMPOS (Muestra u oculta según la selección) --}}
                     <div id="invoiceFieldsContainer" class="{{ $sale->venta_factura == 'SI' ? '' : 'd-none' }}">
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Número / Folio de Factura (Consecutivo Global)</label>
@@ -424,12 +433,23 @@
 
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Uso de CFDI</label>
+                            @php
+                                $knownCfdi = ['G03', 'P01', 'S01', 'D01', ''];
+                                $isCustomCfdi = !in_array($sale->venta_cfdi, $knownCfdi);
+                            @endphp
                             <select id="invoiceCfdiSelect" class="form-select rounded-3">
                                 <option value="G03" {{ $sale->venta_cfdi == 'G03' ? 'selected' : '' }}>G03 - Gastos en general</option>
                                 <option value="P01" {{ $sale->venta_cfdi == 'P01' ? 'selected' : '' }}>P01 - Por definir</option>
                                 <option value="S01" {{ $sale->venta_cfdi == 'S01' ? 'selected' : '' }}>S01 - Sin efectos fiscales</option>
                                 <option value="D01" {{ $sale->venta_cfdi == 'D01' ? 'selected' : '' }}>D01 - Honorarios médicos, dentales y gastos hospitalarios</option>
+                                <option value="OTRO" {{ $isCustomCfdi ? 'selected' : '' }}>OTRO (Especificar)</option>
                             </select>
+                        </div>
+
+                        {{-- Campo dinámico para concepto personalizado --}}
+                        <div class="mb-3 {{ $isCustomCfdi ? '' : 'd-none' }}" id="customCfdiContainer">
+                            <label class="form-label fw-semibold">Especificar Uso de CFDI / Concepto (*)</label>
+                            <input type="text" id="customCfdiInput" class="form-control rounded-3" value="{{ $isCustomCfdi ? $sale->venta_cfdi : '' }}" placeholder="Ej. CP01 - Pagos">
                         </div>
 
                         <div class="mb-3">
@@ -533,13 +553,27 @@
         <div class="modal-dialog modal-dialog-centered modal-sm">
             <div class="modal-content border-0 shadow-lg rounded-4">
                 <div class="modal-header border-0 pb-0">
-                    <h6 class="modal-title fw-bold text-dark">Monto de Descuento</h6>
+                    <h6 class="modal-title fw-bold text-dark">Porcentaje de Descuento</h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body py-3">
                     <div class="mb-3">
-                        <label class="form-label small fw-semibold">Descuento Global ($)</label>
-                        <input type="number" step="0.01" id="discountInput" class="form-control rounded-3 text-center fw-bold" value="{{ $sale->venta_descuento }}" placeholder="0.00">
+                        <label class="form-label small fw-semibold">Porcentaje (%)</label>
+
+                        {{-- Calcular el porcentaje actual basado en el subtotal bruto --}}
+                        @php
+                            $subtotalItems = $sale->items->sum(function($item) {
+                                return $item->cantidad * $item->precio;
+                            });
+                            $currentPercent = ($subtotalItems > 0 && $sale->venta_descuento > 0)
+                                ? round(($sale->venta_descuento / $subtotalItems) * 100, 2)
+                                : 0;
+                        @endphp
+
+                        <div class="input-group">
+                            <input type="number" step="0.01" min="0" max="100" id="discountInput" class="form-control rounded-start-3 text-center fw-bold" value="{{ $currentPercent }}" placeholder="0">
+                            <span class="input-group-text bg-light fw-bold">%</span>
+                        </div>
                     </div>
                     <button type="button" id="saveDiscountBtn" class="btn btn-danger w-100 rounded-pill fw-semibold">
                         Aplicar Descuento
@@ -665,6 +699,26 @@
                 });
             }
             
+            // BUSCADOR EN VIVO DE CLIENTES EN EL MODAL (#customerModal)
+            const searchCustomerInput = document.getElementById('searchCustomerInput');
+            if (searchCustomerInput) {
+                searchCustomerInput.addEventListener('input', function () {
+                    const query = this.value.toLowerCase().trim();
+                    const rows = document.querySelectorAll('#customersPosTable tbody .customer-row');
+
+                    rows.forEach(row => {
+                        const name = row.getAttribute('data-name') || '';
+                        const textContent = row.textContent.toLowerCase();
+
+                        if (name.includes(query) || textContent.includes(query)) {
+                            row.classList.remove('d-none');
+                        } else {
+                            row.classList.add('d-none');
+                        }
+                    });
+                });
+            }
+
             // CONTROL SEGURO DE APERTURA DE MODALES
             document.querySelectorAll('.open-modal-btn').forEach(btn => {
                 btn.addEventListener('click', function (e) {
@@ -1016,15 +1070,21 @@
                 });
             });
 
-            // 9. APLICAR DESCUENTO
+            // 9. APLICAR DESCUENTO POR PORCENTAJE
             const saveDiscountBtn = document.getElementById('saveDiscountBtn');
             if (saveDiscountBtn) {
                 saveDiscountBtn.addEventListener('click', function () {
                     if (isProcessing) return;
+
+                    const discountPercent = parseFloat(document.getElementById('discountInput').value) || 0;
+
+                    if (discountPercent < 0 || discountPercent > 100) {
+                        alert('Por favor ingresa un porcentaje válido entre 0% y 100%.');
+                        return;
+                    }
+
                     isProcessing = true;
                     showLoading();
-
-                    const discountVal = parseFloat(document.getElementById('discountInput').value) || 0;
 
                     fetch("{{ url('pos') }}/" + saleId + "/header", {
                         method: 'PUT',
@@ -1032,7 +1092,7 @@
                             'Content-Type': 'application/json',
                             'X-CSRF-TOKEN': '{{ csrf_token() }}'
                         },
-                        body: JSON.stringify({ venta_descuento: discountVal })
+                        body: JSON.stringify({ venta_descuento_porcentaje: discountPercent })
                     })
                     .then(res => res.json())
                     .then(data => {
@@ -1086,22 +1146,39 @@
             const invoiceRequiredSelect = document.getElementById('invoiceRequiredSelect');
             const invoiceFieldsContainer = document.getElementById('invoiceFieldsContainer');
             const invoiceNumberInput = document.getElementById('invoiceNumberInput');
+            const invoiceCfdiSelect = document.getElementById('invoiceCfdiSelect');
+            const customCfdiContainer = document.getElementById('customCfdiContainer');
+            const customCfdiInput = document.getElementById('customCfdiInput');
 
             if (invoiceRequiredSelect) {
                 invoiceRequiredSelect.addEventListener('change', function () {
                     if (this.value === 'SI') {
                         if (invoiceFieldsContainer) invoiceFieldsContainer.classList.remove('d-none');
+                        
+                        // Si el input está vacío, consultar opcionalmente el siguiente folio
                         if (invoiceNumberInput && !invoiceNumberInput.value) {
                             fetch("{{ url('pos') }}/" + saleId + "/next-invoice")
                                 .then(res => res.json())
                                 .then(data => {
-                                    if (data.success) {
+                                    if (data && data.success && data.next_invoice) {
                                         invoiceNumberInput.value = data.next_invoice;
                                     }
-                                });
+                                })
+                                .catch(() => {});
                         }
                     } else {
                         if (invoiceFieldsContainer) invoiceFieldsContainer.classList.add('d-none');
+                    }
+                });
+            }
+
+            if (invoiceCfdiSelect) {
+                invoiceCfdiSelect.addEventListener('change', function () {
+                    if (this.value === 'OTRO') {
+                        if (customCfdiContainer) customCfdiContainer.classList.remove('d-none');
+                        if (customCfdiInput) customCfdiInput.focus();
+                    } else {
+                        if (customCfdiContainer) customCfdiContainer.classList.add('d-none');
                     }
                 });
             }
@@ -1110,13 +1187,23 @@
             if (saveInvoiceBtn) {
                 saveInvoiceBtn.addEventListener('click', function () {
                     if (isProcessing) return;
-                    isProcessing = true;
-                    showLoading();
 
                     const isRequired = invoiceRequiredSelect ? invoiceRequiredSelect.value : 'NO';
                     const numInvoice = invoiceNumberInput ? invoiceNumberInput.value : '';
-                    const cfdi = document.getElementById('invoiceCfdiSelect') ? document.getElementById('invoiceCfdiSelect').value : null;
+                    let cfdiVal = invoiceCfdiSelect ? invoiceCfdiSelect.value : null;
+
+                    if (cfdiVal === 'OTRO') {
+                        cfdiVal = customCfdiInput ? customCfdiInput.value.trim() : 'OTRO';
+                        if (!cfdiVal) {
+                            alert('Por favor ingresa el concepto personalizado para el CFDI.');
+                            return;
+                        }
+                    }
+
                     const invoiceType = document.getElementById('invoiceTypeSelect') ? document.getElementById('invoiceTypeSelect').value : null;
+
+                    isProcessing = true;
+                    showLoading();
 
                     fetch("{{ url('pos') }}/" + saleId + "/header", {
                         method: 'PUT',
@@ -1127,13 +1214,24 @@
                         body: JSON.stringify({
                             venta_factura: isRequired,
                             numero_factura: isRequired === 'SI' ? numInvoice : null,
-                            venta_cfdi: isRequired === 'SI' ? cfdi : null,
+                            venta_cfdi: isRequired === 'SI' ? cfdiVal : null,
                             venta_tipo_factura: isRequired === 'SI' ? invoiceType : null
                         })
                     })
                     .then(res => res.json())
                     .then(data => {
-                        if (data.success) location.reload();
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            isProcessing = false;
+                            hideLoading();
+                            alert(data.message || 'Error al guardar factura');
+                        }
+                    })
+                    .catch(err => {
+                        isProcessing = false;
+                        hideLoading();
+                        console.error(err);
                     });
                 });
             }
@@ -1328,5 +1426,6 @@
                 });
             }
         });
+        
     </script>
 </x-app-layout>

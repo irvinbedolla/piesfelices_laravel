@@ -152,6 +152,7 @@
                             <tr class="fw-bold text-uppercase border-bottom">
                                 <th>Folio</th>
                                 <th>Fecha y Hora</th>
+                                <th>Cliente</th>
                                 <th>Vendedor</th>
                                 <th class="text-end">Total</th>
                                 <th class="text-center">Info Venta</th>
@@ -169,14 +170,18 @@
                                     $sellerUser = $v->seller ?? $users->firstWhere('id', $v->venta_idempleado);
                                     $sellerName = $sellerUser->name ?? $sellerUser->username ?? $v->vendedor_nombre ?? ('Usuario #' . $v->venta_idempleado);
                                     $fechaHora = \Carbon\Carbon::parse($v->venta_fecha . ' ' . ($v->venta_hora ?? '00:00:00'))->format('d/m/Y h:i A');
+                                    $clientName = $v->customer->nombre ?? $v->nombre_cliente ?: 'Cliente General';
                                 ?>
                                 <tr>
                                     
-                                    <td class="fw-bold text-primary">#<?php echo e($v->venta_id); ?></td>
+                                    <td class="fw-bold text-primary">#<?php echo e($v->folio_sucursal); ?></td>
                                     
                                     
                                     <td><?php echo e($fechaHora); ?></td>
+
                                     
+                                    <td class="fw-semibold text-dark"><?php echo e($clientName); ?></td>
+
                                     
                                     <td class="fw-semibold text-uppercase"><?php echo e($sellerName); ?></td>
                                     
@@ -481,17 +486,9 @@
                                     <div class="col-6 col-md-2-4 col-lg">
                                         <div class="bg-white p-2 rounded-3 text-center border">
                                             <small class="text-muted extra-small d-block fw-semibold">
-                                                <i class="fa-solid fa-credit-card text-primary me-1"></i>T. CRÉDITO
+                                                <i class="fa-solid fa-credit-card text-primary me-1"></i>PAGO CON TARJETA
                                             </small>
-                                            <span class="fw-bold text-dark fs-6">$<?php echo e(number_format($summary['pago_tarjeta_credito'], 2)); ?></span>
-                                        </div>
-                                    </div>
-                                    <div class="col-6 col-md-2-4 col-lg">
-                                        <div class="bg-white p-2 rounded-3 text-center border">
-                                            <small class="text-muted extra-small d-block fw-semibold">
-                                                <i class="fa-solid fa-credit-card text-info me-1"></i>T. DÉBITO
-                                            </small>
-                                            <span class="fw-bold text-dark fs-6">$<?php echo e(number_format($summary['pago_tarjeta_debito'], 2)); ?></span>
+                                            <span class="fw-bold text-dark fs-6">$<?php echo e(number_format($summary['pago_tarjeta_credito'] + $summary['pago_tarjeta_debito'], 2)); ?></span>
                                         </div>
                                     </div>
                                     <div class="col-6 col-md-2-4 col-lg">
@@ -527,10 +524,6 @@
                         </div>
 
                         <div class="card border-0 text-white rounded-4 p-3 shadow ms-auto mt-2 mt-md-0" style="background: linear-gradient(135deg, #d81b60 0%, #e91e63 100%); min-width: 320px;">
-                            <div class="d-flex justify-content-between align-items-center mb-1 fs-6">
-                                <span>Descuentos Totales:</span>
-                                <strong>-$<?php echo e(number_format($summary['descuentos'], 2)); ?></strong>
-                            </div>
                             <hr class="my-1 border-white opacity-50">
                             <div class="d-flex justify-content-between align-items-center fs-5 fw-bold">
                                 <span>GRAN TOTAL VENTAS:</span>

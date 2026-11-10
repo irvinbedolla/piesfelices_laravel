@@ -182,8 +182,10 @@
 <div id="sidebarOverlay"></div>
 
 <div id="wrapper">
-    <!-- NAVEGACIÓN MODULARIZADA -->
-    @include('layouts.navigation')
+    <div id="sidebarContainer">
+        <!-- NAVEGACIÓN MODULARIZADA -->
+        @include('layouts.navigation')
+    </div>
 
     <!-- CONTENT -->
     <div id="content">
@@ -266,11 +268,20 @@
     const sidebarToggle = document.getElementById('sidebarToggle');
     const sidebarOverlay = document.getElementById('sidebarOverlay');
 
+    // Asegurar que inicie colapsado en pantallas grandes al cargar la página
+    document.addEventListener('DOMContentLoaded', function() {
+        if (sidebar && window.innerWidth >= 992) {
+            sidebar.classList.add('collapsed');
+        }
+    });
+
     function toggleSidebar() {
         if (window.innerWidth < 992) {
+            // En móviles alterna la clase show-mobile y el overlay
             sidebar.classList.toggle('show-mobile');
             sidebarOverlay.classList.toggle('active');
         } else {
+            // En escritorio alterna la clase collapsed (si la quita, el menú se despliega)
             sidebar.classList.toggle('collapsed');
         }
     }

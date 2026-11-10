@@ -80,6 +80,7 @@ class CustomerController extends Controller
      */
     public function store(Request $request)
     {
+    try {
         $request->validate([
             'nombre'           => 'required|string|max:100',
             'telefono'         => 'nullable|string|max:30',
@@ -92,10 +93,40 @@ class CustomerController extends Controller
             'fecha_nacimiento' => 'nullable|date',
         ]);
 
-        Customer::create($request->all());
+        $customer = Customer::create($request->all());
+
+        // Respuesta en formato JSON cuando se llama por AJAX
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success'    => true,
+                'message'    => 'Cliente registrado exitosamente.',
+                'cliente_id' => $customer->cliente_id ?? $customer->id,
+                'nombre'     => $customer->nombre,
+                'customer'   => $customer
+            ], 201);
+        }
 
         return redirect()->back()->with('success', 'Cliente registrado exitosamente.');
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->first()[0] ?? 'Datos incompletos o inválidos.'
+            ], 422);
+        }
+        throw $e;
+    } catch (\Exception $e) {
+        \Log::error("Error al registrar cliente: " . $e->getMessage());
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Fallo interno en el servidor: ' . $e->getMessage()
+            ], 500);
+        }
+        throw $e;
     }
+}
 
     /**
      * Actualizar cliente existente
