@@ -19,7 +19,11 @@
                 <div class="w-100">
                     <div class="d-flex align-items-center gap-2 mb-2">
                         <h4 class="fw-bold text-primary m-0">
-                            <i class="fa-solid fa-cart-shopping me-1"></i> Venta #{{ $sale->folio_sucursal + 1  }}
+                            <i class="fa-solid fa-cart-shopping me-1"></i>
+                            @if($sale->folio_sucursal)
+                                Folio #{{ $sale->folio_sucursal }}
+                            @else
+                                Folio #{{ $nextFolio }} <small class="fs-6 text-muted fw-normal">(Por asignar)</small>                            @endif
                         </h4>
                         <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2 fs-6">
                             <i class="fa-solid fa-hospital me-1"></i> {{ $sale->venta_sucursal }}
@@ -482,18 +486,25 @@
                 </div>
                 <div class="modal-body py-3">
                     <div class="mb-3">
-                        <input type="text" id="searchSellerInput" class="form-control form-control-sm rounded-pill" placeholder="Buscar empleado...">
+                        <input type="text" id="searchSellerInput" class="form-control form-control-sm rounded-pill" placeholder="Buscar empleado..." autocomplete="off">
                     </div>
                     <div class="list-group rounded-3 shadow-sm overflow-auto" style="max-height: 250px;" id="sellersList">
                         @foreach($sellers as $s)
-                            @php $sellerName = $s->name ?? $s->username ?? 'Empleado #' . $s->id; @endphp
-                            <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center assign-seller-btn" data-id="{{ $s->id }}" data-name="{{ $sellerName }}">
-                                <span class="fw-semibold text-dark">
-                                    <i class="fa-solid fa-user-circle me-2 text-secondary"></i>{{ $sellerName }}
-                                </span>
-                                @if($sale->venta_idempleado == $s->id)
-                                    <span class="badge bg-success rounded-pill">Activo</span>
-                                @endif
+                            @php 
+                                $sellerName = $s->name ?? $s->username ?? 'Empleado #' . $s->id; 
+                            @endphp
+                            <button type="button" 
+                                    class="list-group-item list-group-item-action assign-seller-btn seller-row-item" 
+                                    data-id="{{ $s->id }}" 
+                                    data-name="{{ strtolower($sellerName) }}">
+                                <div class="d-flex justify-content-between align-items-center w-100">
+                                    <span class="fw-semibold text-dark">
+                                        <i class="fa-solid fa-user-circle me-2 text-secondary"></i>{{ $sellerName }}
+                                    </span>
+                                    @if($sale->venta_idempleado == $s->id)
+                                        <span class="badge bg-success rounded-pill">Activo</span>
+                                    @endif
+                                </div>
                             </button>
                         @endforeach
                     </div>
@@ -1236,7 +1247,7 @@
                 });
             }
 
-            // 12. CONFIRMAR PAGO CON VALIDACIÓN DE MONTO MÍNIMO
+            // 12. CONFIRMAR PAGO CORREGIDO (VALIDA ANTES DE MOSTRAR CARGANDO)
             const confirmPayBtn = document.getElementById('confirmPayBtn');
             if (confirmPayBtn) {
                 confirmPayBtn.addEventListener('click', function () {
@@ -1246,31 +1257,35 @@
                     const payErrorAlert = document.getElementById('payErrorAlert');
                     const payErrorMessage = document.getElementById('payErrorMessage');
                     
-                    // Si no se teclea nada en receivedInput, asumimos el total entero de la venta
                     const rawVal = receivedInput ? receivedInput.value.trim() : '';
-                    const received = rawVal !== '' ? parseFloat(rawVal) : totalSale;
-                    const saleType = "{{ $sale->venta_tipo }}"; // '1' = Contado, '2' = Crédito
 
-                    // Ocultar alertas previas
+                    // Ocultar alertas previas y restaurar estados del input
                     if (payErrorAlert) payErrorAlert.classList.add('d-none');
                     if (receivedInput) receivedInput.classList.remove('is-invalid');
 
                     // ------------------------------------------------------------------
-                    // VALIDACIÓN DE MONTO MÍNIMO
+                    // 1. VALIDACIONES PRIMERO (SIN ACTIVAR PANTALLA DE CARGANDO)
                     // ------------------------------------------------------------------
+                    if (rawVal === '') {
+                        showPayError('Por favor ingresa manualmente el monto de efectivo recibido.');
+                        return;
+                    }
+
+                    const received = parseFloat(rawVal);
+                    const saleType = "{{ $sale->venta_tipo }}"; // '1' = Contado, '2' = Crédito
+
                     if (isNaN(received) || received < 0) {
                         showPayError('Por favor ingresa un monto válido.');
                         return;
                     }
 
-                    // Si es venta a CONTADO (1), no permitir montos menores al total
+                    // Si es venta a CONTADO (1), verificar que el pago no sea menor al total
                     if ((saleType === '1' || saleType === 1) && received < totalSale) {
                         const faltante = (totalSale - received).toFixed(2);
                         showPayError(`Monto insuficiente. Falta $${faltante} para completar el total ($${totalSale.toFixed(2)}).`);
                         return;
                     }
 
-                    // Función auxiliar para mostrar el error en el modal
                     function showPayError(msg) {
                         if (payErrorMessage) payErrorMessage.textContent = msg;
                         if (payErrorAlert) payErrorAlert.classList.remove('d-none');
@@ -1278,14 +1293,18 @@
                             receivedInput.classList.add('is-invalid');
                             receivedInput.focus();
                         }
+                        // Asegurar que el sistema no se quede bloqueado si hay un error de validación
+                        isProcessing = false;
+                        if (confirmPayBtn) confirmPayBtn.disabled = false;
+                        if (typeof hideLoading === 'function') hideLoading();
                     }
 
                     // ------------------------------------------------------------------
-                    // CONTINUAR CON EL COBRO SI LA VALIDACIÓN PASÓ EXITOSAMENTE
+                    // 2. SOLO CUANDO TODAS LAS VALIDACIONES PASAN, SE ACTIVA EL LOADER
                     // ------------------------------------------------------------------
                     isProcessing = true;
                     confirmPayBtn.disabled = true;
-                    showLoading();
+                    if (typeof showLoading === 'function') showLoading();
 
                     const printTicket = document.getElementById('printTicketCheck') ? document.getElementById('printTicketCheck').checked : true;
 
@@ -1314,11 +1333,27 @@
                         }
                     })
                     .catch(error => {
+                        // Si la petición AJAX falla, restaurar controles inmediatamente
                         isProcessing = false;
                         confirmPayBtn.disabled = false;
-                        hideLoading();
+                        if (typeof hideLoading === 'function') hideLoading();
                         showPayError('Error: ' + error.message);
                     });
+                });
+            }
+
+            // RESTAURAR ESTADOS AL CERRAR O OCULTAR EL MODAL
+            const payModal = document.getElementById('payModal');
+            if (payModal) {
+                payModal.addEventListener('hidden.bs.modal', function () {
+                    isProcessing = false;
+                    if (confirmPayBtn) confirmPayBtn.disabled = false;
+                    if (typeof hideLoading === 'function') hideLoading();
+                    
+                    const payErrorAlert = document.getElementById('payErrorAlert');
+                    const receivedInput = document.getElementById('receivedInput');
+                    if (payErrorAlert) payErrorAlert.classList.add('d-none');
+                    if (receivedInput) receivedInput.classList.remove('is-invalid');
                 });
             }
 
@@ -1359,18 +1394,27 @@
             // CÁLCULO DINÁMICO DEL CAMBIO
             if (receivedInput && changeOutput) {
                 receivedInput.addEventListener('input', function () {
-                    const received = parseFloat(this.value) || 0;
-                    const change = received - totalSale;
+                const val = this.value.trim();
+                
+                if (val === '') {
+                    changeOutput.value = '$0.00';
+                    changeOutput.classList.remove('text-danger');
+                    changeOutput.classList.add('text-primary');
+                    return;
+                }
 
-                    if (change >= 0) {
-                        changeOutput.value = '$' + change.toFixed(2);
-                        changeOutput.classList.remove('text-danger');
-                        changeOutput.classList.add('text-primary');
-                    } else {
-                        changeOutput.value = 'Faltan $' + Math.abs(change).toFixed(2);
-                        changeOutput.classList.remove('text-primary');
-                        changeOutput.classList.add('text-danger');
-                    }
+                const received = parseFloat(val) || 0;
+                const change = received - totalSale;
+
+                if (change >= 0) {
+                    changeOutput.value = '$' + change.toFixed(2);
+                    changeOutput.classList.remove('text-danger');
+                    changeOutput.classList.add('text-primary');
+                } else {
+                    changeOutput.value = 'Faltan $' + Math.abs(change).toFixed(2);
+                    changeOutput.classList.remove('text-primary');
+                    changeOutput.classList.add('text-danger');
+                }
                 });
             }
 
@@ -1387,9 +1431,9 @@
                         }
                     }
 
-                    isProcessing = true;
-                    confirmPayBtn.disabled = true;
-                    showLoading();
+                    //isProcessing = true;
+                    //confirmPayBtn.disabled = true;
+                    //showLoading();
 
                     const printTicket = document.getElementById('printTicketCheck') ? document.getElementById('printTicketCheck').checked : false;
 
@@ -1427,5 +1471,44 @@
             }
         });
         
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const searchSellerInput = document.getElementById('searchSellerInput');
+
+            if (searchSellerInput) {
+                // Escucha la escritura en tiempo real
+                searchSellerInput.addEventListener('input', function () {
+                    const query = this.value.toLowerCase().trim();
+                    const sellerItems = document.querySelectorAll('#sellersList .seller-row-item');
+
+                    sellerItems.forEach(item => {
+                        const nameAttr = item.getAttribute('data-name') || '';
+                        const textContent = item.textContent.toLowerCase();
+
+                        if (nameAttr.includes(query) || textContent.includes(query)) {
+                            item.style.setProperty('display', 'block', 'important');
+                        } else {
+                            item.style.setProperty('display', 'none', 'important');
+                        }
+                    });
+                });
+            }
+
+            // Al abrir el modal de vendedor, enfocar e inicializar la lista
+            document.querySelectorAll('[data-target="#sellerModal"]').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    setTimeout(() => {
+                        if (searchSellerInput) {
+                            searchSellerInput.value = '';
+                            // Mostrar todos de nuevo
+                            document.querySelectorAll('#sellersList .seller-row-item').forEach(el => {
+                                el.style.setProperty('display', 'block', 'important');
+                            });
+                            searchSellerInput.focus();
+                        }
+                    }, 150);
+                });
+            });
+        });
     </script>
 </x-app-layout>

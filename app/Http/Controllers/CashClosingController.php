@@ -65,7 +65,7 @@ class CashClosingController extends Controller
 
         $typeStrCol = Schema::hasColumn('products', 'type') ? 'products.type' : DB::raw("''");
 
-        // Consulta de ventas usando LEFT JOIN (Todas las ventas pagadas, incluyendo facturadas)
+        // Consulta de ventas usando LEFT JOIN
         $querySales = DB::table('ventas')
             ->leftJoin('venta_producto', 'ventas.venta_id', '=', 'venta_producto.venta_id')
             ->leftJoin('products', 'venta_producto.producto_id', '=', 'products.id')
@@ -76,6 +76,7 @@ class CashClosingController extends Controller
             ->select(
                 'ventas.venta_id',
                 'ventas.venta_tipo',
+                'ventas.venta_tipopago',
                 'ventas.venta_descuento',
                 'ventas.venta_sucursal',
                 'ventas.venta_total',
@@ -98,10 +99,15 @@ class CashClosingController extends Controller
 
         $salesData = $querySales->get();
 
-        // Acumuladores
+        // Acumuladores de Categorías
         $credito   = ['medicamento' => 0, 'calzado' => 0, 'consulta' => 0];
         $contado   = ['medicamento' => 0, 'calzado' => 0, 'consulta' => 0];
         $liquidado = ['medicamento' => 0, 'calzado' => 0, 'consulta' => 0];
+
+        // Acumuladores de Formas de Pago
+        $pagoEfectivo      = 0;
+        $pagoTarjeta       = 0;
+        $pagoTransferencia = 0;
 
         $descuentoContado = 0;
         $descuentoCredito = 0;
@@ -117,7 +123,7 @@ class CashClosingController extends Controller
             $catId     = (int)($item->producto_categoria ?? 0);
             $tipoStr   = strtoupper($item->producto_tipo_str ?? '');
 
-            // Clasificación de Categoria (Si no es calzado, todo entra a medicamento)
+            // Clasificación de Categoria
             if ($productId === 0) {
                 $cat = 'consulta';
             } else {
@@ -128,32 +134,40 @@ class CashClosingController extends Controller
                 }
             }
 
-            $tipoVenta = (int)$item->venta_tipo;
+            // Determinar tipo de venta (1=Contado, 2=Crédito)
+            $tipoVenta = (string)$item->venta_tipo;
 
-            if ($tipoVenta === 2 || $tipoVenta === 'CREDITO') {
+            if ($tipoVenta === '2' || $tipoVenta === 'CREDITO') {
                 $credito[$cat] += $monto;
-            } elseif ($tipoVenta === 1 || $tipoVenta === 'CONTADO' || $tipoVenta === 'PAGADO') {
-                $contado[$cat] += $monto;
-            } elseif ($tipoVenta === 3) {
-                $liquidado[$cat] += $monto;
             } else {
                 $contado[$cat] += $monto;
             }
 
-            // Descuentos por venta (Una sola vez por ticket)
+            // Acumular Formas de Pago (Una sola vez por ticket)
             if (!in_array($item->venta_id, $processedSalesForDiscount)) {
                 $processedSalesForDiscount[] = $item->venta_id;
                 $desc = (float)($item->venta_descuento ?? 0);
+                $totalCobradoNeto = (float)($item->venta_total ?? 0);
 
-                if ($tipoVenta === 2 || $tipoVenta === 'CREDITO') {
+                if ($tipoVenta === '2' || $tipoVenta === 'CREDITO') {
                     $descuentoCredito += $desc;
                 } else {
                     $descuentoContado += $desc;
+
+                    // Forma de pago solo para contado
+                    $formaPago = strtoupper(trim($item->venta_tipopago ?? 'EFECTIVO'));
+                    if (str_contains($formaPago, 'TARJETA') || str_contains($formaPago, 'DEBITO') || str_contains($formaPago, 'CREDITO') || str_contains($formaPago, 'TC') || str_contains($formaPago, 'TD')) {
+                        $pagoTarjeta += $totalCobradoNeto;
+                    } elseif (str_contains($formaPago, 'TRANSFERENCIA') || str_contains($formaPago, 'TRANS')) {
+                        $pagoTransferencia += $totalCobradoNeto;
+                    } else {
+                        $pagoEfectivo += $totalCobradoNeto;
+                    }
                 }
             }
         }
 
-        // Consultar Abonos
+        // Consultar Abonos a Ventas
         $queryAbonos = DB::table('abonos')->whereBetween('abono_fecha', [$fecha1, $fecha2]);
         if (!empty($branchesSelected) && is_array($branchesSelected)) {
             $queryAbonos->whereIn('abono_sucursal', $branchesSelected);
@@ -177,13 +191,39 @@ class CashClosingController extends Controller
         }
 
         $retiros = $queryRetiros->get();
-
         $montoCol = Schema::hasColumn('retiros', 'cantidad') ? 'cantidad' : 'monto';
 
         $gastosProveedor   = $retiros->where('tipo', 1)->sum($montoCol);
         $gastosConsultorio = $retiros->where('tipo', 2)->sum($montoCol);
         $gastosSueldos     = $retiros->where('tipo', 3)->sum($montoCol);
         $totalGastos       = $retiros->sum($montoCol);
+
+        // -------------------------------------------------------------
+        // CONSULTA DE PRÉSTAMOS Y ABONOS A PRÉSTAMOS
+        // -------------------------------------------------------------
+        $queryPrestamos = DB::table('prestamos')
+            ->whereBetween('pres_fecha', [$fecha1, $fecha2])
+            ->where(function($q) {
+                $q->where('status', 'Activo')
+                ->orWhere('status', 'activo');
+            });
+
+        if (!empty($branchesSelected) && is_array($branchesSelected)) {
+            $queryPrestamos->whereIn('sucursal', $branchesSelected);
+        } elseif ($sucursalSingle && $sucursalSingle !== 'TODOS') {
+            $queryPrestamos->where('sucursal', $sucursalSingle);
+        }
+        $totalPrestamosOtorgados = $queryPrestamos->sum('pres_costo') ?? 0;
+
+        $queryPagoPrestamo = DB::table('pago_prestamo')
+            ->whereBetween('fechaPretamo', [$fecha1, $fecha2]);
+
+        if (!empty($branchesSelected) && is_array($branchesSelected)) {
+            $queryPagoPrestamo->whereIn('sucursal', $branchesSelected);
+        } elseif ($sucursalSingle && $sucursalSingle !== 'TODOS') {
+            $queryPagoPrestamo->where('sucursal', $sucursalSingle);
+        }
+        $totalAbonosPrestamo = $queryPagoPrestamo->sum('monto') ?? 0;
 
         // Subtotales antes de descuento
         $subtotalCredito = array_sum($credito);
@@ -194,9 +234,10 @@ class CashClosingController extends Controller
         $totalCredito = max(0, $subtotalCredito - $descuentoCredito);
         $totalContado = max(0, $subtotalContado - $descuentoContado);
 
-        // FÓRMULAS DE TOTALES FINAL EN CAJA:
-        $totalEfectivoNeto       = ($totalContado + $totalAbonos) - $totalGastos;
-        $totalEfectivoMasCredito = $totalEfectivoNeto + $totalCredito;
+        // FÓRMULAS DE EFECTIVO FINAL EN CAJA:
+        // Efectivo Neto = (Ventas Contado en Efectivo + Abonos Ventas + Abonos Préstamos) - Gastos - Préstamos Otorgados
+        $totalEfectivoNeto = ($pagoEfectivo + $totalAbonos + $totalAbonosPrestamo) - ($totalGastos + $totalPrestamosOtorgados);
+        $totalEfectivoMasCredito = $totalContado + $totalCredito + $totalLiquidado;
 
         $pdf = Pdf::loadView('cash_closing.daily', compact(
             'fecha1', 'fecha2', 'sucursalTitle',
@@ -205,8 +246,10 @@ class CashClosingController extends Controller
             'totalCredito', 'totalContado', 'totalLiquidado',
             'totalAbonos', 'gastosProveedor', 'gastosConsultorio', 'gastosSueldos', 'totalGastos',
             'descuentoContado', 'descuentoCredito',
+            'totalPrestamosOtorgados', 'totalAbonosPrestamo',
+            'pagoEfectivo', 'pagoTarjeta', 'pagoTransferencia',
             'totalEfectivoNeto', 'totalEfectivoMasCredito', 'retiros'
-        ))->setPaper([0, 0, 226.77, 720], 'portrait');
+        ))->setPaper([0, 0, 226.77, 780], 'portrait');
 
         return $pdf->stream("cierre_diario_{$fecha1}_{$fecha2}.pdf");
     }

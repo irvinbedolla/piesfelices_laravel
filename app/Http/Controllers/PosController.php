@@ -94,20 +94,48 @@ class PosController extends Controller
 
             $sellerUser = User::find($sale->venta_idempleado) ?? $user;
             $activeBranchId = $sellerUser->branch_id 
-                ?? $sellerUser->sucursal_id 
+                ?? $sellerUser->branch_id 
                 ?? Branch::where('name', $sale->venta_sucursal)->value('id') 
                 ?? $userBranchId;
 
-            if ($user->isAdmin() || $userRole === 1) {
+            // ----------------------------------------------------------------------
+            // FILTRADO DE CLIENTES Y EMPLEADOS SEGÚN EL ROL DEL USUARIO
+            // Rol 1: Super Usuario (Ve todos los clientes y todos los empleados)
+            // Rol 2: Administrador/Encargado de Sucursal (Ve clientes y empleados de su sucursal)
+            // Otros Roles (3, 4, etc.): Empleado normal (Ve únicamente su propio usuario y clientes de su sucursal)
+            // ----------------------------------------------------------------------
+            if ($userRole === 1 || (method_exists($user, 'isAdmin') && $user->isAdmin())) {
+                // ROL 1: Acceso Total
                 $customers = Customer::all();
                 $sellers   = User::all();
-            } else {
-                $customers = Customer::where('sucursal', $sale->venta_sucursal)
-                    ->orWhere('sucursal', $userBranchName)
-                    ->orWhere('sucursal', 'MATRIZ')
+            } elseif ($userRole === 2) {
+                // ROL 2: Filtrado por Sucursal (Clientes y Empleados de la sucursal actual)
+                $customers = Customer::where(function($q) use ($sale, $userBranchName) {
+                        $q->where('sucursal', $sale->venta_sucursal)
+                        ->orWhere('sucursal', $userBranchName)
+                        ->orWhere('sucursal', 'MATRIZ');
+                    })
                     ->get();
 
-                $sellers = User::all(); // Asegurar que cargue vendedores para no romper la vista
+                $sellers = User::where('branch_id', $activeBranchId)
+                    ->orWhere('branch_id', $activeBranchId)
+                    //->orWhere('sucursal', $userBranchName)
+                    ->get();
+
+                // Resguardo: Si la lista de vendedores resultara vacía, incluye al menos al usuario actual
+                if ($sellers->isEmpty()) {
+                    $sellers = User::where('id', $user->id)->get();
+                }
+            } else {
+                // OTROS ROLES: Solo ve clientes de la sucursal y únicamente a él mismo como vendedor
+                $customers = Customer::where(function($q) use ($sale, $userBranchName) {
+                        $q->where('sucursal', $sale->venta_sucursal)
+                        ->orWhere('sucursal', $userBranchName)
+                        ->orWhere('sucursal', 'MATRIZ');
+                    })
+                    ->get();
+
+                $sellers = User::where('id', $user->id)->get();
             }
 
             $products = Product::whereHas('branches', function ($q) use ($activeBranchId) {
@@ -117,7 +145,16 @@ class PosController extends Controller
                 $q->where('branch_id', $activeBranchId);
             }])->get();
 
-            return view('pos.index', compact('sale', 'customers', 'sellers', 'products', 'user', 'branches'));
+
+            // Obtener el mayor folio asignado en esta sucursal y sumarle 1
+            $maxFolioActual = DB::table('ventas')
+                ->where('venta_sucursal', $sale->venta_sucursal)
+                ->whereNotNull('folio_sucursal')
+                ->max('folio_sucursal');
+
+            $nextFolio = ($maxFolioActual ? (int)$maxFolioActual : 0) + 1;
+
+            return view('pos.index', compact('sale', 'customers', 'sellers', 'products', 'user', 'branches','nextFolio'));
 
         } catch (\Exception $e) {
             // Muestra en pantalla cualquier otra falla inesperada en la vista
@@ -146,8 +183,9 @@ class PosController extends Controller
             
             $sellerUser = User::find($sale->venta_idempleado);
             $branchId = $sellerUser?->branch_id 
-                ?? $sellerUser?->sucursal_id 
+                ?? Branch::where('name', $sellerUser?->sucursal)->value('id')
                 ?? Branch::where('name', $sale->venta_sucursal)->value('id') 
+                ?? $userBranchId 
                 ?? 1;
 
             $pivot = DB::table('branch_product')
@@ -244,7 +282,7 @@ class PosController extends Controller
                 $sellerUser = User::find($sale->venta_idempleado);
                 
                 $branchId = $sellerUser?->branch_id 
-                    ?? $sellerUser?->sucursal_id 
+                    ?? $sellerUser?->branch_id 
                     ?? Branch::where('name', $sale->venta_sucursal)->value('id') 
                     ?? 1;
 
@@ -345,8 +383,8 @@ class PosController extends Controller
                 if ($user->isAdmin() || $userRole === 1) {
                     $canChangeSeller = true;
                 } elseif ($userRole === 2 && $newSeller) {
-                    $userBranch   = $user->branch_id ?? $user->sucursal_id ?? $user->branch_name ?? $user->sucursal;
-                    $sellerBranch = $newSeller->branch_id ?? $newSeller->sucursal_id ?? $newSeller->branch_name ?? $newSeller->sucursal;
+                    $userBranch   = $user->branch_id ?? $user->branch_id ?? $user->branch_name ?? $user->sucursal;
+                    $sellerBranch = $newSeller->branch_id ?? $newSeller->branch_id ?? $newSeller->branch_name ?? $newSeller->sucursal;
 
                     if ($userBranch == $sellerBranch) {
                         $canChangeSeller = true;
@@ -357,7 +395,7 @@ class PosController extends Controller
 
                     // Determinar el ID y Nombre de la nueva sucursal
                     $newBranchId = $newSeller->branch_id 
-                        ?? $newSeller->sucursal_id 
+                        ?? $newSeller->branch_id 
                         ?? Branch::where('name', $newSeller->sucursal)->value('id') 
                         ?? 1;
 
@@ -398,7 +436,7 @@ class PosController extends Controller
                     }
 
                     $fields['venta_idempleado'] = $newSellerId;
-                    $branchName = Branch::find($newSeller->branch_id ?? $newSeller->sucursal_id)?->name 
+                    $branchName = Branch::find($newSeller->branch_id ?? $newSeller->branch_id)?->name 
                         ?? $newSeller->sucursal 
                         ?? $sale->venta_sucursal;
                         
@@ -453,7 +491,7 @@ class PosController extends Controller
 
                 $sellerUser = User::find($sale->venta_idempleado) ?? $user;
                 $branchId   = $sellerUser->branch_id 
-                    ?? $sellerUser->sucursal_id 
+                    ?? $sellerUser->branch_id 
                     ?? Branch::where('name', $sale->venta_sucursal)->value('id') 
                     ?? 1;
 
@@ -583,7 +621,7 @@ class PosController extends Controller
                 if (strtoupper($sale->status) === 'PAGADO') {
                     $sellerUser = User::find($sale->venta_idempleado) ?? Auth::user();
                     $branchId = $sellerUser->branch_id 
-                        ?? $sellerUser->sucursal_id 
+                        ?? $sellerUser->branch_id 
                         ?? Branch::where('name', $sale->venta_sucursal)->value('id') 
                         ?? 1;
 

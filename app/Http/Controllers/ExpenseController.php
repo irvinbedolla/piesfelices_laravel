@@ -175,7 +175,7 @@ class ExpenseController extends Controller
         }
 
         // 5. Consulta Base de Préstamos
-        $query = Loan::with('user');
+        $query = Loan::with('user'); 
 
         if ($roleId === 1) {
             if ($viewMode === 'mis_prestamos') {

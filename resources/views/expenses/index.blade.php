@@ -14,7 +14,7 @@
                 <i class="fa-solid fa-triangle-exclamation me-2"></i>{{ session('error') }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
-        @endif
+        @endif 
 
         {{-- PANEL DE REGISTRO RÁPIDO --}}
         <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">

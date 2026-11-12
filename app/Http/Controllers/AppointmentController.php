@@ -32,7 +32,9 @@ class AppointmentController extends Controller
         // 2. Obtener clientes según la sucursal activa
         $customers = Customer::when(!in_array($userRole, [0, 1]), function ($q) use ($selectedBranch) {
             $q->where('sucursal', $selectedBranch);
-        })->get();
+        })
+        ->orderby('nombre')
+        ->get();
 
         // 3. Obtener podólogos (Asegurar que siempre traiga lista válida)
         if (in_array($userRole, [0, 1])) {

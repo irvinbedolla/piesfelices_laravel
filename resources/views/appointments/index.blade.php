@@ -12,12 +12,12 @@
     {{-- ESTILOS PARA CORREGIR LA VISUALIZACIÓN DE EVENTOS EN FULLCALENDAR --}}
     <style>
         .fc-timegrid-event {
-            min-height: 45px !important; /* Altura mínima para que no se aplasten */
+            min-height: 45px !important;
             border-radius: 6px !important;
             padding: 2px 4px !important;
         }
         .fc-event-main {
-            white-space: normal !important; /* Permite saltos de línea */
+            white-space: normal !important;
             word-wrap: break-word !important;
             font-size: 0.82rem !important;
             line-height: 1.15 !important;
@@ -33,7 +33,7 @@
     <div class="container-fluid py-3">
         <div class="card border-0 shadow-sm rounded-4 p-4">
             
-            {{-- ENCABEZADO REORGANIZADO --}}
+            {{-- ENCABEZADO --}}
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
                 <div>
                     <h4 class="fw-bold text-primary m-0">
@@ -51,7 +51,7 @@
                 {{-- CONTROLES SUPERIORES --}}
                 <div class="d-flex flex-wrap align-items-center gap-2">
                     
-                    {{-- Buscador de Cliente --}}
+                    {{-- Buscador de Cliente Historial --}}
                     <input class="form-control form-control-sm rounded-pill border-primary-subtle" 
                            list="customersList" 
                            id="customerSearchInput" 
@@ -122,20 +122,29 @@
                             <input type="hidden" name="branch_name" value="{{ $selectedBranch }}">
                         @endif
 
-                        {{-- SELECCIÓN DE CLIENTE + BOTÓN NUEVO CLIENTE --}}
+                        {{-- SELECCIÓN DE CLIENTE MEDIANTE INPUT CON DATALIST + BOTÓN NUEVO CLIENTE --}}
                         <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-1">
-                                <label class="form-label extra-small fw-bold text-muted m-0">Cliente / Paciente</label>
+                                <label class="form-label extra-small fw-bold text-muted m-0">Cliente / Paciente (*)</label>
                                 <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-bold text-success" data-bs-toggle="modal" data-bs-target="#quickCustomerModal">
                                     <i class="fa-solid fa-user-plus me-1"></i>+ Nuevo Cliente
                                 </button>
                             </div>
-                            <select name="customer_id" id="app_customer" class="form-select rounded-3" required>
-                                <option value="">-- Seleccionar Paciente --</option>
+
+                            <input class="form-control rounded-3" 
+                                   list="modalCustomersList" 
+                                   id="app_customer_input" 
+                                   placeholder="Escribe para buscar cliente..." 
+                                   autocomplete="off" 
+                                   required>
+                            
+                            <datalist id="modalCustomersList">
                                 @foreach($customers as $c)
-                                    <option value="{{ $c->cliente_id ?? $c->id }}" data-name="{{ $c->nombre }}">{{ $c->nombre }}</option>
+                                    <option data-id="{{ $c->cliente_id ?? $c->id }}" value="{{ $c->nombre }}">
                                 @endforeach
-                            </select>
+                            </datalist>
+
+                            <input type="hidden" name="customer_id" id="app_customer_id" required>
                         </div>
 
                         <div class="mb-3">
@@ -207,7 +216,8 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form id="quickCustomerForm" action="{{ route('customers.store') }}" method="POST" data-no-loading="true">                    @csrf
+                <form id="quickCustomerForm" action="{{ route('customers.store') }}" method="POST" data-no-loading="true">
+                    @csrf
                     <div class="modal-body py-3">
                         <div class="row g-3">
                             <div class="col-md-6">
@@ -298,27 +308,15 @@
             var calendarEl = document.getElementById('calendar');
             var isAdmin = @json($isAdmin);
 
-            // Auto-completar título con el nombre del cliente
-            var appCustomer = document.getElementById('app_customer');
-            if (appCustomer) {
-                appCustomer.addEventListener('change', function() {
-                    var selectedOption = this.options[this.selectedIndex];
-                    var customerName = selectedOption.getAttribute('data-name');
-                    var titleInput = document.getElementById('app_title');
-                    
-                    if (customerName && titleInput) {
-                        titleInput.value = 'Cita con ' + customerName;
-                    }
-                });
-            }
-
-            // AJUSTES DE FULLCALENDAR PARA MOSTRAR LAS CITAS COMPLETAS Y BIEN FORMATEADAS
+            // ------------------------------------------------------------------
+            // 1. INICIALIZACIÓN DE FULLCALENDAR
+            // ------------------------------------------------------------------
             var calendar = new FullCalendar.Calendar(calendarEl, {
                 locale: 'es',
                 initialView: 'timeGridWeek',
-                slotMinTime: '08:00:00', // Horario recomendado de inicio de jornada
-                slotMaxTime: '20:00:00', // Horario de cierre
-                eventMinHeight: 40,      // Altura mínima para asegurar visibilidad del título
+                slotMinTime: '08:00:00',
+                slotMaxTime: '20:00:00',
+                eventMinHeight: 40,
                 slotDuration: '00:30:00',
                 headerToolbar: {
                     left: 'prev,next today',
@@ -377,7 +375,34 @@
 
             calendar.render();
 
-            // PROCESAMIENTO VÍA AJAX DEL NUEVO CLIENTE DESDE CITAS
+            // ------------------------------------------------------------------
+            // 2. BÚSQUEDA Y SELECCIÓN DE CLIENTE MEDIANTE DATALIST
+            // ------------------------------------------------------------------
+            const customerInput = document.getElementById('app_customer_input');
+            const customerHiddenId = document.getElementById('app_customer_id');
+            const titleInput = document.getElementById('app_title');
+
+            if (customerInput) {
+                customerInput.addEventListener('input', function() {
+                    const val = this.value.trim();
+                    const option = document.querySelector(`#modalCustomersList option[value="${CSS.escape(val)}"]`);
+                    
+                    if (option) {
+                        const customerId = option.getAttribute('data-id');
+                        customerHiddenId.value = customerId;
+
+                        if (titleInput && (!titleInput.value || titleInput.value.startsWith('Cita con '))) {
+                            titleInput.value = 'Cita con ' + val;
+                        }
+                    } else {
+                        customerHiddenId.value = '';
+                    }
+                });
+            }
+
+            // ------------------------------------------------------------------
+            // 3. REGISTRO DE NUEVO CLIENTE RÁPIDO VÍA AJAX
+            // ------------------------------------------------------------------
             var quickCustomerForm = document.getElementById('quickCustomerForm');
             if (quickCustomerForm) {
                 quickCustomerForm.addEventListener('submit', function(e) {
@@ -404,7 +429,6 @@
                     .then(async res => {
                         const data = await res.json();
                         if (!res.ok) {
-                            // Capturar errores de validación de Laravel (422) o 500
                             throw new Error(data.message || data.error || 'Error al procesar la solicitud en el servidor');
                         }
                         return data;
@@ -419,21 +443,34 @@
                         const newId = data.cliente_id || data.id;
                         const newName = formData.get('nombre');
 
-                        // 1. Agregar nuevo cliente al select del modal de citas
-                        const customerSelect = document.getElementById('app_customer');
-                        if (customerSelect && newId) {
-                            const option = document.createElement('option');
-                            option.value = newId;
-                            option.textContent = newName;
-                            option.setAttribute('data-name', newName);
-                            option.selected = true;
-                            customerSelect.appendChild(option);
-
-                            // Trigger evento change para autocompletar el título
-                            customerSelect.dispatchEvent(new Event('change'));
+                        // Agregar a la lista desplegable superior
+                        const mainList = document.getElementById('customersList');
+                        if (mainList && newId) {
+                            const optMain = document.createElement('option');
+                            optMain.setAttribute('data-id', newId);
+                            optMain.value = newName;
+                            mainList.appendChild(optMain);
                         }
 
-                        // 2. Cerrar el modal del cliente
+                        // Agregar a la datalist del modal de citas y auto-seleccionar
+                        const modalList = document.getElementById('modalCustomersList');
+                        if (modalList && newId) {
+                            const optModal = document.createElement('option');
+                            optModal.setAttribute('data-id', newId);
+                            optModal.value = newName;
+                            modalList.appendChild(optModal);
+
+                            if (customerInput && customerHiddenId) {
+                                customerInput.value = newName;
+                                customerHiddenId.value = newId;
+
+                                if (titleInput) {
+                                    titleInput.value = 'Cita con ' + newName;
+                                }
+                            }
+                        }
+
+                        // Cerrar modal
                         const modalEl = document.getElementById('quickCustomerModal');
                         if (modalEl) {
                             const modalObj = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
@@ -467,7 +504,9 @@
                 });
             }
 
-            // 1. GUARDAR CITA SIN OVERLAY "Procesando solicitud..."
+            // ------------------------------------------------------------------
+            // 4. GUARDAR CITA
+            // ------------------------------------------------------------------
             var createForm = document.getElementById('createAppointmentForm');
             if (createForm) {
                 createForm.addEventListener('submit', function(e) {
@@ -503,6 +542,7 @@
                             if (modal) modal.hide();
 
                             this.reset();
+                            if (customerHiddenId) customerHiddenId.value = '';
                             calendar.refetchEvents();
 
                             Swal.fire({
@@ -532,9 +572,19 @@
                         });
                     });
                 });
+
+                var appointmentModalEl = document.getElementById('appointmentModal');
+                if (appointmentModalEl) {
+                    appointmentModalEl.addEventListener('hidden.bs.modal', function() {
+                        createForm.reset();
+                        if (customerHiddenId) customerHiddenId.value = '';
+                    });
+                }
             }
 
-            // 2. CONSULTAR HISTORIAL CON RUTA DINÁMICA
+            // ------------------------------------------------------------------
+            // 5. CONSULTAR HISTORIAL DE PACIENTE
+            // ------------------------------------------------------------------
             document.getElementById('btnViewCustomerHistory').addEventListener('click', function() {
                 const inputVal = document.getElementById('customerSearchInput').value.trim();
                 
@@ -548,7 +598,7 @@
                     return;
                 }
 
-                const option = document.querySelector(`#customersList option[value="${inputVal}"]`);
+                const option = document.querySelector(`#customersList option[value="${CSS.escape(inputVal)}"]`);
                 const customerIdentifier = (option && option.getAttribute('data-id')) 
                     ? option.getAttribute('data-id') 
                     : inputVal;
@@ -566,9 +616,7 @@
                     }
                 })
                 .then(res => {
-                    if (!res.ok) {
-                        throw new Error('Error en la respuesta del servidor');
-                    }
+                    if (!res.ok) throw new Error('Error en la respuesta del servidor');
                     return res.json();
                 })
                 .then(data => {
@@ -612,6 +660,9 @@
                 });
             });
 
+            // ------------------------------------------------------------------
+            // 6. FUNCIONES AUXILIARES DE EDICIÓN / ELIMINACIÓN
+            // ------------------------------------------------------------------
             function updateEventDates(event) {
                 fetch(`/appointments/${event.id}/dates`, {
                     method: 'PUT',

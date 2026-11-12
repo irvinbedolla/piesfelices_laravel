@@ -42,25 +42,25 @@
     <table>
         <tr>
             <td>Medicamento Crédito:</td>
-            <td class="text-right">${{ number_format($credito['medicamento'] ?? 0, 0) }}</td>
+            <td class="text-right">${{ number_format($credito['medicamento'] ?? 0, 2) }}</td>
         </tr>
         <tr>
             <td>Calzado Crédito:</td>
-            <td class="text-right">${{ number_format($credito['calzado'] ?? 0, 0) }}</td>
+            <td class="text-right">${{ number_format($credito['calzado'] ?? 0, 2) }}</td>
         </tr>
         <tr>
             <td>Consulta Crédito:</td>
-            <td class="text-right">${{ number_format($credito['consulta'] ?? 0, 0) }}</td>
+            <td class="text-right">${{ number_format($credito['consulta'] ?? 0, 2) }}</td>
         </tr>
         @if(($descuentoCredito ?? 0) > 0)
             <tr>
                 <td>Descuento Crédito:</td>
-                <td class="text-right">-${{ number_format($descuentoCredito, 0) }}</td>
+                <td class="text-right">-${{ number_format($descuentoCredito, 2) }}</td>
             </tr>
         @endif
         <tr class="fw-bold">
             <td>TOTAL CRÉDITO:</td>
-            <td class="text-right">${{ number_format($totalCredito ?? 0, 0) }}</td>
+            <td class="text-right">${{ number_format($totalCredito ?? 0, 2) }}</td>
         </tr>
     </table>
 
@@ -70,59 +70,23 @@
     <table>
         <tr>
             <td>Medicamento Contado:</td>
-            <td class="text-right">${{ number_format($contado['medicamento'] ?? 0, 0) }}</td>
+            <td class="text-right">${{ number_format($contado['medicamento'] ?? 0, 2) }}</td>
         </tr>
         <tr>
             <td>Calzado Contado:</td>
-            <td class="text-right">${{ number_format($contado['calzado'] ?? 0, 0) }}</td>
+            <td class="text-right">${{ number_format($contado['calzado'] ?? 0, 2) }}</td>
         </tr>
         <tr>
             <td>Consulta Contado:</td>
-            <td class="text-right">${{ number_format($contado['consulta'] ?? 0, 0) }}</td>
+            <td class="text-right">${{ number_format($contado['consulta'] ?? 0, 2) }}</td>
         </tr>
         <tr>
             <td>Descuento Contado:</td>
-            <td class="text-right">-${{ number_format($descuentoContado ?? 0, 0) }}</td>
+            <td class="text-right">-${{ number_format($descuentoContado ?? 0, 2) }}</td>
         </tr>
         <tr class="fw-bold">
             <td>TOTAL CONTADO:</td>
-            <td class="text-right">${{ number_format($totalContado ?? 0, 0) }}</td>
-        </tr>
-    </table>
-
-    <div class="divider-dashed"></div>
-
-    {{-- LIQUIDADA --}}
-    <table>
-        <tr>
-            <td>Medicamento Liquidada:</td>
-            <td class="text-right">${{ number_format($liquidado['medicamento'] ?? 0, 0) }}</td>
-        </tr>
-        <tr>
-            <td>Calzado Liquidada:</td>
-            <td class="text-right">${{ number_format($liquidado['calzado'] ?? 0, 0) }}</td>
-        </tr>
-        <tr>
-            <td>Consulta Liquidada:</td>
-            <td class="text-right">${{ number_format($liquidado['consulta'] ?? 0, 0) }}</td>
-        </tr>
-        <tr>
-            <td>Descuento Liquidada:</td>
-            <td class="text-right">-${{ number_format($descuentoLiquidada ?? 0, 0) }}</td>
-        </tr>
-        <tr class="fw-bold">
-            <td>TOTAL LIQUIDADA:</td>
-            <td class="text-right">${{ number_format($totalLiquidado ?? 0, 0) }}</td>
-        </tr>
-    </table>
-
-    <div class="divider-dashed"></div>
-
-    {{-- ABONOS COBRADOS --}}
-    <table>
-        <tr>
-            <td>Total Abono:</td>
-            <td class="text-right">${{ number_format($totalAbonos ?? 0, 0) }}</td>
+            <td class="text-right">${{ number_format($totalContado ?? 0, 2) }}</td>
         </tr>
     </table>
 
@@ -132,19 +96,52 @@
     <table>
         <tr>
             <td>Gastos Proveedor:</td>
-            <td class="text-right">-${{ number_format($gastosProveedor ?? 0, 0) }}</td>
+            <td class="text-right">-${{ number_format($gastosProveedor ?? 0, 2) }}</td>
         </tr>
         <tr>
             <td>Gastos Consultorio:</td>
-            <td class="text-right">-${{ number_format($gastosConsultorio ?? 0, 0) }}</td>
+            <td class="text-right">-${{ number_format($gastosConsultorio ?? 0, 2) }}</td>
         </tr>
         <tr>
             <td>Gastos Sueldos:</td>
-            <td class="text-right">-${{ number_format($gastosSueldos ?? 0, 0) }}</td>
+            <td class="text-right">-${{ number_format($gastosSueldos ?? 0, 2) }}</td>
         </tr>
         <tr class="fw-bold">
             <td>TOTAL GASTOS:</td>
-            <td class="text-right">-${{ number_format($totalGastos ?? 0, 0) }}</td>
+            <td class="text-right">-${{ number_format($totalGastos ?? 0, 2) }}</td>
+        </tr>
+    </table>
+
+    <div class="divider-dashed"></div>
+
+    {{-- PRÉSTAMOS / ABONOS PRÉSTAMO --}}
+    <table>
+        <tr>
+            <td>Préstamos Otorgados:</td>
+            <td class="text-right">-${{ number_format($totalPrestamosOtorgados ?? 0, 2) }}</td>
+        </tr>
+        <tr>
+            <td>Abonos a Préstamos (+):</td>
+            <td class="text-right">+${{ number_format($totalAbonosPrestamo ?? 0, 2) }}</td>
+        </tr>
+    </table>
+
+    <div class="divider-double"></div>
+
+    {{-- DESGLOSE DE FORMAS DE PAGO --}}
+    <div class="fw-bold text-center" style="margin-bottom: 3px;">DESGLOSE FORMAS DE PAGO (contado)</div>
+    <table>
+        <tr>
+            <td>Ventas Efectivo:</td>
+            <td class="text-right">${{ number_format($pagoEfectivo ?? 0, 2) }}</td>
+        </tr>
+        <tr>
+            <td>Ventas Tarjeta (T.C. / T.D.):</td>
+            <td class="text-right">${{ number_format($pagoTarjeta ?? 0, 2) }}</td>
+        </tr>
+        <tr>
+            <td>Ventas Transferencia:</td>
+            <td class="text-right">${{ number_format($pagoTransferencia ?? 0, 2) }}</td>
         </tr>
     </table>
 
@@ -153,8 +150,8 @@
     {{-- TOTALES FINALES NETOS --}}
     <table>
         <tr class="fw-bold" style="font-size: 10.5px;">
-            <td>TOTAL EFECTIVO:</td>
-            <td class="text-right">${{ number_format($totalEfectivoNeto ?? 0, 0) }}</td>
+            <td>TOTAL EFECTIVO EN CAJA:</td>
+            <td class="text-right">${{ number_format($totalEfectivoNeto ?? 0, 2) }}</td>
         </tr>
     </table>
 
@@ -162,8 +159,22 @@
 
     <table>
         <tr class="fw-bold" style="font-size: 10.5px;">
-            <td>EFECTIVO + CRÉDITO:</td>
-            <td class="text-right">${{ number_format($totalEfectivoMasCredito ?? 0, 0) }}</td>
+            <td>TOTAL ABONOS:</td>
+            <td class="text-right">${{ number_format($totalAbonos ?? 0, 2) }}</td>
+        </tr>
+    </table>
+
+    <table>
+        <tr class="fw-bold" style="font-size: 10.5px;">
+            <td>TOTAL CONTADO:</td>
+            <td class="text-right">${{ number_format($totalContado ?? 0, 2) }}</td>
+        </tr>
+    </table>
+
+    <table>
+        <tr class="fw-bold" style="font-size: 10.5px;">
+            <td>TOTAL CRÉDITO:</td>
+            <td class="text-right">${{ number_format($totalCredito ?? 0, 2) }}</td>
         </tr>
     </table>
 

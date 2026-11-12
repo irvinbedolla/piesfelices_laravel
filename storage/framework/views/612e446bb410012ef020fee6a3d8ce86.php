@@ -524,11 +524,21 @@
                         </div>
 
                         <div class="card border-0 text-white rounded-4 p-3 shadow ms-auto mt-2 mt-md-0" style="background: linear-gradient(135deg, #d81b60 0%, #e91e63 100%); min-width: 320px;">
-                            <hr class="my-1 border-white opacity-50">
-                            <div class="d-flex justify-content-between align-items-center fs-5 fw-bold">
-                                <span>GRAN TOTAL VENTAS:</span>
-                                <span class="fs-4">$<?php echo e(number_format($summary['gran_total'], 2)); ?></span>
-                            </div>
+                            
+                            <?php if(($summary['descuento_porcentaje'] ?? 0) > 0 || ($summary['descuentos'] ?? 0) > 0): ?>
+                                <div class="mb-2">
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-2 fs-6 fw-bold">
+                                        <i class="fa-solid fa-percent me-1"></i> Descuento Aplicado: 
+                                        <small class="fw-normal">($<?php echo e(number_format($summary['descuentos'], 2)); ?>)</small>
+                                    </span>
+                                </div>
+                            <?php endif; ?>
+
+                            
+                            <button type="button" class="btn btn-danger btn-lg fw-bold rounded-4 px-4 py-3 shadow-sm cursor-default" style="background-color: #ff0066; border: none; font-size: 1.25rem;">
+                                GRAN TOTAL VENTAS: $<?php echo e(number_format($summary['gran_total'], 2)); ?>
+
+                            </button>
                         </div>
                     </div>
                 </div>

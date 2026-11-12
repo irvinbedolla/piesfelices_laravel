@@ -41,7 +41,7 @@ class SalesConsultationController extends Controller
             $selectedBranch = $userBranch;
         }
 
-        // --- ACUMULADORES SIN LA CATEGORÍA 'GENERAL' ---
+        // --- ACUMULADORES DE VENTAS ---
         $summary = [
             'contado_calzado'     => 0,
             'contado_medicamento' => 0,
@@ -65,6 +65,7 @@ class SalesConsultationController extends Controller
             'pago_otros'          => 0,
 
             'descuentos'          => 0,
+            'descuento_porcentaje'=> 0, // <-- AGREGADO PARA LA VISTA
             'gran_total'          => 0,
         ];
 
@@ -80,15 +81,14 @@ class SalesConsultationController extends Controller
             }
 
             // -------------------------------------------------------------
-            // LÓGICA DE PESTAÑAS (TABS) REVISADA
+            // LÓGICA DE PESTAÑAS (TABS)
             // -------------------------------------------------------------
             if ($tab === 'facturadas') {
-                // 1. SOLO VENTAS FACTURADAS
                 $query->where(function($q) {
                     $q->where('venta_factura', 'SI')
-                      ->orWhere('venta_factura', 'si')
-                      ->orWhere('venta_factura', '1')
-                      ->orWhere('venta_factura', 1);
+                    ->orWhere('venta_factura', 'si')
+                    ->orWhere('venta_factura', '1')
+                    ->orWhere('venta_factura', 1);
                 })
                 ->where('venta_tipo', '!=', 3)
                 ->where('venta_tipo', '!=', '3')
@@ -96,10 +96,9 @@ class SalesConsultationController extends Controller
                 ->where('status', '!=', 'Cancelado');
 
             } elseif ($tab === 'sin_factura') {
-                // 2. COMPLEMENTO EXACTO (TODAS MENOS LAS FACTURADAS)
                 $query->where(function($q) {
                     $q->whereNull('venta_factura')
-                      ->orWhereNotIn(DB::raw('UPPER(TRIM(venta_factura))'), ['SI', '1']);
+                    ->orWhereNotIn(DB::raw('UPPER(TRIM(venta_factura))'), ['SI', '1']);
                 })
                 ->where('venta_tipo', '!=', 3)
                 ->where('venta_tipo', '!=', '3')
@@ -107,21 +106,19 @@ class SalesConsultationController extends Controller
                 ->where('status', '!=', 'Cancelado');
 
             } elseif ($tab === 'canceladas') {
-                // 3. SOLO CANCELADAS
                 $query->where(function($q) {
                     $q->where('venta_tipo', 3)
-                      ->orWhere('venta_tipo', '3')
-                      ->orWhere('venta_tipo', 'CANCELADO')
-                      ->orWhere('status', 'CANCELADO')
-                      ->orWhere('status', 'Cancelado');
+                    ->orWhere('venta_tipo', '3')
+                    ->orWhere('venta_tipo', 'CANCELADO')
+                    ->orWhere('status', 'CANCELADO')
+                    ->orWhere('status', 'Cancelado');
                 });
 
             } else {
-                // 4. VENTAS EN GENERAL (FACTURADAS + SIN FACTURA - EXCLUYENDO CANCELADAS)
                 $query->where('venta_tipo', '!=', 3)
-                      ->where('venta_tipo', '!=', '3')
-                      ->where('status', '!=', 'CANCELADO')
-                      ->where('status', '!=', 'Cancelado');
+                    ->where('venta_tipo', '!=', '3')
+                    ->where('status', '!=', 'CANCELADO')
+                    ->where('status', '!=', 'Cancelado');
             }
 
             if (!empty($selectedBranch) && $selectedBranch !== 'TODOS') {
@@ -144,10 +141,10 @@ class SalesConsultationController extends Controller
             $allFilteredSales = (clone $query)->get();
 
             foreach ($allFilteredSales as $sale) {
-                $isCredito = in_array($sale->venta_tipo, [2, '2', 'CREDITO']) 
-                    || str_contains(strtoupper($sale->venta_tipopago ?? ''), 'CREDITO');
+                $isCredito = in_array((string)$sale->venta_tipo, ['2', 'CREDITO']);
 
-                $summary['descuentos'] += (float)($sale->venta_descuento ?? 0);
+                $descuentoVenta = (float)($sale->venta_descuento ?? 0);
+                $summary['descuentos'] += $descuentoVenta;
                 $montoVenta = (float)$sale->venta_total;
 
                 $tipoPago = strtoupper(trim($sale->venta_tipopago ?? 'EFECTIVO'));
@@ -164,32 +161,46 @@ class SalesConsultationController extends Controller
                     $summary['pago_otros'] += $montoVenta;
                 }
 
+                // 1. Calcular el subtotal bruto total de los detalles de esta venta
+                $subtotalBrutoVenta = $sale->details->sum(function($d) {
+                    return (float)($d->cantidad * $d->precio);
+                });
+
+                // 2. Calcular factor de proporcionalidad del descuento
+                $factorDescuento = ($subtotalBrutoVenta > 0 && $descuentoVenta > 0)
+                    ? (1 - ($descuentoVenta / $subtotalBrutoVenta))
+                    : 1;
+
                 foreach ($sale->details as $d) {
-                    $subtotal = (float)($d->cantidad * $d->precio);
+                    $subtotalBruto = (float)($d->cantidad * $d->precio);
+                    
+                    // CORRECCIÓN CLAVE: Calcular el subtotal NETO aplicando el descuento proporcional
+                    $subtotalNetoItem = round($subtotalBruto * $factorDescuento, 2);
+                    
                     $productId = (int)($d->producto_id ?? 0);
 
                     if ($productId === 0) { // Consulta o servicio
-                        if ($isCredito) $summary['credito_consulta'] += $subtotal;
-                        else $summary['contado_consulta'] += $subtotal;
-                        $summary['total_consulta'] += $subtotal;
+                        if ($isCredito) $summary['credito_consulta'] += $subtotalNetoItem;
+                        else $summary['contado_consulta'] += $subtotalNetoItem;
+                        $summary['total_consulta'] += $subtotalNetoItem;
                     } else {
                         $categoryId = (int)($d->product?->category_id ?? 0);
                         $productType = strtoupper($d->product?->type ?? '');
 
                         if ($categoryId === 3 || $productType === 'CALZADO') {
                             if ($isCredito) {
-                                $summary['credito_calzado'] += $subtotal;
+                                $summary['credito_calzado'] += $subtotalNetoItem;
                             } else {
-                                $summary['contado_calzado'] += $subtotal;
+                                $summary['contado_calzado'] += $subtotalNetoItem;
                             }
-                            $summary['total_calzado'] += $subtotal;
+                            $summary['total_calzado'] += $subtotalNetoItem;
                         } else {
                             if ($isCredito) {
-                                $summary['credito_medicamento'] += $subtotal;
+                                $summary['credito_medicamento'] += $subtotalNetoItem;
                             } else {
-                                $summary['contado_medicamento'] += $subtotal;
+                                $summary['contado_medicamento'] += $subtotalNetoItem;
                             }
-                            $summary['total_medicamento'] += $subtotal;
+                            $summary['total_medicamento'] += $subtotalNetoItem;
                         }
                     }
                 }
@@ -200,6 +211,12 @@ class SalesConsultationController extends Controller
             $summary['total_contado'] = $summary['contado_calzado'] + $summary['contado_medicamento'] + $summary['contado_consulta'];
             $summary['total_credito'] = $summary['credito_calzado'] + $summary['credito_medicamento'] + $summary['credito_consulta'];
 
+            // CÁLCULO DEL PORCENTAJE GLOBAL DE DESCUENTO
+            $subtotalBrutoOriginal = $summary['gran_total'] + $summary['descuentos'];
+            if ($subtotalBrutoOriginal > 0 && $summary['descuentos'] > 0) {
+                $summary['descuento_porcentaje'] = round(($summary['descuentos'] / $subtotalBrutoOriginal) * 100, 2);
+            }
+
             // 2. CÁLCULO POR FILA DE TABLA
             $records = $query->orderBy('venta_id', 'desc')
                             ->paginate(10)
@@ -209,6 +226,7 @@ class SalesConsultationController extends Controller
                 $rowMed = 0; $rowCon = 0; $rowCal = 0;
 
                 foreach ($sale->details as $d) {
+                    // CORRECCIÓN SINTAXIS: Multiplicación explícita
                     $sub = (float)($d->cantidad * $d->precio);
                     $pId = (int)($d->producto_id ?? $d->product_id ?? 0);
 

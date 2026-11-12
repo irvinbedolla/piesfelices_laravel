@@ -74,7 +74,6 @@
                             @php
                                 $restanteCalculado = $c->venta_restante > 0 ? $c->venta_restante : ($c->venta_total - $c->venta_abono);
                                 
-                                // Extrae el nombre del usuario asignado en 'venta_idempleado'
                                 $vendedorNombre = $c->seller->name 
                                     ?? $c->seller->username 
                                     ?? 'S/A';
@@ -111,7 +110,7 @@
                                     </button>
                                 </td>
 
-                                {{-- BORRADO CON ÍCONO ROJO DE LA IMAGEN --}}
+                                {{-- BORRADO CON ÍCONO ROJO --}}
                                 <td class="text-center">
                                     <form action="{{ route('credits.destroy', $c->venta_id) }}" method="POST" data-loading-text="Cancelando Venta..." onsubmit="return confirm('¿Está seguro de cancelar esta venta a crédito?')">
                                         @csrf
@@ -122,6 +121,81 @@
                                     </form>
                                 </td>
                             </tr>
+
+                            {{-- 1. MODAL DETALLE DE VENTA --}}
+                            <div class="modal fade" id="saleDetailModal{{ $c->venta_id }}" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered modal-lg">
+                                    <div class="modal-content border-0 rounded-4 shadow">
+                                        <div class="modal-header border-0 pb-0">
+                                            <h5 class="modal-title fw-bold text-primary">
+                                                <i class="fa-solid fa-file-invoice me-2"></i>Detalle de Venta #{{ $c->venta_id }}
+                                            </h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body py-3">
+                                            <p class="mb-1"><strong>Cliente:</strong> {{ $c->nombre_cliente ?? 'CLIENTE GENERAL' }}</p>
+                                            <p class="mb-1"><strong>Fecha:</strong> {{ $c->venta_fecha }} {{ $c->venta_hora }}</p>
+                                            <p class="mb-1"><strong>Sucursal:</strong> {{ $c->venta_sucursal }}</p>
+                                            <hr>
+                                            <div class="text-end fw-bold fs-5">
+                                                Total: ${{ number_format($c->venta_total, 2) }}
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer border-0 pt-0">
+                                            <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- 2. MODAL DETALLE DE ABONOS --}}
+                            <div class="modal fade" id="paymentDetailModal{{ $c->venta_id }}" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content border-0 rounded-4 shadow">
+                                        <div class="modal-header border-0 pb-0">
+                                            <h5 class="modal-title fw-bold text-info">
+                                                <i class="fa-solid fa-list-ol me-2"></i>Historial de Abonos - Venta #{{ $c->venta_id }}
+                                            </h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body py-3">
+                                            <p class="mb-1"><strong>Total Abonado:</strong> ${{ number_format($c->venta_abono, 2) }}</p>
+                                            <p class="mb-1"><strong>Restante:</strong> ${{ number_format($restanteCalculado, 2) }}</p>
+                                        </div>
+                                        <div class="modal-footer border-0 pt-0">
+                                            <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- 3. MODAL REGISTRAR ABONO --}}
+                            <div class="modal fade" id="addPaymentModal{{ $c->venta_id }}" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content border-0 rounded-4 shadow">
+                                        <div class="modal-header border-0 pb-0">
+                                            <h5 class="modal-title fw-bold text-success">
+                                                <i class="fa-solid fa-money-bill-wave me-2"></i>Registrar Abono - Venta #{{ $c->venta_id }}
+                                            </h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <form action="{{ route('credits.payment', $c->venta_id) }}" method="POST">
+                                            @csrf
+                                            <div class="modal-body py-3">
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-semibold">Monto del Abono ($)</label>
+                                                    <input type="number" step="0.01" max="{{ $restanteCalculado }}" name="monto" class="form-control rounded-3" placeholder="0.00" required>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer border-0 pt-0">
+                                                <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+                                                <button type="submit" class="btn btn-success rounded-pill px-4">Guardar Abono</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+
                         @empty
                             <tr>
                                 <td colspan="13" class="text-center py-4 text-muted">
