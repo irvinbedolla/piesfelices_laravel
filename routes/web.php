@@ -21,7 +21,7 @@ use App\Http\Controllers\SalesConsultationController;
 use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-
+use Illuminate\Support\Facades\Storage;
 
 
 Route::get('/migrar-ids', function () {
@@ -117,7 +117,13 @@ Route::get('/migrar-ids', function () {
     }
 });
 
-
+Route::get('/productos/imagen/{filename}', function ($filename) {
+    $path = 'products/' . basename($filename);
+    if (!Storage::disk('public')->exists($path)) {
+        abort(404);
+    }
+    return response()->file(Storage::disk('public')->path($path));
+})->name('product.image');
 
 // Redirigir la raíz al login
 Route::get('/', function () {
@@ -250,6 +256,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/reports/loans', [ReportController::class, 'exportLoansReport'])->name('reports.loans');
     Route::get('/reports/sales-normal', [ReportController::class, 'exportNormalSales'])->name('reports.sales.normal');
     Route::get('/reports/sales-credit', [ReportController::class, 'exportCreditSales'])->name('reports.sales.credit');
+
 });
 
 require __DIR__.'/auth.php';

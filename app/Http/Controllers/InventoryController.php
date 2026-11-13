@@ -473,6 +473,9 @@ class InventoryController extends Controller
             'notes'      => 'required|string|max:255',
         ]);
 
+        $user = Auth::user();
+        $userType = (int) ($user->role_id ?? $user->tipo_seccion ?? $user->type ?? 2);
+
         if ($request->type === 'ENTRADA' && !in_array($userType, [1, 3])) {
             return redirect()->back()->with('error', 'No tienes permisos para agregar artículos al inventario general.');
         }

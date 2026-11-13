@@ -91,13 +91,13 @@ class Product extends Model
 
     /**
      * Accesor para obtener la URL pública de la imagen de forma segura
-     */
+    */
     public function getImageUrlAttribute()
     {
-        if ($this->image && Storage::disk('public')->exists($this->image)) {
-            return asset('storage/' . $this->image);
+        if (!$this->image) {
+            return null;
         }
 
-        return null;
+        return route('product.image', ['filename' => basename($this->image)]);
     }
 }

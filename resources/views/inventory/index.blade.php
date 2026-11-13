@@ -3,6 +3,7 @@
 
         @php
             // Determinación estricta usando la variable enviada por el controlador o la relación del usuario
+            $isAdmin = $isGlobalAdmin ?? in_array((int)($userRole ?? 2), [1, 3]);
             $userRoleType = $userType ?? (int) (auth()->user()->tipo_seccion ?? auth()->user()->type ?? 2);
         @endphp
 

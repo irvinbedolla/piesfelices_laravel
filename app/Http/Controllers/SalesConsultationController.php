@@ -23,11 +23,26 @@ class SalesConsultationController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $userRole = $user->role_id ?? $user->type ?? 2;
-        $userBranch = $user->branch?->name ?? $user->branch_name ?? 'MATRIZ';
+        // Obtención estricta del rol/tipo de usuario
+        $userRole = (int) ($user->role_id ?? $user->tipo_seccion ?? $user->type ?? 2);
+        // 1. DECLARACIÓN DE LA VARIABLE $isAdmin (Tipos 1 y 3)
+        $isAdmin = in_array($userRole, [1, 3]);
+
+        // Obtener el nombre de la sucursal del usuario en sesión
+        $userBranch = $user->branch?->name 
+            ?? $user->sucursal 
+            ?? $user->branch_name 
+            ?? 'MATRIZ';
 
         $branches = Branch::all();
-        $users = User::orderBy('username', 'asc')->get();
+        if ($isAdmin) {
+            $users = User::orderBy('username', 'asc')->get();
+        } else {
+            $users = User::where(function($q) use ($user, $userBranch) {
+                $q->where('branch_id', $user->branch_id);
+                  //->orWhere('sucursal', $userBranch);
+            })->orderBy('username', 'asc')->get();
+        }
 
         $tab = $request->get('tab', 'general');
         $search = trim($request->get('search'));
@@ -35,9 +50,15 @@ class SalesConsultationController extends Controller
         $selectedBranch = $request->get('branch', $request->get('sucursal'));
         $selectedUser   = $request->get('user_id', $request->get('empleado'));
 
-        $isAdmin = in_array($userRole, [1, 2]);
+        // -------------------------------------------------------------
+        // CONTROL DE PERMISOS Y RESTRICCIÓN DE SUCURSAL POR ROL
+        // Tipo 1 y 3: Ven todas las sucursales y pueden filtrar libremente.
+        // Tipo 2: Únicamente ven información de su sucursal asignada.
+        // -------------------------------------------------------------
+        $isGlobalAdmin = in_array($userRole, [1, 3]);
 
-        if (!$isAdmin) {
+        if (!$isGlobalAdmin) {
+            // Para usuario tipo 2 (Administrador de Centro), forzar siempre su sucursal asignada
             $selectedBranch = $userBranch;
         }
 
@@ -65,7 +86,7 @@ class SalesConsultationController extends Controller
             'pago_otros'          => 0,
 
             'descuentos'          => 0,
-            'descuento_porcentaje'=> 0, // <-- AGREGADO PARA LA VISTA
+            'descuento_porcentaje'=> 0,
             'gran_total'          => 0,
         ];
 
@@ -121,6 +142,7 @@ class SalesConsultationController extends Controller
                     ->where('status', '!=', 'Cancelado');
             }
 
+            // Filtrado por sucursal
             if (!empty($selectedBranch) && $selectedBranch !== 'TODOS') {
                 $query->where('venta_sucursal', $selectedBranch);
             }
@@ -161,20 +183,16 @@ class SalesConsultationController extends Controller
                     $summary['pago_otros'] += $montoVenta;
                 }
 
-                // 1. Calcular el subtotal bruto total de los detalles de esta venta
                 $subtotalBrutoVenta = $sale->details->sum(function($d) {
                     return (float)($d->cantidad * $d->precio);
                 });
 
-                // 2. Calcular factor de proporcionalidad del descuento
                 $factorDescuento = ($subtotalBrutoVenta > 0 && $descuentoVenta > 0)
                     ? (1 - ($descuentoVenta / $subtotalBrutoVenta))
                     : 1;
 
                 foreach ($sale->details as $d) {
                     $subtotalBruto = (float)($d->cantidad * $d->precio);
-                    
-                    // CORRECCIÓN CLAVE: Calcular el subtotal NETO aplicando el descuento proporcional
                     $subtotalNetoItem = round($subtotalBruto * $factorDescuento, 2);
                     
                     $productId = (int)($d->producto_id ?? 0);
@@ -211,7 +229,6 @@ class SalesConsultationController extends Controller
             $summary['total_contado'] = $summary['contado_calzado'] + $summary['contado_medicamento'] + $summary['contado_consulta'];
             $summary['total_credito'] = $summary['credito_calzado'] + $summary['credito_medicamento'] + $summary['credito_consulta'];
 
-            // CÁLCULO DEL PORCENTAJE GLOBAL DE DESCUENTO
             $subtotalBrutoOriginal = $summary['gran_total'] + $summary['descuentos'];
             if ($subtotalBrutoOriginal > 0 && $summary['descuentos'] > 0) {
                 $summary['descuento_porcentaje'] = round(($summary['descuentos'] / $subtotalBrutoOriginal) * 100, 2);
@@ -226,7 +243,6 @@ class SalesConsultationController extends Controller
                 $rowMed = 0; $rowCon = 0; $rowCal = 0;
 
                 foreach ($sale->details as $d) {
-                    // CORRECCIÓN SINTAXIS: Multiplicación explícita
                     $sub = (float)($d->cantidad * $d->precio);
                     $pId = (int)($d->producto_id ?? $d->product_id ?? 0);
 
