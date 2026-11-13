@@ -257,7 +257,7 @@
 
                     <div class="mb-3">
                         <label class="form-label fw-bold">Efectivo Recibido ($):</label>
-                        <input type="number" step="0.01" id="receivedInput" class="form-control form-control-lg text-center fw-bold border-primary rounded-3" placeholder="<?php echo e(number_format($sale->venta_total, 2, '.', '')); ?>" autofocus>
+                        <input type="number" id="receivedInput" class="form-control form-control-lg text-center fw-bold border-primary rounded-3" placeholder="Ingresa el monto a cobrar" autofocus>
                     </div>
 
                     <div class="mb-3">
@@ -479,9 +479,9 @@
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Tipo de Factura</label>
                             <select id="invoiceTypeSelect" class="form-select rounded-3">
+                                <option value="PUE" <?php echo e($sale->venta_tipo_factura == 'PUE' ? 'selected' : ''); ?>>PUE - Pago en una sola exhibición</option>
                                 <option value="Ingreso" <?php echo e($sale->venta_tipo_factura == 'Ingreso' ? 'selected' : ''); ?>>Ingreso</option>
                                 <option value="PPD" <?php echo e($sale->venta_tipo_factura == 'PPD' ? 'selected' : ''); ?>>PPD - Pago en parcialidades o diferido</option>
-                                <option value="PUE" <?php echo e($sale->venta_tipo_factura == 'PUE' ? 'selected' : ''); ?>>PUE - Pago en una sola exhibición</option>
                             </select>
                         </div>
                     </div>

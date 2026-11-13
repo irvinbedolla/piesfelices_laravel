@@ -13,15 +13,22 @@
                 <div class="d-flex flex-wrap gap-2 mt-2">
                     @foreach($birthdays as $cumple)
                         @php
-                            $telLimpio = preg_replace('/[^0-9]/', '',$cumple->telefono);
-                            $msgWhatsApp = rawurlencode("¡Hola {$cumple->nombre}! 🎉 Desde Pies Felices queremos desearle un muy feliz cumpleaños. Esperamos que pase un día extraordinario. 🎂✨");
+                            $telLimpio = preg_replace('/[^0-9]/', '', $cumple->telefono);
+                            $textoMensaje = "🎉🎂 ¡MUCHAS FELICIDADES EN TU CUMPLEAÑOS, {$cumple->nombre}! 🎂🎉\n\n"
+                                          . "Desde PIES FELICES queremos desearte un cumpleaños lleno de alegría, salud, amor y momentos inolvidables.\n\n"
+                                          . "Que este nuevo año de vida esté acompañado de grandes bendiciones, éxitos y muchas razones para sonreír.\n\n"
+                                          . "¡Disfruta mucho tu día! 🥳🎁\n\n"
+                                          . "Con cariño y nuestros mejores deseos,\n"
+                                          . "Familia PIES FELICES 💜\n"
+                                          . "Salud y felicidad a tus pies.";
+                            $msgWhatsApp = rawurlencode($textoMensaje);
                         @endphp
                         <span class="badge bg-white text-dark border p-2 d-flex align-items-center rounded-pill shadow-sm">
                             <span class="me-2 text-primary fw-bold">
                                 <i class="fa-solid fa-gift me-1 text-danger"></i> {{ $cumple->nombre }}
                             </span>
                             @if(!empty($telLimpio))
-                                <a href="https://api.whatsapp.com/send?phone=52{{ $telLimpio }}&text={{$msgWhatsApp }}" 
+                                <a href="https://api.whatsapp.com/send?phone=52{{ $telLimpio }}&text={{ $msgWhatsApp }}" 
                                    target="_blank" class="btn btn-sm btn-success py-0 px-2 rounded-pill d-flex align-items-center small">
                                     <i class="fa-brands fa-whatsapp me-1"></i> Felicitaciones
                                 </a>

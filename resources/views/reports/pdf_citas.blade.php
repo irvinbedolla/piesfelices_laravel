@@ -26,8 +26,8 @@
     <table class="header-table">
         <tr>
             <td width="20%" style="text-align: left;">
-                @if(file_exists(public_path('images/logo_pdf.svg')))
-                    <img src="{{ public_path('images/logo_pdf.svg') }}" class="logo-img" alt="Pies Felices">
+                @if(file_exists(public_path('images/logo_color.svg')))
+                    <img src="{{ public_path('images/logo_color.svg') }}" class="logo-img" alt="Pies Felices">
                 @elseif(file_exists(public_path('images/logo.png')))
                     <img src="{{ public_path('images/logo.png') }}" class="logo-img" alt="Pies Felices">
                 @endif
@@ -37,8 +37,8 @@
                 <p>Control e Historial de Citas Registradas</p>
             </td>
             <td width="20%" style="text-align: right;">
-                @if(file_exists(public_path('images/logo_sociedad.svg')))
-                    <img src="{{ public_path('images/logo_sociedad.svg') }}" class="logo-img" alt="Sociedad Mexicana de Podología">
+                @if(file_exists(public_path('images/logo_sociedad_color.svg')))
+                    <img src="{{ public_path('images/logo_sociedad_color.svg') }}" class="logo-img" alt="Sociedad Mexicana de Podología">
                 @elseif(file_exists(public_path('images/logo_sociedad.png')))
                     <img src="{{ public_path('images/logo_sociedad.png') }}" class="logo-img" alt="Sociedad Mexicana de Podología">
                 @endif

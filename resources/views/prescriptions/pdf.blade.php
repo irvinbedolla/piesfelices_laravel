@@ -152,21 +152,20 @@
     <table class="header-table">
         <tr>
             <td style="width: 20%;">
-                @if(file_exists(public_path('images/logo_pdf.svg')))
-                    <img src="{{ public_path('images/logo_pdf.svg') }}" class="logo-img" alt="Pies Felices">
+                @if(file_exists(public_path('images/logo_color.svg')))
+                    <img src="{{ public_path('images/logo_color.svg') }}" class="logo-img" alt="Pies Felices">
                 @elseif(file_exists(public_path('images/logo.png')))
                     <img src="{{ public_path('images/logo.png') }}" class="logo-img" alt="Pies Felices">
                 @endif
             </td>
             <td style="width: 60%;" class="title-container">
-                <div class="title-main">SOCIEDAD MEXICANA DE PODOLOGÍA MÉDICA A.C.</div>
                 <div class="title-sub">PIES FELICES</div>
                 <div style="font-size: 10px; font-weight: bold;">PODÓLOGO</div>
                 <div style="font-size: 9px; color: #444;">CÉDULA PROFESIONAL: 12066211</div>
             </td>
             <td style="width: 20%; text-align: right;">
-                @if(file_exists(public_path('images/logo_sociedad.svg')))
-                    <img src="{{ public_path('images/logo_sociedad.svg') }}" class="logo-img" alt="Sociedad Mexicana de Podología">
+                @if(file_exists(public_path('images/logo_sociedad_color.svg')))
+                    <img src="{{ public_path('images/logo_sociedad_color.svg') }}" class="logo-img" alt="Sociedad Mexicana de Podología">
                 @elseif(file_exists(public_path('images/logo_sociedad.png')))
                     <img src="{{ public_path('images/logo_sociedad.png') }}" class="logo-img" alt="Sociedad Mexicana de Podología">
                 @endif

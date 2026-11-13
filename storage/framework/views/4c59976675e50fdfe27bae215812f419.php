@@ -22,8 +22,15 @@
                 <div class="d-flex flex-wrap gap-2 mt-2">
                     <?php $__currentLoopData = $birthdays; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $cumple): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                         <?php
-                            $telLimpio = preg_replace('/[^0-9]/', '',$cumple->telefono);
-                            $msgWhatsApp = rawurlencode("¡Hola {$cumple->nombre}! 🎉 Desde Pies Felices queremos desearle un muy feliz cumpleaños. Esperamos que pase un día extraordinario. 🎂✨");
+                            $telLimpio = preg_replace('/[^0-9]/', '', $cumple->telefono);
+                            $textoMensaje = "🎉🎂 ¡MUCHAS FELICIDADES EN TU CUMPLEAÑOS, {$cumple->nombre}! 🎂🎉\n\n"
+                                          . "Desde PIES FELICES queremos desearte un cumpleaños lleno de alegría, salud, amor y momentos inolvidables.\n\n"
+                                          . "Que este nuevo año de vida esté acompañado de grandes bendiciones, éxitos y muchas razones para sonreír.\n\n"
+                                          . "¡Disfruta mucho tu día! 🥳🎁\n\n"
+                                          . "Con cariño y nuestros mejores deseos,\n"
+                                          . "Familia PIES FELICES 💜\n"
+                                          . "Salud y felicidad a tus pies.";
+                            $msgWhatsApp = rawurlencode($textoMensaje);
                         ?>
                         <span class="badge bg-white text-dark border p-2 d-flex align-items-center rounded-pill shadow-sm">
                             <span class="me-2 text-primary fw-bold">

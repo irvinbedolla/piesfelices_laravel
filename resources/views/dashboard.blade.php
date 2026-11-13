@@ -1,6 +1,54 @@
 <x-app-layout>
     <div class="container-fluid py-4">
         
+        {{-- ALERTA DE CUMPLEAÑEROS DEL DÍA (VISIBLE PARA TODOS LOS USUARIOS) --}}
+        @if(isset($birthdays) && $birthdays->count() > 0)
+            <div class="alert alert-warning border-warning rounded-4 shadow-sm p-3 mb-4">
+                <div class="d-flex align-items-center mb-2">
+                    <i class="fa-solid fa-cake-candles text-warning fs-4 me-2"></i>
+                    <h5 class="m-0 fw-bold text-dark">
+                        ¡Clientes que cumplen años hoy! ({{ $birthdays->count() }})
+                    </h5>
+                </div>
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                    @foreach($birthdays as $cumple)
+                        @php
+                            $telLimpio = preg_replace('/[^0-9]/', '', $cumple->telefono);
+                            $textoMensaje = "🎉🎂 ¡MUCHAS FELICIDADES EN TU CUMPLEAÑOS, {$cumple->nombre}! 🎂🎉\n\n"
+                                          . "Desde PIES FELICES queremos desearte un cumpleaños lleno de alegría, salud, amor y momentos inolvidables.\n\n"
+                                          . "Que este nuevo año de vida esté acompañado de grandes bendiciones, éxitos y muchas razones para sonreír.\n\n"
+                                          . "¡Disfruta mucho tu día! 🥳🎁\n\n"
+                                          . "Con cariño y nuestros mejores deseos,\n"
+                                          . "Familia PIES FELICES 💜\n"
+                                          . "Salud y felicidad a tus pies.";
+                            $msgWhatsApp = rawurlencode($textoMensaje);
+                        @endphp
+                        <span class="badge bg-white text-dark border p-2 d-flex align-items-center rounded-pill shadow-sm">
+                            <span class="me-2 text-primary fw-bold">
+                                <i class="fa-solid fa-gift me-1 text-danger"></i> {{ $cumple->nombre }}
+                            </span>
+                            @if(!empty($telLimpio))
+                                <a href="https://api.whatsapp.com/send?phone=52{{ $telLimpio }}&text={{ $msgWhatsApp }}" 
+                                   target="_blank" class="btn btn-sm btn-success py-0 px-2 rounded-pill d-flex align-items-center small">
+                                    <i class="fa-brands fa-whatsapp me-1"></i> Felicitaciones
+                                </a>
+                            @endif
+                        </span>
+                    @endforeach
+                </div>
+            </div>
+        @else
+            <div class="mb-4 p-3 rounded-4 border d-flex align-items-center bg-white shadow-sm">
+                <div class="bg-light p-2 rounded-circle me-3 d-flex align-items-center justify-content-center">
+                    <i class="fa-regular fa-bell text-muted fs-5"></i>
+                </div>
+                <div>
+                    <h6 class="m-0 fw-bold text-secondary">Búsqueda de Cumpleaños Finalizada</h6>
+                    <small class="text-muted">Ningún cliente registrado cumple años el día de hoy.</small>
+                </div>
+            </div>
+        @endif
+
         <div class="row g-3 mb-4">
             
             <!-- 1. Top 10 Artículos Más Vendidos del Mes -->

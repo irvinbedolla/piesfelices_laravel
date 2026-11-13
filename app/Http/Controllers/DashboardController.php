@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use App\Models\Customer;
 
 class DashboardController extends Controller
 {
@@ -22,6 +23,19 @@ class DashboardController extends Controller
         $isAdmin = method_exists($user, 'isAdmin') 
             ? $user->isAdmin() 
             : in_array((int)($user->tipo_seccion ?? 2), [0, 3]);
+
+        // -------------------------------------------------------------
+        // CONSULTA DE CUMPLEAÑEROS DEL DÍA (MM-DD)
+        // -------------------------------------------------------------
+        $todayMMDD = date('m-d');
+        $birthdaysQuery = Customer::whereRaw("DATE_FORMAT(fecha_nacimiento, '%m-%d') = ?", [$todayMMDD]);
+
+        // Si no es administrador global, filtrar por su sucursal asignada
+        if (!$isAdmin && !empty($userBranch) && $userBranch !== 'TODOS') {
+            $birthdaysQuery->where('sucursal', $userBranch);
+        }
+
+        $birthdays = $birthdaysQuery->orderBy('nombre', 'asc')->get();
 
         // Detección segura de columnas en 'appointments'
         $dateCol = 'created_at';
@@ -59,7 +73,7 @@ class DashboardController extends Controller
             ->take(10)
             ->get();
 
-        return view('dashboard', compact('userRole', 'userBranch', 'upcomingAppointments', 'isAdmin'));
+        return view('dashboard', compact('userRole', 'userBranch', 'upcomingAppointments', 'isAdmin', 'birthdays'));
     }
 
     /**
