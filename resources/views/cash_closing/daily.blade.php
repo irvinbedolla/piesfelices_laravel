@@ -17,6 +17,13 @@
         .fw-bold { font-weight: bold; }
         .divider-dashed { border-top: 1px dashed #000; margin: 6px 0; }
         .divider-double { border-top: 3px double #000; margin: 6px 0; }
+        .total-box td {
+            font-size: 10.5px;
+            font-weight: bold;
+            padding: 4px 0;
+            border-top: 1px solid #000;
+            border-bottom: 1px solid #000;
+        }
         table { width: 100%; border-collapse: collapse; }
         td { padding: 2px 0; font-size: 9.5px; }
     </style>
@@ -52,6 +59,12 @@
             <td>Consulta Crédito:</td>
             <td class="text-right">${{ number_format($credito['consulta'] ?? 0, 2) }}</td>
         </tr>
+        @if(($credito['general'] ?? 0) > 0)
+            <tr>
+                <td>General / Otros Crédito:</td>
+                <td class="text-right">${{ number_format($credito['general'], 2) }}</td>
+            </tr>
+        @endif
         @if(($descuentoCredito ?? 0) > 0)
             <tr>
                 <td>Descuento Crédito:</td>
@@ -80,6 +93,12 @@
             <td>Consulta Contado:</td>
             <td class="text-right">${{ number_format($contado['consulta'] ?? 0, 2) }}</td>
         </tr>
+        @if(($contado['general'] ?? 0) > 0)
+            <tr>
+                <td>General :</td>
+                <td class="text-right">${{ number_format($contado['general'], 2) }}</td>
+            </tr>
+        @endif
         <tr>
             <td>Descuento Contado:</td>
             <td class="text-right">-${{ number_format($descuentoContado ?? 0, 2) }}</td>
@@ -179,6 +198,23 @@
     </table>
 
     <div class="divider-double"></div>
+
+    {{-- APARTADO RESUMEN GENERAL (CRITERIO REPORTE ANTERIOR) --}}
+    @php
+        $totalAbsoluto = (($totalContado ?? 0) + ($totalAbonos ?? 0)) - ($totalGastos ?? 0);
+        $absolutoMasCredito = $totalAbsoluto + ($totalCredito ?? 0);
+    @endphp
+    <table>
+        <tr class="total-box">
+            <td>TOTAL ABSOLUTO:</td>
+            <td class="text-right">${{ number_format($totalAbsoluto, 2) }}</td>
+        </tr>
+        <tr><td colspan="2" style="height: 3px;"></td></tr>
+        <tr class="total-box">
+            <td>ABSOLUTO + CRÉDITO:</td>
+            <td class="text-right">${{ number_format($absolutoMasCredito, 2) }}</td>
+        </tr>
+    </table>
 
 </body>
 </html>

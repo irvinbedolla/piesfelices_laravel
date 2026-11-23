@@ -52,26 +52,15 @@ class InventoryController extends Controller
             $q->where('branch_id', $selectedBranchId);
             
             if ($onlyLowStock) {
-                // Opción A: Productos que están por debajo del stock mínimo Y que sí tienen/tuvieron inventario registrado
-                $q->whereColumn('branch_product.stock_current', '<=', 'branch_product.stock_min')
-                ->where(function ($sub) use ($selectedBranchId) {
-                    // Exige que la sucursal haya tenido al menos 1 movimiento en Kárdex o que el producto no sea 'fantasma'
-                    $sub->where('branch_product.stock_current', '>', 0)
-                        ->orWhereExists(function ($movQuery) use ($selectedBranchId) {
-                            $movQuery->select(DB::raw(1))
-                                ->from('inventory_movements')
-                                ->whereColumn('inventory_movements.product_id', 'branch_product.product_id')
-                                ->where('inventory_movements.branch_id', $selectedBranchId);
-                        });
-                });
+                // Muestra todos los productos de la sucursal con stock actual <= stock mínimo (incluyendo 0)
+                $q->whereColumn('branch_product.stock_current', '<=', 'branch_product.stock_min');
             } else {
                 // Por defecto: Muestra SOLO productos con existencias activas en esta sucursal
                 $q->where('branch_product.stock_current', '>', 0);
             }
         })->with(['branches' => function ($q) use ($selectedBranchId) {
             $q->where('branch_id', $selectedBranchId);
-        }])
-        ->orderBy('name', 'asc');
+        }]);
 
         // 4. Filtro por Tipo de Producto (GENERAL, CALZADO, MEDICAMENTO)
         if ($selectedType && in_array($selectedType, ['GENERAL', 'CALZADO', 'MEDICAMENTO'])) {

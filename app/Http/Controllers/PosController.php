@@ -98,52 +98,57 @@ class PosController extends Controller
                 ?? Branch::where('name', $sale->venta_sucursal)->value('id') 
                 ?? $userBranchId;
 
-            // ----------------------------------------------------------------------
-            // FILTRADO DE CLIENTES Y EMPLEADOS SEGÚN EL ROL DEL USUARIO
-            // Rol 1: Super Usuario (Ve todos los clientes y todos los empleados)
-            // Rol 2: Administrador/Encargado de Sucursal (Ve clientes y empleados de su sucursal)
-            // Otros Roles (3, 4, etc.): Empleado normal (Ve únicamente su propio usuario y clientes de su sucursal)
-            // ----------------------------------------------------------------------
+            // 1. CLIENTES (Solo columnas necesarias, sin hidratar 1,958 modelos Eloquent pesados)
             if ($userRole === 1 || (method_exists($user, 'isAdmin') && $user->isAdmin())) {
-                // ROL 1: Acceso Total
-                $customers = Customer::all();
-                $sellers   = User::all();
+                $customers = DB::table('clientes')
+                    ->select('cliente_id', 'nombre', 'telefono', 'sucursal')
+                    ->orderBy('nombre', 'asc')
+                    ->get();
+                $sellers = User::all();
             } elseif ($userRole === 2) {
-                // ROL 2: Filtrado por Sucursal (Clientes y Empleados de la sucursal actual)
-                $customers = Customer::where(function($q) use ($sale, $userBranchName) {
+                $customers = DB::table('clientes')
+                    ->select('cliente_id', 'nombre', 'telefono', 'sucursal')
+                    ->where(function($q) use ($sale, $userBranchName) {
                         $q->where('sucursal', $sale->venta_sucursal)
-                        ->orWhere('sucursal', $userBranchName)
-                        ->orWhere('sucursal', 'MATRIZ');
+                          ->orWhere('sucursal', $userBranchName)
+                          ->orWhere('sucursal', 'MATRIZ');
                     })
+                    ->orderBy('nombre', 'asc')
                     ->get();
 
-                $sellers = User::where('branch_id', $activeBranchId)
-                    ->orWhere('branch_id', $activeBranchId)
-                    //->orWhere('sucursal', $userBranchName)
-                    ->get();
+                $sellers = User::where('branch_id', $activeBranchId)->get();
 
-                // Resguardo: Si la lista de vendedores resultara vacía, incluye al menos al usuario actual
                 if ($sellers->isEmpty()) {
                     $sellers = User::where('id', $user->id)->get();
                 }
             } else {
-                // OTROS ROLES: Solo ve clientes de la sucursal y únicamente a él mismo como vendedor
-                $customers = Customer::where(function($q) use ($sale, $userBranchName) {
+                $customers = DB::table('clientes')
+                    ->select('cliente_id', 'nombre', 'telefono', 'sucursal')
+                    ->where(function($q) use ($sale, $userBranchName) {
                         $q->where('sucursal', $sale->venta_sucursal)
-                        ->orWhere('sucursal', $userBranchName)
-                        ->orWhere('sucursal', 'MATRIZ');
+                          ->orWhere('sucursal', $userBranchName)
+                          ->orWhere('sucursal', 'MATRIZ');
                     })
+                    ->orderBy('nombre', 'asc')
                     ->get();
 
                 $sellers = User::where('id', $user->id)->get();
             }
 
-            $products = Product::whereHas('branches', function ($q) use ($activeBranchId) {
-                $q->where('branch_id', $activeBranchId)
-                ->where('branch_product.stock_current', '>', 0);
-            })->with(['branches' => function ($q) use ($activeBranchId) {
-                $q->where('branch_id', $activeBranchId);
-            }])->get();
+            // 2. PRODUCTOS CON STOCK EN LA SUCURSAL ACTIVA (JOIN directo ultra rápido)
+            $products = DB::table('products')
+                ->join('branch_product', 'products.id', '=', 'branch_product.product_id')
+                ->where('branch_product.branch_id', $activeBranchId)
+                ->where('branch_product.stock_current', '>', 0)
+                ->select(
+                    'products.id',
+                    'products.name',
+                    'products.barcode',
+                    'products.sale_price',
+                    'branch_product.stock_current as stock_sucursal'
+                )
+                ->orderBy('products.name', 'asc')
+                ->get();
 
 
             // Obtener el mayor folio asignado en esta sucursal y sumarle 1
@@ -167,39 +172,44 @@ class PosController extends Controller
     }
 
     /**
-     * Agregar Producto Físico al Carrito
+     * Agregar Producto Físico al Carrito (Optimizado con consultas directas y respuesta JSON)
      */
     public function addProduct(Request $request, $saleId)
     {
         try {
-            $sale = Sale::findOrFail($saleId);
-            $productId = $request->product_id;
+            $productId = (int) $request->product_id;
 
             if ($request->has('is_service') || !$productId) {
                 return $this->addService($request, $saleId);
             }
 
-            $product = Product::findOrFail($productId);
-            
-            $sellerUser = User::find($sale->venta_idempleado);
-            $branchId = $sellerUser?->branch_id 
-                ?? Branch::where('name', $sellerUser?->sucursal)->value('id')
-                ?? Branch::where('name', $sale->venta_sucursal)->value('id') 
-                ?? $userBranchId 
-                ?? 1;
+            $sale = Sale::select('venta_id', 'venta_idempleado', 'venta_sucursal', 'venta_descuento')
+                ->findOrFail($saleId);
 
-            $pivot = DB::table('branch_product')
-                ->where('product_id', $productId)
-                ->where('branch_id', $branchId)
+            $product = DB::table('products')
+                ->select('id', 'name', 'barcode', 'sale_price')
+                ->where('id', $productId)
                 ->first();
 
-            $stockDisponible = $pivot ? $pivot->stock_current : 0;
+            if (!$product) {
+                return response()->json(['success' => false, 'message' => 'Producto no encontrado.'], 404);
+            }
 
-            $existingItem = $sale->items()
+            // Obtener sucursal de forma directa sin hidratar múltiples modelos
+            $branchId = DB::table('users')->where('id', $sale->venta_idempleado)->value('branch_id')
+                ?? DB::table('branches')->where('name', $sale->venta_sucursal)->value('id')
+                ?? 1;
+
+            $stockDisponible = (int) (DB::table('branch_product')
+                ->where('product_id', $productId)
+                ->where('branch_id', $branchId)
+                ->value('stock_current') ?? 0);
+
+            $existingItem = SaleItem::where('venta_id', $saleId)
                 ->where('producto_id', $productId)
                 ->first();
 
-            $cantEnCarrito = $existingItem ? $existingItem->cantidad : 0;
+            $cantEnCarrito = $existingItem ? (int) $existingItem->cantidad : 0;
 
             if (($cantEnCarrito + 1) > $stockDisponible) {
                 return response()->json([
@@ -211,7 +221,8 @@ class PosController extends Controller
             if ($existingItem) {
                 $existingItem->increment('cantidad');
             } else {
-                $sale->items()->create([
+                SaleItem::create([
+                    'venta_id'    => $saleId,
                     'producto_id' => $product->id,
                     'nombre'      => $product->name,
                     'sku'         => $product->barcode ?? 'S/C',
@@ -220,20 +231,19 @@ class PosController extends Controller
                 ]);
             }
 
-            $this->recalculateTotal($saleId);
-            return response()->json(['success' => true]);
+            return $this->cartJsonResponse($sale);
 
         } catch (\Exception $e) {
             Log::error("Error en addProduct: " . $e->getMessage());
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'message' => 'Error al agregar producto: ' . $e->getMessage()
             ], 500);
         }
     }
 
     /**
-     * Agregar Servicio
+     * Agregar Servicio al Carrito (Sin recarga completa)
      */
     public function addService(Request $request, $saleId)
     {
@@ -243,9 +253,10 @@ class PosController extends Controller
                 'amount'  => 'required|numeric|min:0.01',
             ]);
 
-            $sale = Sale::findOrFail($saleId);
+            $sale = Sale::select('venta_id', 'venta_descuento')->findOrFail($saleId);
 
-            $sale->items()->create([
+            SaleItem::create([
+                'venta_id'    => $saleId,
                 'product_id'  => null,
                 'producto_id' => 0,
                 'nombre'      => '[SERVICIO] ' . $request->concept,
@@ -254,9 +265,7 @@ class PosController extends Controller
                 'precio'      => $request->amount,
             ]);
 
-            $this->recalculateTotal($saleId);
-
-            return response()->json(['success' => true]);
+            return $this->cartJsonResponse($sale);
 
         } catch (\Exception $e) {
             Log::error("Error en addService: " . $e->getMessage());
@@ -268,43 +277,39 @@ class PosController extends Controller
     }
 
     /**
-     * Cambiar cantidad de un renglón
+     * Cambiar cantidad de un renglón (Optimizado)
      */
     public function updateQuantity(Request $request, $itemId)
     {
         try {
             $item = SaleItem::findOrFail($itemId);
             $newQty = max(1, (int) $request->cantidad);
-            $productId = $item->product_id ?? $item->producto_id;
+            $productId = (int) ($item->product_id ?? $item->producto_id ?? 0);
 
-            if ($productId && $productId > 0) {
-                $sale = Sale::findOrFail($item->venta_id);
-                $sellerUser = User::find($sale->venta_idempleado);
-                
-                $branchId = $sellerUser?->branch_id 
-                    ?? $sellerUser?->branch_id 
-                    ?? Branch::where('name', $sale->venta_sucursal)->value('id') 
+            $sale = Sale::select('venta_id', 'venta_idempleado', 'venta_sucursal', 'venta_descuento')
+                ->findOrFail($item->venta_id);
+
+            if ($productId > 0) {
+                $branchId = DB::table('users')->where('id', $sale->venta_idempleado)->value('branch_id')
+                    ?? DB::table('branches')->where('name', $sale->venta_sucursal)->value('id')
                     ?? 1;
 
-                $pivot = DB::table('branch_product')
+                $availableStock = (int) (DB::table('branch_product')
                     ->where('product_id', $productId)
                     ->where('branch_id', $branchId)
-                    ->first();
-
-                $availableStock = $pivot ? $pivot->stock_current : 0;
+                    ->value('stock_current') ?? 0);
 
                 if ($newQty > $availableStock) {
                     return response()->json([
-                        'success' => false, 
+                        'success' => false,
                         'message' => "Supera la existencia disponible ({$availableStock})"
                     ], 422);
                 }
             }
 
             $item->update(['cantidad' => $newQty]);
-            $this->recalculateTotal($item->venta_id);
 
-            return response()->json(['success' => true]);
+            return $this->cartJsonResponse($sale);
 
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
@@ -845,4 +850,35 @@ class PosController extends Controller
         ]);
     }
 
+    /**
+     * Recalcula totales en 1 sola consulta y devuelve el estado actualizado del carrito
+     */
+    private function cartJsonResponse(Sale $sale)
+    {
+        $items = DB::table('venta_producto')
+            ->select('id', 'producto_id', 'nombre', 'sku', 'cantidad', 'precio')
+            ->where('venta_id', $sale->venta_id)
+            ->get();
+
+        $subtotal = $items->sum(fn($i) => $i->cantidad * $i->precio);
+        $descuento = (float) ($sale->venta_descuento ?? 0);
+        $total = max(0, $subtotal - $descuento);
+
+        DB::table('ventas')
+            ->where('venta_id', $sale->venta_id)
+            ->update(['venta_total' => $total]);
+
+        $currentPercent = ($subtotal > 0 && $descuento > 0)
+            ? round(($descuento / $subtotal) * 100, 2)
+            : 0;
+
+        return response()->json([
+            'success'         => true,
+            'items'           => $items,
+            'venta_total'     => number_format($total, 2, '.', ''),
+            'venta_total_fmt' => number_format($total, 2),
+            'descuento_fmt'   => number_format($descuento, 2),
+            'descuento_pct'   => $currentPercent,
+        ]);
+    }
 }

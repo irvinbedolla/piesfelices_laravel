@@ -33,7 +33,8 @@
                                 Folio #<?php echo e($sale->folio_sucursal); ?>
 
                             <?php else: ?>
-                                Folio #<?php echo e($nextFolio); ?> <small class="fs-6 text-muted fw-normal">(Por asignar)</small>                            <?php endif; ?>
+                                Folio #<?php echo e($nextFolio); ?> <small class="fs-6 text-muted fw-normal">(Por asignar)</small>
+                            <?php endif; ?>
                         </h4>
                         <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2 fs-6">
                             <i class="fa-solid fa-hospital me-1"></i> <?php echo e($sale->venta_sucursal); ?>
@@ -143,10 +144,9 @@
                     <div class="row g-2 overflow-auto" style="max-height: 550px;" id="catalogGrid">
                         <?php $__empty_1 = true; $__currentLoopData = $products; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $p): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                             <?php
-                                $pivot = $p->branches->first()?->pivot;
-                                $stock = $pivot ? $pivot->stock_current : 0;
+                                $stock = $p->stock_sucursal ?? ($p->branches->first()?->pivot?->stock_current ?? 0);
                             ?>
-                            <div class="col-6 col-md-4 catalog-item" data-name="<?php echo e(strtolower($p->name)); ?>" data-code="<?php echo e(strtolower($p->barcode ?? '')); ?>">
+                            <div class="col-6 col-md-4 catalog-item <?php echo e($loop->index >= 30 ? 'd-none' : ''); ?>" data-index="<?php echo e($loop->index); ?>" data-name="<?php echo e(strtolower($p->name)); ?>" data-code="<?php echo e(strtolower($p->barcode ?? '')); ?>">
                                 <div class="card h-100 border-0 shadow-sm rounded-3 text-center p-2 hover-card cursor-pointer add-to-cart-btn" data-id="<?php echo e($p->id); ?>">
                                     <div class="fw-bold text-dark extra-small mb-1 text-wrap" title="<?php echo e($p->name); ?>">
                                         <?php echo e($p->name); ?>
@@ -345,7 +345,7 @@
                                 </tr>
 
                                 <?php $__empty_1 = true; $__currentLoopData = $customers; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $c): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
-                                    <tr class="customer-row" data-name="<?php echo e(strtolower($c->nombre)); ?>">
+                                    <tr class="customer-row <?php echo e($loop->index >= 50 ? 'd-none' : ''); ?>" data-index="<?php echo e($loop->index); ?>" data-name="<?php echo e(strtolower($c->nombre)); ?>">
                                         <td><strong class="text-dark d-block"><?php echo e($c->nombre); ?></strong></td>
                                         <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1 extra-small"><?php echo e($c->sucursal ?? $sale->venta_sucursal); ?></span></td>
                                         <td class="text-end">
@@ -470,7 +470,6 @@
                             </select>
                         </div>
 
-                        
                         <div class="mb-3 <?php echo e($isCustomCfdi ? '' : 'd-none'); ?>" id="customCfdiContainer">
                             <label class="form-label fw-semibold">Especificar Uso de CFDI / Concepto (*)</label>
                             <input type="text" id="customCfdiInput" class="form-control rounded-3" value="<?php echo e($isCustomCfdi ? $sale->venta_cfdi : ''); ?>" placeholder="Ej. CP01 - Pagos">
@@ -591,17 +590,6 @@
                 <div class="modal-body py-3">
                     <div class="mb-3">
                         <label class="form-label small fw-semibold">Porcentaje (%)</label>
-
-                        
-                        <?php
-                            $subtotalItems = $sale->items->sum(function($item) {
-                                return $item->cantidad * $item->precio;
-                            });
-                            $currentPercent = ($subtotalItems > 0 && $sale->venta_descuento > 0)
-                                ? round(($sale->venta_descuento / $subtotalItems) * 100, 2)
-                                : 0;
-                        ?>
-
                         <div class="input-group">
                             <input type="number" step="0.01" min="0" max="100" id="discountInput" class="form-control rounded-start-3 text-center fw-bold" value="<?php echo e($currentPercent); ?>" placeholder="0">
                             <span class="input-group-text bg-light fw-bold">%</span>
@@ -708,7 +696,7 @@
 
         document.addEventListener('DOMContentLoaded', function () {
             const saleId = "<?php echo e($sale->venta_id); ?>";
-            const totalSale = parseFloat("<?php echo e($sale->venta_total); ?>");
+            let totalSale = parseFloat("<?php echo e($sale->venta_total); ?>") || 0;
 
             // BUSCADOR EN VIVO DEL CATÁLOGO DE PRODUCTOS
             const searchCatalogInput = document.getElementById('searchCatalog');
@@ -718,16 +706,52 @@
                     const items = document.querySelectorAll('.catalog-item');
 
                     items.forEach(item => {
+                        const idx = parseInt(item.getAttribute('data-index') || '0', 10);
+                        if (query === '') {
+                            if (idx < 30) {
+                                item.classList.remove('d-none');
+                            } else {
+                                item.classList.add('d-none');
+                            }
+                            return;
+                        }
+
                         const name = item.getAttribute('data-name') || '';
                         const code = item.getAttribute('data-code') || '';
-                        const textContent = item.textContent.toLowerCase();
 
-                        if (name.includes(query) || code.includes(query) || textContent.includes(query)) {
+                        if (name.includes(query) || code.includes(query)) {
                             item.classList.remove('d-none');
                         } else {
                             item.classList.add('d-none');
                         }
                     });
+                });
+            }
+
+            // LECTOR DE CÓDIGO DE BARRAS (ENTER PARA AGREGAR DIRECTO)
+            const barcodeReader = document.getElementById('barcodeReader');
+            if (barcodeReader) {
+                barcodeReader.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const code = this.value.toLowerCase().trim();
+                        if (!code || isProcessing) return;
+
+                        const match = Array.from(document.querySelectorAll('.catalog-item')).find(item => {
+                            return (item.getAttribute('data-code') || '') === code;
+                        });
+
+                        if (match) {
+                            const btn = match.querySelector('.add-to-cart-btn');
+                            if (btn) {
+                                this.value = '';
+                                addProductAjax({ product_id: btn.getAttribute('data-id') });
+                            }
+                        } else {
+                            alert('Código de barras no encontrado en el catálogo con existencia de esta sucursal.');
+                            this.select();
+                        }
+                    }
                 });
             }
             
@@ -739,10 +763,18 @@
                     const rows = document.querySelectorAll('#customersPosTable tbody .customer-row');
 
                     rows.forEach(row => {
-                        const name = row.getAttribute('data-name') || '';
-                        const textContent = row.textContent.toLowerCase();
+                        const idx = parseInt(row.getAttribute('data-index') || '0', 10);
+                        if (query === '') {
+                            if (idx < 50) {
+                                row.classList.remove('d-none');
+                            } else {
+                                row.classList.add('d-none');
+                            }
+                            return;
+                        }
 
-                        if (name.includes(query) || textContent.includes(query)) {
+                        const name = row.getAttribute('data-name') || '';
+                        if (name.includes(query)) {
                             row.classList.remove('d-none');
                         } else {
                             row.classList.add('d-none');
@@ -942,14 +974,95 @@
                 });
             }
 
-            // 4. AGREGAR SERVICIO AL CARRITO
+            document.querySelectorAll('[data-target="#sellerModal"]').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    setTimeout(() => {
+                        if (searchSellerInput) {
+                            searchSellerInput.value = '';
+                            document.querySelectorAll('#sellersList .seller-row-item').forEach(el => {
+                                el.style.setProperty('display', 'block', 'important');
+                            });
+                            searchSellerInput.focus();
+                        }
+                    }, 150);
+                });
+            });
+
+            // FUNCIÓN PARA RENDERIZAR EL CARRITO AL INSTANTE SIN RECARGAR LA PÁGINA
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text ?? '';
+                return div.innerHTML;
+            }
+
+            function renderCart(data) {
+                const tbody = document.getElementById('cartTableBody');
+                if (tbody) {
+                    if (!data.items || data.items.length === 0) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-5">
+                                    <i class="fa-solid fa-cart-flatbed fa-2x mb-2 d-block"></i>
+                                    Carrito de venta vacío
+                                </td>
+                            </tr>`;
+                    } else {
+                        tbody.innerHTML = data.items.map(item => {
+                            const qty = parseFloat(item.cantidad) || 1;
+                            const price = parseFloat(item.precio) || 0;
+                            const rowTotal = (qty * price).toFixed(2);
+                            return `
+                                <tr>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-outline-danger border-0 remove-item-btn" data-id="${item.id}">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </td>
+                                    <td>
+                                        <strong class="text-dark d-block text-truncate" style="max-width: 180px;">${escapeHtml(item.nombre)}</strong>
+                                        <small class="text-muted">${escapeHtml(item.sku || '')}</small>
+                                    </td>
+                                    <td class="text-center">
+                                        <input type="number" value="${qty}" min="1" class="form-control form-control-sm text-center fw-bold update-qty-input rounded-3" data-id="${item.id}" style="width: 65px;">
+                                    </td>
+                                    <td class="text-end">$${price.toFixed(2)}</td>
+                                    <td class="text-end fw-bold text-success">$${rowTotal}</td>
+                                </tr>`;
+                        }).join('');
+                    }
+                }
+                // Actualizar variable global del total para validaciones de cobro y cambio
+                totalSale = parseFloat(data.venta_total) || 0;
+
+                // Actualizar etiquetas de Total y Descuento en pantalla y en el modal de cobro
+                const mainTotalEl = document.querySelector('.border-top h2.text-success');
+                if (mainTotalEl) mainTotalEl.textContent = '$' + data.venta_total_fmt;
+
+                const modalTotalEl = document.querySelector('#payModal h3 span.text-success');
+                if (modalTotalEl) modalTotalEl.textContent = '$' + data.venta_total_fmt;
+
+                const discountValEl = document.querySelector('.border-top span.text-danger');
+                if (discountValEl) discountValEl.textContent = '-$' + data.descuento_fmt;
+
+                const discountBtn = document.querySelector('[data-target="#discountModal"]');
+                if (discountBtn) {
+                    discountBtn.innerHTML = `<i class="fa-solid fa-percent me-1 text-danger"></i> Desc: ${data.descuento_pct}% ($${data.descuento_fmt})`;
+                }
+
+                isProcessing = false;
+                hideLoading();
+            }
+
+            // 4. AGREGAR SERVICIO AL CARRITO (SIN RECARGA)
             const saveServiceBtn = document.getElementById('saveServiceBtn');
             if (saveServiceBtn) {
                 saveServiceBtn.addEventListener('click', function () {
                     if (isProcessing) return;
 
-                    const concept = document.getElementById('serviceConcept').value.trim();
-                    const amount = parseFloat(document.getElementById('serviceAmount').value) || 0;
+                    const conceptInput = document.getElementById('serviceConcept');
+                    const amountInput = document.getElementById('serviceAmount');
+                    const concept = conceptInput.value.trim();
+                    const amount = parseFloat(amountInput.value) || 0;
 
                     if (!concept || amount <= 0) {
                         alert('Ingresa un concepto y un monto mayor a $0.00');
@@ -963,6 +1076,7 @@
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Accept': 'application/json',
                             'X-CSRF-TOKEN': '<?php echo e(csrf_token()); ?>'
                         },
                         body: JSON.stringify({ concept: concept, amount: amount })
@@ -970,7 +1084,14 @@
                     .then(res => res.json())
                     .then(data => {
                         if (data.success) {
-                            location.reload();
+                            conceptInput.value = '';
+                            amountInput.value = '';
+                            const serviceModalEl = document.getElementById('serviceModal');
+                            if (serviceModalEl && typeof bootstrap !== 'undefined') {
+                                bootstrap.Modal.getInstance(serviceModalEl)?.hide();
+                            }
+                            forceCleanBackdrops();
+                            renderCart(data);
                         } else {
                             isProcessing = false;
                             hideLoading();
@@ -984,7 +1105,7 @@
                 });
             }
 
-            // 5. AGREGAR PRODUCTO AL CARRITO
+            // 5. AGREGAR PRODUCTO AL CARRITO (SIN RECARGA)
             document.querySelectorAll('.add-to-cart-btn').forEach(btn => {
                 btn.addEventListener('click', function () {
                     if (isProcessing) return;
@@ -1002,6 +1123,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Accept': 'application/json',
                         'X-CSRF-TOKEN': '<?php echo e(csrf_token()); ?>'
                     },
                     body: JSON.stringify(payload)
@@ -1009,7 +1131,7 @@
                 .then(res => res.json())
                 .then(data => {
                     if (data.success) {
-                        location.reload();
+                        renderCart(data);
                     } else {
                         isProcessing = false;
                         hideLoading();
@@ -1023,20 +1145,24 @@
                 });
             }
 
-            // 6. CAMBIO DE CANTIDAD
-            document.querySelectorAll('.update-qty-input').forEach(input => {
-                input.addEventListener('change', function () {
-                    if (isProcessing) return;
+            // 6 y 7. DELEGACIÓN DE EVENTOS EN #cartTableBody PARA CANTIDAD Y ELIMINAR (SIN RECARGA)
+            const cartTableBody = document.getElementById('cartTableBody');
+            if (cartTableBody) {
+                cartTableBody.addEventListener('change', function (e) {
+                    const input = e.target.closest('.update-qty-input');
+                    if (!input || isProcessing) return;
+
                     isProcessing = true;
                     showLoading();
 
-                    const itemId = this.getAttribute('data-id');
-                    const qty = this.value;
+                    const itemId = input.getAttribute('data-id');
+                    const qty = input.value;
 
                     fetch(`<?php echo e(url('pos/item')); ?>/${itemId}`, {
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Accept': 'application/json',
                             'X-CSRF-TOKEN': '<?php echo e(csrf_token()); ?>'
                         },
                         body: JSON.stringify({ cantidad: qty })
@@ -1044,35 +1170,51 @@
                     .then(res => res.json())
                     .then(data => {
                         if (data.success) {
-                            location.reload();
+                            renderCart(data);
                         } else {
                             isProcessing = false;
                             hideLoading();
                             alert(data.message || 'Error al actualizar cantidad');
-                            location.reload();
                         }
+                    })
+                    .catch(() => {
+                        isProcessing = false;
+                        hideLoading();
                     });
                 });
-            });
 
-            // 7. ELIMINAR ITEM
-            document.querySelectorAll('.remove-item-btn').forEach(btn => {
-                btn.addEventListener('click', function () {
-                    if (isProcessing) return;
+                cartTableBody.addEventListener('click', function (e) {
+                    const btn = e.target.closest('.remove-item-btn');
+                    if (!btn || isProcessing) return;
+
                     isProcessing = true;
                     showLoading();
 
-                    const itemId = this.getAttribute('data-id');
+                    const itemId = btn.getAttribute('data-id');
+
                     fetch(`<?php echo e(url('pos/item')); ?>/${itemId}`, {
                         method: 'DELETE',
-                        headers: { 'X-CSRF-TOKEN': '<?php echo e(csrf_token()); ?>' }
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': '<?php echo e(csrf_token()); ?>'
+                        }
                     })
                     .then(res => res.json())
                     .then(data => {
-                        if (data.success) location.reload();
+                        if (data.success) {
+                            renderCart(data);
+                        } else {
+                            isProcessing = false;
+                            hideLoading();
+                            alert(data.message || 'Error al eliminar artículo');
+                        }
+                    })
+                    .catch(() => {
+                        isProcessing = false;
+                        hideLoading();
                     });
                 });
-            });
+            }
 
             // 8. ASIGNAR CLIENTE EXISTENTE
             document.querySelectorAll('.assign-customer-btn').forEach(btn => {
@@ -1187,7 +1329,6 @@
                     if (this.value === 'SI') {
                         if (invoiceFieldsContainer) invoiceFieldsContainer.classList.remove('d-none');
                         
-                        // Si el input está vacío, consultar opcionalmente el siguiente folio
                         if (invoiceNumberInput && !invoiceNumberInput.value) {
                             fetch("<?php echo e(url('pos')); ?>/" + saleId + "/next-invoice")
                                 .then(res => res.json())
@@ -1268,25 +1409,60 @@
                 });
             }
 
-            // 12. CONFIRMAR PAGO CORREGIDO (VALIDA ANTES DE MOSTRAR CARGANDO)
+            // 12. CÁLCULO DINÁMICO DEL CAMBIO Y CONFIRMACIÓN DE PAGO ÚNICA
+            const receivedInput = document.getElementById('receivedInput');
+            const changeOutput = document.getElementById('changeOutput');
             const confirmPayBtn = document.getElementById('confirmPayBtn');
+
+            if (receivedInput && changeOutput) {
+                receivedInput.addEventListener('input', function () {
+                    const val = this.value.trim();
+                    
+                    if (val === '') {
+                        changeOutput.value = '$0.00';
+                        changeOutput.classList.remove('text-danger');
+                        changeOutput.classList.add('text-primary');
+                        return;
+                    }
+
+                    const received = parseFloat(val) || 0;
+                    const change = received - totalSale;
+
+                    if (change >= 0) {
+                        changeOutput.value = '$' + change.toFixed(2);
+                        changeOutput.classList.remove('text-danger');
+                        changeOutput.classList.add('text-primary');
+                    } else {
+                        changeOutput.value = 'Faltan $' + Math.abs(change).toFixed(2);
+                        changeOutput.classList.remove('text-primary');
+                        changeOutput.classList.add('text-danger');
+                    }
+                });
+            }
+
             if (confirmPayBtn) {
                 confirmPayBtn.addEventListener('click', function () {
                     if (isProcessing) return;
 
-                    const receivedInput = document.getElementById('receivedInput');
                     const payErrorAlert = document.getElementById('payErrorAlert');
                     const payErrorMessage = document.getElementById('payErrorMessage');
-                    
                     const rawVal = receivedInput ? receivedInput.value.trim() : '';
 
-                    // Ocultar alertas previas y restaurar estados del input
                     if (payErrorAlert) payErrorAlert.classList.add('d-none');
                     if (receivedInput) receivedInput.classList.remove('is-invalid');
 
-                    // ------------------------------------------------------------------
-                    // 1. VALIDACIONES PRIMERO (SIN ACTIVAR PANTALLA DE CARGANDO)
-                    // ------------------------------------------------------------------
+                    function showPayError(msg) {
+                        if (payErrorMessage) payErrorMessage.textContent = msg;
+                        if (payErrorAlert) payErrorAlert.classList.remove('d-none');
+                        if (receivedInput) {
+                            receivedInput.classList.add('is-invalid');
+                            receivedInput.focus();
+                        }
+                        isProcessing = false;
+                        confirmPayBtn.disabled = false;
+                        hideLoading();
+                    }
+
                     if (rawVal === '') {
                         showPayError('Por favor ingresa manualmente el monto de efectivo recibido.');
                         return;
@@ -1300,34 +1476,17 @@
                         return;
                     }
 
-                    // Si es venta a CONTADO (1), verificar que el pago no sea menor al total
                     if ((saleType === '1' || saleType === 1) && received < totalSale) {
                         const faltante = (totalSale - received).toFixed(2);
                         showPayError(`Monto insuficiente. Falta $${faltante} para completar el total ($${totalSale.toFixed(2)}).`);
                         return;
                     }
 
-                    function showPayError(msg) {
-                        if (payErrorMessage) payErrorMessage.textContent = msg;
-                        if (payErrorAlert) payErrorAlert.classList.remove('d-none');
-                        if (receivedInput) {
-                            receivedInput.classList.add('is-invalid');
-                            receivedInput.focus();
-                        }
-                        // Asegurar que el sistema no se quede bloqueado si hay un error de validación
-                        isProcessing = false;
-                        if (confirmPayBtn) confirmPayBtn.disabled = false;
-                        if (typeof hideLoading === 'function') hideLoading();
-                    }
-
-                    // ------------------------------------------------------------------
-                    // 2. SOLO CUANDO TODAS LAS VALIDACIONES PASAN, SE ACTIVA EL LOADER
-                    // ------------------------------------------------------------------
                     isProcessing = true;
                     confirmPayBtn.disabled = true;
-                    if (typeof showLoading === 'function') showLoading();
+                    showLoading();
 
-                    const printTicket = document.getElementById('printTicketCheck') ? document.getElementById('printTicketCheck').checked : true;
+                    const printTicket = document.getElementById('printTicketCheck') ? document.getElementById('printTicketCheck').checked : false;
 
                     fetch("<?php echo e(url('pos')); ?>/" + saleId + "/finish", {
                         method: 'POST',
@@ -1354,25 +1513,20 @@
                         }
                     })
                     .catch(error => {
-                        // Si la petición AJAX falla, restaurar controles inmediatamente
-                        isProcessing = false;
-                        confirmPayBtn.disabled = false;
-                        if (typeof hideLoading === 'function') hideLoading();
                         showPayError('Error: ' + error.message);
                     });
                 });
             }
 
-            // RESTAURAR ESTADOS AL CERRAR O OCULTAR EL MODAL
+            // RESTAURAR ESTADOS AL CERRAR EL MODAL DE COBRO
             const payModal = document.getElementById('payModal');
             if (payModal) {
                 payModal.addEventListener('hidden.bs.modal', function () {
                     isProcessing = false;
                     if (confirmPayBtn) confirmPayBtn.disabled = false;
-                    if (typeof hideLoading === 'function') hideLoading();
+                    hideLoading();
                     
                     const payErrorAlert = document.getElementById('payErrorAlert');
-                    const receivedInput = document.getElementById('receivedInput');
                     if (payErrorAlert) payErrorAlert.classList.add('d-none');
                     if (receivedInput) receivedInput.classList.remove('is-invalid');
                 });
@@ -1405,99 +1559,10 @@
                     });
                 });
             });
-        });
 
-        document.addEventListener('DOMContentLoaded', function () {
-            const totalSale = parseFloat("<?php echo e($sale->venta_total); ?>") || 0;
-            const receivedInput = document.getElementById('receivedInput');
-            const changeOutput = document.getElementById('changeOutput');
-
-            // CÁLCULO DINÁMICO DEL CAMBIO
-            if (receivedInput && changeOutput) {
-                receivedInput.addEventListener('input', function () {
-                const val = this.value.trim();
-                
-                if (val === '') {
-                    changeOutput.value = '$0.00';
-                    changeOutput.classList.remove('text-danger');
-                    changeOutput.classList.add('text-primary');
-                    return;
-                }
-
-                const received = parseFloat(val) || 0;
-                const change = received - totalSale;
-
-                if (change >= 0) {
-                    changeOutput.value = '$' + change.toFixed(2);
-                    changeOutput.classList.remove('text-danger');
-                    changeOutput.classList.add('text-primary');
-                } else {
-                    changeOutput.value = 'Faltan $' + Math.abs(change).toFixed(2);
-                    changeOutput.classList.remove('text-primary');
-                    changeOutput.classList.add('text-danger');
-                }
-                });
-            }
-
-            // CONFIRMAR PAGO Y ACTUALIZAR
-            const confirmPayBtn = document.getElementById('confirmPayBtn');
-            if (confirmPayBtn) {
-                confirmPayBtn.addEventListener('click', function () {
-                    if (isProcessing) return;
-
-                    const receivedVal = parseFloat(receivedInput.value) || 0;
-                    if (receivedVal < totalSale) {
-                        if (!confirm('El efectivo recibido es menor al total de la venta. ¿Deseas continuar?')) {
-                            return;
-                        }
-                    }
-
-                    //isProcessing = true;
-                    //confirmPayBtn.disabled = true;
-                    //showLoading();
-
-                    const printTicket = document.getElementById('printTicketCheck') ? document.getElementById('printTicketCheck').checked : false;
-
-                    fetch("<?php echo e(url('pos')); ?>/" + saleId + "/finish", {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                            'X-CSRF-TOKEN': '<?php echo e(csrf_token()); ?>'
-                        },
-                        body: JSON.stringify({ 
-                            abono: receivedVal, 
-                            print_ticket: printTicket 
-                        })
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success) {
-                            if (data.print && data.redirect) {
-                                window.open(data.redirect, '_blank');
-                            }
-                            // Redirigir para abrir una nueva venta en limpio
-                            window.location.href = "<?php echo e(url('pos')); ?>";
-                        } else {
-                            throw new Error(data.message || 'No se pudo completar el cobro');
-                        }
-                    })
-                    .catch(err => {
-                        isProcessing = false;
-                        confirmPayBtn.disabled = false;
-                        hideLoading();
-                        alert(err.message || 'Error de comunicación al cobrar.');
-                    });
-                });
-            }
-        });
-        
-
-        document.addEventListener('DOMContentLoaded', function () {
+            // 14. BUSCADOR DE VENDEDOR
             const searchSellerInput = document.getElementById('searchSellerInput');
-
             if (searchSellerInput) {
-                // Escucha la escritura en tiempo real
                 searchSellerInput.addEventListener('input', function () {
                     const query = this.value.toLowerCase().trim();
                     const sellerItems = document.querySelectorAll('#sellersList .seller-row-item');
@@ -1514,22 +1579,6 @@
                     });
                 });
             }
-
-            // Al abrir el modal de vendedor, enfocar e inicializar la lista
-            document.querySelectorAll('[data-target="#sellerModal"]').forEach(btn => {
-                btn.addEventListener('click', function () {
-                    setTimeout(() => {
-                        if (searchSellerInput) {
-                            searchSellerInput.value = '';
-                            // Mostrar todos de nuevo
-                            document.querySelectorAll('#sellersList .seller-row-item').forEach(el => {
-                                el.style.setProperty('display', 'block', 'important');
-                            });
-                            searchSellerInput.focus();
-                        }
-                    }, 150);
-                });
-            });
         });
     </script>
  <?php echo $__env->renderComponent(); ?>

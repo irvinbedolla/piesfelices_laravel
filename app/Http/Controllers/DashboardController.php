@@ -17,7 +17,7 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
         $userRole = $user->tipo_seccion ?? 2;
-        $userBranch = $user->branch?->name ?? $user->branch_name ?? 'MATRIZ';
+        $userBranch = strtoupper(trim($user->branch?->name ?? $user->branch_name ?? 'MATRIZ'));
 
         // Verificación segura de rol Administrador
         $isAdmin = method_exists($user, 'isAdmin') 
@@ -30,43 +30,23 @@ class DashboardController extends Controller
         $todayMMDD = date('m-d');
         $birthdaysQuery = Customer::whereRaw("DATE_FORMAT(fecha_nacimiento, '%m-%d') = ?", [$todayMMDD]);
 
-        // Si no es administrador global, filtrar por su sucursal asignada
         if (!$isAdmin && !empty($userBranch) && $userBranch !== 'TODOS') {
             $birthdaysQuery->where('sucursal', $userBranch);
         }
 
         $birthdays = $birthdaysQuery->orderBy('nombre', 'asc')->get();
 
-        // Detección segura de columnas en 'appointments'
-        $dateCol = 'created_at';
-        if (Schema::hasColumn('appointments', 'cita_fecha')) {
-            $dateCol = 'cita_fecha';
-        } elseif (Schema::hasColumn('appointments', 'fecha_cita')) {
-            $dateCol = 'fecha_cita';
-        } elseif (Schema::hasColumn('appointments', 'fecha')) {
-            $dateCol = 'fecha';
-        }
+        // -------------------------------------------------------------
+        // PRÓXIMAS CITAS DEL DÍA (Rango con horas para usar índice 'start')
+        // -------------------------------------------------------------
+        $inicioHoy = date('Y-m-d 00:00:00');
+        $finHoy    = date('Y-m-d 23:59:59');
 
-        $timeCol = $dateCol;
-        if (Schema::hasColumn('appointments', 'cita_hora')) {
-            $timeCol = 'cita_hora';
-        } elseif (Schema::hasColumn('appointments', 'hora_cita')) {
-            $timeCol = 'hora_cita';
-        } elseif (Schema::hasColumn('appointments', 'hora')) {
-            $timeCol = 'hora';
-        }
+        $appointmentsQuery = Appointment::whereBetween('start', [$inicioHoy, $finHoy])
+            ->where('status', '!=', 'Cancelada');
 
-        $appointmentsQuery = Appointment::whereDate($dateCol, date('Y-m-d'));
-
-        // Filtrado por sucursal solo para usuarios no administradores
-        if (!$isAdmin) {
-            if (Schema::hasColumn('appointments', 'sucursal')) {
-                $appointmentsQuery->where('sucursal', $userBranch);
-            } elseif (Schema::hasColumn('appointments', 'branch_id')) {
-                $appointmentsQuery->where('branch_id', $user->branch_id);
-            } elseif (Schema::hasColumn('appointments', 'sucursal_id')) {
-                $appointmentsQuery->where('sucursal_id', $user->sucursal_id);
-            }
+        if (!empty($userBranch) && $userBranch !== 'TODOS') {
+            $appointmentsQuery->where('branch_name', $userBranch);
         }
 
         $upcomingAppointments = $appointmentsQuery->orderBy('start', 'asc')
@@ -83,7 +63,7 @@ class DashboardController extends Controller
     {
         try {
             $user = Auth::user();
-            $userBranch = $user->branch?->name ?? $user->branch_name ?? 'MATRIZ';
+            $userBranch = strtoupper(trim($user->branch?->name ?? $user->branch_name ?? 'MATRIZ'));
             $isAdmin = method_exists($user, 'isAdmin') 
                 ? $user->isAdmin() 
                 : in_array((int)($user->tipo_seccion ?? 2), [0, 3]);
@@ -91,12 +71,14 @@ class DashboardController extends Controller
             // -------------------------------------------------------------
             // 1. TOP 10 ARTÍCULOS MÁS VENDIDOS DEL MES ACTUAL
             // -------------------------------------------------------------
+            $inicioMes = date('Y-m-01 00:00:00');
+            $finMes    = date('Y-m-t 23:59:59');
+
             $topProductsQuery = DB::table('venta_producto')
                 ->join('ventas', 'venta_producto.venta_id', '=', 'ventas.venta_id')
                 ->select('venta_producto.nombre', DB::raw('SUM(venta_producto.cantidad) as total_vendido'))
                 ->where('ventas.venta_tipo', '!=', 3)
-                ->whereMonth('ventas.venta_fecha', date('m'))
-                ->whereYear('ventas.venta_fecha', date('Y'));
+                ->whereBetween('ventas.venta_fecha', [$inicioMes, $finMes]);
 
             if (!$isAdmin) {
                 if (Schema::hasColumn('ventas', 'venta_sucursal')) {
@@ -112,27 +94,18 @@ class DashboardController extends Controller
                 ->get();
 
             // -------------------------------------------------------------
-            // 2. CITAS ATENDIDAS POR MES (AÑO ACTUAL)
+            // 2. CITAS ATENDIDAS POR MES (AÑO ACTUAL - Rango indexado)
             // -------------------------------------------------------------
-            $dateCol = 'created_at';
-            if (Schema::hasColumn('appointments', 'cita_fecha')) {
-                $dateCol = 'cita_fecha';
-            } elseif (Schema::hasColumn('appointments', 'fecha_cita')) {
-                $dateCol = 'fecha_cita';
-            } elseif (Schema::hasColumn('appointments', 'fecha')) {
-                $dateCol = 'fecha';
-            }
+            $inicioAnio = date('Y-01-01 00:00:00');
+            $finAnio    = date('Y-12-31 23:59:59');
 
             $citasQuery = DB::table('appointments')
-                ->select(DB::raw("MONTH({$dateCol}) as mes"), DB::raw('COUNT(*) as total'))
-                ->whereYear($dateCol, date('Y'));
+                ->select(DB::raw("MONTH(start) as mes"), DB::raw('COUNT(*) as total'))
+                ->whereBetween('start', [$inicioAnio, $finAnio])
+                ->where('status', '!=', 'Cancelada');
 
-            if (!$isAdmin) {
-                if (Schema::hasColumn('appointments', 'sucursal')) {
-                    $citasQuery->where('sucursal', $userBranch);
-                } elseif (Schema::hasColumn('appointments', 'branch_id')) {
-                    $citasQuery->where('branch_id', $user->branch_id);
-                }
+            if (!$isAdmin && !empty($userBranch) && $userBranch !== 'TODOS') {
+                $citasQuery->where('branch_name', $userBranch);
             }
 
             $citasMesRaw = $citasQuery->groupBy('mes')->pluck('total', 'mes')->toArray();
@@ -147,8 +120,8 @@ class DashboardController extends Controller
             // -------------------------------------------------------------
             $ingresosPorDia = [0, 0, 0, 0, 0, 0];
             if ($isAdmin) {
-                $startOfWeek = date('Y-m-d', strtotime('monday this week'));
-                $endOfWeek   = date('Y-m-d', strtotime('saturday this week'));
+                $startOfWeek = date('Y-m-d 00:00:00', strtotime('monday this week'));
+                $endOfWeek   = date('Y-m-d 23:59:59', strtotime('saturday this week'));
 
                 $ingresosQuery = DB::table('ventas')
                     ->select(DB::raw('DATE(venta_fecha) as fecha'), DB::raw('SUM(venta_total) as total'))

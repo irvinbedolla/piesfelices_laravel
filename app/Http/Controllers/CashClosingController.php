@@ -66,13 +66,17 @@ class CashClosingController extends Controller
         $typeStrCol = Schema::hasColumn('products', 'type') ? 'products.type' : DB::raw("''");
 
         // Consulta de ventas usando LEFT JOIN
+        // En $querySales->select(...), incluimos products.id y products.type directamente:
         $querySales = DB::table('ventas')
             ->leftJoin('venta_producto', 'ventas.venta_id', '=', 'venta_producto.venta_id')
             ->leftJoin('products', 'venta_producto.producto_id', '=', 'products.id')
-            ->whereBetween('ventas.venta_fecha', [$fecha1, $fecha2])
-            ->where('ventas.status', 'Pagado')
-            ->where('ventas.venta_tipo', '!=', 3)
-            ->where('ventas.status', '!=', 'CANCELADO')
+            ->whereBetween(DB::raw('DATE(ventas.venta_fecha)'), [$fecha1, $fecha2])
+            ->where(function ($q) {
+                $q->where('ventas.status', 'Pagado')
+                  ->orWhereNull('ventas.status')
+                  ->orWhere('ventas.status', '')
+                  ->orWhere('ventas.status', 'Activo');
+            })
             ->select(
                 'ventas.venta_id',
                 'ventas.venta_tipo',
@@ -83,8 +87,8 @@ class CashClosingController extends Controller
                 'venta_producto.producto_id',
                 'venta_producto.cantidad',
                 'venta_producto.precio',
-                DB::raw("{$categoryCol} as producto_categoria"),
-                DB::raw("{$typeStrCol} as producto_tipo_str")
+                'products.id as matched_product_id',
+                'products.type as producto_tipo_str'
             );
 
         if (!empty($branchesSelected) && is_array($branchesSelected)) {
@@ -99,18 +103,19 @@ class CashClosingController extends Controller
 
         $salesData = $querySales->get();
 
-        // Acumuladores de Categorías
-        $credito   = ['medicamento' => 0, 'calzado' => 0, 'consulta' => 0];
-        $contado   = ['medicamento' => 0, 'calzado' => 0, 'consulta' => 0];
-        $liquidado = ['medicamento' => 0, 'calzado' => 0, 'consulta' => 0];
+        // Acumuladores de Categorías (incluyendo 'general' para desglosar la diferencia)
+        $credito   = ['medicamento' => 0, 'calzado' => 0, 'consulta' => 0, 'general' => 0];
+        $contado   = ['medicamento' => 0, 'calzado' => 0, 'consulta' => 0, 'general' => 0];
+        $liquidado = ['medicamento' => 0, 'calzado' => 0, 'consulta' => 0, 'general' => 0];
 
         // Acumuladores de Formas de Pago
         $pagoEfectivo      = 0;
         $pagoTarjeta       = 0;
         $pagoTransferencia = 0;
 
-        $descuentoContado = 0;
-        $descuentoCredito = 0;
+        $descuentoContado   = 0;
+        $descuentoCredito   = 0;
+        $descuentoLiquidado = 0;
 
         $processedSalesForDiscount = [];
 
@@ -120,41 +125,47 @@ class CashClosingController extends Controller
             $monto = $qty * $price;
 
             $productId = (int)($item->producto_id ?? 0);
-            $catId     = (int)($item->producto_categoria ?? 0);
-            $tipoStr   = strtoupper($item->producto_tipo_str ?? '');
+            $catId     = (int)($item->category_id ?? 0);
+            $tipoStr   = strtoupper(trim($item->producto_tipo_str ?? ''));
 
-            // Clasificación de Categoria
             if ($productId === 0) {
                 $cat = 'consulta';
+            } elseif (is_null($item->matched_product_id)) {
+                // Artículos históricos cuyo ID ya no existe en products (los $37,465.00)
+                $cat = 'general';
+            } elseif ($tipoStr === 'CALZADO') {
+                $cat = 'calzado';
+            } elseif ($tipoStr === 'MEDICAMENTO') {
+                $cat = 'medicamento';
             } else {
-                if ($catId === 3 || $tipoStr === 'CALZADO' || $item->producto_categoria == 3) {
-                    $cat = 'calzado';
-                } else {
-                    $cat = 'medicamento';
-                }
+                // Productos registrados como 'GENERAL'
+                $cat = 'general';
             }
 
-            // Determinar tipo de venta (1=Contado, 2=Crédito)
-            $tipoVenta = (string)$item->venta_tipo;
+            // Determinar tipo de venta (1=Contado, 2=Crédito, 3=Liquidada)
+            $tipoVenta = strtoupper(trim((string)$item->venta_tipo));
+
+            // Descuento porcentual por partida
+            $pctDesc   = (float)($item->venta_descuento ?? 0);
+            $descLinea = ($pctDesc > 0) ? ($monto * ($pctDesc / 100)) : 0;
 
             if ($tipoVenta === '2' || $tipoVenta === 'CREDITO') {
-                $credito[$cat] += $monto;
+                $credito[$cat]    += $monto;
+                $descuentoCredito += $descLinea;
+            } elseif ($tipoVenta === '3' || $tipoVenta === 'LIQUIDADA') {
+                $liquidado[$cat]    += $monto;
+                $descuentoLiquidado += $descLinea;
             } else {
-                $contado[$cat] += $monto;
+                $contado[$cat]    += $monto;
+                $descuentoContado += $descLinea;
             }
 
             // Acumular Formas de Pago (Una sola vez por ticket)
             if (!in_array($item->venta_id, $processedSalesForDiscount)) {
                 $processedSalesForDiscount[] = $item->venta_id;
-                $desc = (float)($item->venta_descuento ?? 0);
                 $totalCobradoNeto = (float)($item->venta_total ?? 0);
 
-                if ($tipoVenta === '2' || $tipoVenta === 'CREDITO') {
-                    $descuentoCredito += $desc;
-                } else {
-                    $descuentoContado += $desc;
-
-                    // Forma de pago solo para contado
+                if ($tipoVenta !== '2' && $tipoVenta !== 'CREDITO') {
                     $formaPago = strtoupper(trim($item->venta_tipopago ?? 'EFECTIVO'));
                     if (str_contains($formaPago, 'TARJETA') || str_contains($formaPago, 'DEBITO') || str_contains($formaPago, 'CREDITO') || str_contains($formaPago, 'TC') || str_contains($formaPago, 'TD')) {
                         $pagoTarjeta += $totalCobradoNeto;

@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Relations\BelongsTo; // <-- Importar BelongsTo
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -13,6 +13,8 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable, SoftDeletes;
 
+    protected ?array $cachedModulePermissions = null;
+
     protected $fillable = [
         'username',
         'email',
@@ -20,7 +22,7 @@ class User extends Authenticatable
         'employee_id',
         'user_type',      // 0: Admin, 1: Operador
         'branch_name',    // Sucursal asignada
-        'role_id',        // <-- Rol asignado
+        'role_id',        // Rol asignado
         'has_permission', // boolean
         'status',         // activo / inactivo
         'is_doctor',      // boolean
@@ -40,7 +42,18 @@ class User extends Authenticatable
             'has_permission'    => 'boolean',
             'is_doctor'         => 'boolean',
             'user_type'         => 'integer',
+            'role_id'           => 'integer',
         ];
+    }
+
+    /**
+     * Alias seguro por si alguna vista o controlador accede a $user->name
+     */
+    public function getNameAttribute(): string
+    {
+        return $this->attributes['name']
+            ?? $this->attributes['username']
+            ?? 'Usuario';
     }
 
     /**
@@ -60,36 +73,43 @@ class User extends Authenticatable
     }
 
     /**
-     * Evaluación de acceso por Módulo (Jerarquía: Admin -> Permiso Usuario -> Permiso Rol).
+     * Determina si el usuario es Administrador Global.
+     */
+    public function isAdmin(): bool
+    {
+        return (int) ($this->user_type ?? 1) === 0 || (int) ($this->role_id ?? 0) === 1;
+    }
+
+    /**
+     * Evaluación de acceso por Módulo (Jerarquía: Admin -> Permiso Usuario -> Permiso Rol)
+     * Cacheada en memoria durante la petición para evitar consultas repetidas en el menú.
      */
     public function hasAccessTo(string $module): bool
     {
-        if ($this->status !== 'activo') {
+        if (($this->status ?? 'activo') !== 'activo') {
             return false;
         }
 
-        // Administrador General -> Acceso Total
-        if ($this->user_type === 0) {
+        if ($this->isAdmin()) {
             return true;
         }
 
-        // Permisos heredados del Rol asignado
-        if ($this->role && $this->role->permission) {
-            return (bool) ($this->role->permission->{$module} ?? false);
+        if ($this->cachedModulePermissions === null) {
+            if ($this->has_permission && $this->permission) {
+                $this->cachedModulePermissions = $this->permission->toArray();
+            } elseif ($this->role && $this->role->permission) {
+                $this->cachedModulePermissions = $this->role->permission->toArray();
+            } else {
+                $this->cachedModulePermissions = [];
+            }
         }
 
-        return false;
-    }
-
-    public function isAdmin(): bool
-    {
-        return $this->user_type === 0;
+        return (bool) ($this->cachedModulePermissions[$module] ?? false);
     }
 
     public function employee(): HasOne
     {
-        return $this->hasOne(Employee::class); 
-        // Si la relación es de uno a muchos, usa: $this->hasMany(Employee::class);
+        return $this->hasOne(Employee::class);
     }
 
     public function branch(): BelongsTo

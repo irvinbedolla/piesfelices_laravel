@@ -10,8 +10,6 @@
     <!-- Bootstrap 5.3 & FontAwesome 6 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
         :root {
@@ -26,6 +24,10 @@
             background-color: var(--pf-bg);
             font-family: 'Segoe UI', system-ui, sans-serif;
             overflow-x: hidden;
+        }
+
+        body.sidebar-open-mobile {
+            overflow: hidden;
         }
 
         /* ESTRUCTURA GENERAL RESPONSIVA */
@@ -130,6 +132,11 @@
                 top: 0;
                 left: 0;
                 height: 100vh;
+                height: 100dvh;
+                overflow-y: auto;
+                overflow-x: hidden;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 30px;
                 margin-left: calc(-1 * var(--sidebar-width));
             }
 
@@ -169,6 +176,14 @@
 
 <?php
     $user = Auth::user();
+    $nombreSucursalHeader = $user?->branch_name ?? $user?->sucursal ?? 'MATRIZ';
+    if ($nombreSucursalHeader === 'MATRIZ' && !empty($user?->branch_id)) {
+        $nombreSucursalHeader = \Illuminate\Support\Facades\Cache::remember(
+            "branch_name_{$user->branch_id}",
+            3600,
+            fn() => \Illuminate\Support\Facades\DB::table('branches')->where('id', $user->branch_id)->value('name') ?? 'MATRIZ'
+        );
+    }
 ?>
 
 <!-- OVERLAY DE CARGA GLOBAL -->
@@ -183,77 +198,61 @@
 
 <div id="wrapper">
     <div id="sidebarContainer">
-        <!-- NAVEGACIÓN MODULARIZADA -->
         <?php echo $__env->make('layouts.navigation', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
     </div>
 
     <!-- CONTENT -->
     <div id="content">
-        <!-- TOP NAVBAR CON BOTÓN DE HAMBURGUESA -->
         <nav class="navbar navbar-expand-lg navbar-top px-3 px-md-4 py-2">
             <div class="container-fluid p-0 d-flex justify-content-between align-items-center">
                 
                 <div class="d-flex align-items-center gap-2">
-                    <!-- Botón para Colapsar/Mostrar Menú -->
                     <button id="sidebarToggle" class="btn btn-light border-0 rounded-circle p-2 shadow-sm" type="button">
                         <i class="fa-solid fa-bars fs-5 text-primary"></i>
                     </button>
 
                     <span class="text-secondary fw-semibold d-none d-sm-inline">
-                        <i class="fa-solid fa-hospital me-1 text-primary"></i>Sucursal: <strong class="text-dark"><?php echo e($user?->branch?->name ?? $user?->branch_name ?? 'MATRIZ'); ?></strong>
+                        <i class="fa-solid fa-hospital me-1 text-primary"></i>Sucursal: <strong class="text-dark"><?php echo e($nombreSucursalHeader); ?></strong>
                     </span>
                 </div>
 
                 <div class="d-flex align-items-center gap-3 ms-auto pe-3">
-    
-        
-        <div class="dropdown">
-            <button class="btn btn-light border-0 d-flex align-items-center gap-2 rounded-pill px-3 py-1 shadow-sm dropdown-toggle" 
-                    type="button" 
-                    id="userDropdown" 
-                    data-bs-toggle="dropdown" 
-                    aria-expanded="false">
-                <i class="fa-solid fa-circle-user text-primary fs-5"></i>
-                <span class="fw-semibold text-dark small"><?php echo e(auth()->user()->name ?? auth()->user()->username ?? 'admin'); ?></span>
-            </button>
-
-            
-            <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg rounded-4 p-2 mt-2" aria-labelledby="userDropdown" style="min-width: 200px;">
-                <li>
-                    <div class="px-3 py-2 border-bottom">
-                        <div class="fw-bold text-dark small"><?php echo e(auth()->user()->name ?? 'Usuario'); ?></div>
-                        <small class="text-muted extra-small"><?php echo e(auth()->user()->email ?? ''); ?></small>
-                    </div>
-                </li>
-                
-                
-                <li>
-                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 rounded-3 mt-1 small" href="<?php echo e(route('profile.password.edit')); ?>">
-                        <i class="fa-solid fa-key text-primary"></i>
-                        <span>Cambiar Contraseña</span>
-                    </a>
-                </li>
-
-                <li><hr class="dropdown-divider my-1"></li>
-
-                
-                <li>
-                    <form method="POST" action="<?php echo e(route('logout')); ?>">
-                        <?php echo csrf_field(); ?>
-                        <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 rounded-3 text-danger small">
-                            <i class="fa-solid fa-power-off"></i>
-                            <span>Cerrar Sesión</span>
+                    <div class="dropdown">
+                        <button class="btn btn-light border-0 d-flex align-items-center gap-2 rounded-pill px-3 py-1 shadow-sm dropdown-toggle" 
+                                type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fa-solid fa-circle-user text-primary fs-5"></i>
+                            <span class="fw-semibold text-dark small"><?php echo e($user->name ?? $user->username ?? 'admin'); ?></span>
                         </button>
-                    </form>
-                </li>
-            </ul>
-        </div>
 
-    </div>
+                        <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg rounded-4 p-2 mt-2" aria-labelledby="userDropdown" style="min-width: 200px;">
+                            <li>
+                                <div class="px-3 py-2 border-bottom">
+                                    <div class="fw-bold text-dark small"><?php echo e($user->name ?? $user->username ?? 'Usuario'); ?></div>
+                                    <small class="text-muted extra-small"><?php echo e($user->email ?? ''); ?></small>
+                                </div>
+                            </li>
+                            <li>
+                                <a class="dropdown-item d-flex align-items-center gap-2 py-2 rounded-3 mt-1 small" href="<?php echo e(route('profile.password.edit')); ?>">
+                                    <i class="fa-solid fa-key text-primary"></i>
+                                    <span>Cambiar Contraseña</span>
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider my-1"></li>
+                            <li>
+                                <form method="POST" action="<?php echo e(route('logout')); ?>">
+                                    <?php echo csrf_field(); ?>
+                                    <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 rounded-3 text-danger small">
+                                        <i class="fa-solid fa-power-off"></i>
+                                        <span>Cerrar Sesión</span>
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         </nav>
 
-        <!-- MAIN VIEW -->
         <main class="p-2 p-md-4">
             <?php echo e($slot); ?>
 
@@ -261,7 +260,10 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<!-- SCRIPTS DIFERIDOS PARA NO BLOQUEAR EL PINTADO DE LA PÁGINA -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
 
 <script>
     // CONTROL DEL MENÚ LATERAL RESPONSIVO
@@ -278,11 +280,12 @@
 
     function toggleSidebar() {
         if (window.innerWidth < 992) {
-            // En móviles alterna la clase show-mobile y el overlay
+            // En móviles alterna la clase show-mobile, el overlay y bloquea scroll del fondo
             sidebar.classList.toggle('show-mobile');
             sidebarOverlay.classList.toggle('active');
+            document.body.classList.toggle('sidebar-open-mobile');
         } else {
-            // En escritorio alterna la clase collapsed (si la quita, el menú se despliega)
+            // En escritorio alterna la clase collapsed
             sidebar.classList.toggle('collapsed');
         }
     }
@@ -295,10 +298,11 @@
         sidebarOverlay.addEventListener('click', function() {
             sidebar.classList.remove('show-mobile');
             sidebarOverlay.classList.remove('active');
+            document.body.classList.remove('sidebar-open-mobile');
         });
     }
 
-    // CARGADOR GLOBAL DE FORMULAROS
+    // CARGADOR GLOBAL DE FORMULARIOS
     window.showLoading = function(text = 'Procesando solicitud...') {
         const textElem = document.getElementById('loadingText');
         const overlayElem = document.getElementById('globalLoadingOverlay');

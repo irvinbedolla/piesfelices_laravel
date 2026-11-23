@@ -109,7 +109,7 @@
                     <div class="card-body p-4">
                         <div class="d-flex align-items-center justify-content-between mb-3">
                             <h6 class="fw-bold m-0 text-secondary">
-                                <i class="fa-solid fa-clock me-2 text-warning"></i>Próximas Citas del Día
+                                <i class="fa-solid fa-clock me-2 text-warning"></i>Próximas Citas del Día (<?php echo e($userBranch); ?>)
                             </h6>
                             <span class="badge bg-warning-subtle text-warning-emphasis rounded-pill px-3">Hoy <?php echo e(date('d/m/Y')); ?></span>
                         </div>
@@ -127,13 +127,13 @@
                                 <tbody class="small">
                                     <?php $__empty_1 = true; $__currentLoopData = $upcomingAppointments; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $app): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                                         <?php
-                                            $hora = $app->start ?? $app->start ?? $app->start ?? '';
-                                            $cliente = $app->title ?? $app->title ?? $app->title ?? 'Cliente General';
-                                            $servicio = $app->notes ?? $app->notes ?? 'Consulta Podológica';
-                                            $estatus = $app->estatus ?? $app->status ?? 'PROGRAMADA';
+                                            $hora = !empty($app->start) ? \Carbon\Carbon::parse($app->start)->format('h:i A') : '--:--';
+                                            $cliente = $app->title ?? 'Cliente General';
+                                            $servicio = !empty($app->notes) ? $app->notes : 'Consulta Podológica';
+                                            $estatus = $app->status ?? 'Agendada';
                                         ?>
                                         <tr>
-                                            <td><span class="fw-bold text-primary"><?php echo e($hora); ?></span></td>
+                                            <td class="text-nowrap"><span class="fw-bold text-primary"><?php echo e($hora); ?></span></td>
                                             <td class="fw-semibold"><?php echo e($cliente); ?></td>
                                             <td><?php echo e($servicio); ?></td>
                                             <td class="text-end">
@@ -143,7 +143,7 @@
                                     <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                                         <tr>
                                             <td colspan="4" class="text-center py-4 text-muted">
-                                                <i class="fa-solid fa-calendar-xmark me-1"></i> No hay citas pendientes programadas para hoy.
+                                                <i class="fa-solid fa-calendar-xmark me-1"></i> No hay citas pendientes programadas para hoy en <?php echo e($userBranch); ?>.
                                             </td>
                                         </tr>
                                     <?php endif; ?>

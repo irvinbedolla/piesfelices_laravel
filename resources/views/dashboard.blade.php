@@ -99,7 +99,7 @@
                     <div class="card-body p-4">
                         <div class="d-flex align-items-center justify-content-between mb-3">
                             <h6 class="fw-bold m-0 text-secondary">
-                                <i class="fa-solid fa-clock me-2 text-warning"></i>Próximas Citas del Día
+                                <i class="fa-solid fa-clock me-2 text-warning"></i>Próximas Citas del Día ({{ $userBranch }})
                             </h6>
                             <span class="badge bg-warning-subtle text-warning-emphasis rounded-pill px-3">Hoy {{ date('d/m/Y') }}</span>
                         </div>
@@ -117,13 +117,13 @@
                                 <tbody class="small">
                                     @forelse($upcomingAppointments as $app)
                                         @php
-                                            $hora = $app->start ?? $app->start ?? $app->start ?? '';
-                                            $cliente = $app->title ?? $app->title ?? $app->title ?? 'Cliente General';
-                                            $servicio = $app->notes ?? $app->notes ?? 'Consulta Podológica';
-                                            $estatus = $app->estatus ?? $app->status ?? 'PROGRAMADA';
+                                            $hora = !empty($app->start) ? \Carbon\Carbon::parse($app->start)->format('h:i A') : '--:--';
+                                            $cliente = $app->title ?? 'Cliente General';
+                                            $servicio = !empty($app->notes) ? $app->notes : 'Consulta Podológica';
+                                            $estatus = $app->status ?? 'Agendada';
                                         @endphp
                                         <tr>
-                                            <td><span class="fw-bold text-primary">{{ $hora }}</span></td>
+                                            <td class="text-nowrap"><span class="fw-bold text-primary">{{ $hora }}</span></td>
                                             <td class="fw-semibold">{{ $cliente }}</td>
                                             <td>{{ $servicio }}</td>
                                             <td class="text-end">
@@ -133,7 +133,7 @@
                                     @empty
                                         <tr>
                                             <td colspan="4" class="text-center py-4 text-muted">
-                                                <i class="fa-solid fa-calendar-xmark me-1"></i> No hay citas pendientes programadas para hoy.
+                                                <i class="fa-solid fa-calendar-xmark me-1"></i> No hay citas pendientes programadas para hoy en {{ $userBranch }}.
                                             </td>
                                         </tr>
                                     @endforelse

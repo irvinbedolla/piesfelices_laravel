@@ -1,7 +1,10 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Si la petición no entra por /public/, reescribir internamente a public/
-    RewriteCond %{REQUEST_URI} !^/public/
+    # Bloquear acceso directo a archivos sensibles (.env, composer, git)
+    RewriteRule ^(\.env|composer\.(json|lock)|package\.json|artisan) - [F,L,NC]
+
+    # Evitar reescritura duplicada si ya apunta a public/
+    RewriteCond %{REQUEST_URI} !/sistema_test/public/ [NC]
     RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>

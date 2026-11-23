@@ -23,6 +23,17 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
+Route::get('/mantenimiento-cache/{token}', function ($token) {
+    if ($token !== 'PF2026_Limpiar') {
+        abort(403);
+    }
+
+    Artisan::call('optimize:clear');
+    Artisan::call('config:cache');
+    Artisan::call('view:cache');
+
+    return 'Caché limpiada y optimizada correctamente: ' . Artisan::output();
+});
 
 Route::get('/migrar-ids', function () {
     // Mapeo de IDs finales deseados: ['ID_ORIGINAL' => 'ID_FINAL_DESEADO']
