@@ -22,10 +22,24 @@
                 </div>
 
                 
-                <form method="GET" action="<?php echo e(route('credits.index')); ?>" data-loading-text="Filtrando créditos..." class="d-flex flex-wrap align-items-center gap-2">
+                <form method="GET" action="<?php echo e(route('credits.index')); ?>" id="creditsFilterForm" data-loading-text="Filtrando créditos..." class="d-flex flex-wrap align-items-center gap-2">
                     
                     
-                    <div class="input-group input-group-sm" style="min-width: 220px;">
+                    <div class="d-flex align-items-center gap-1 me-1">
+                        <span class="text-muted small">Mostrar</span>
+                        <select name="per_page" class="form-select form-select-sm rounded-3" style="width: 85px;" onchange="document.getElementById('creditsFilterForm').submit()">
+                            <?php $currentPerPage = request('per_page', $perPage ?? 500); ?>
+                            <option value="10" <?php echo e($currentPerPage == 10 ? 'selected' : ''); ?>>10</option>
+                            <option value="25" <?php echo e($currentPerPage == 25 ? 'selected' : ''); ?>>25</option>
+                            <option value="50" <?php echo e($currentPerPage == 50 ? 'selected' : ''); ?>>50</option>
+                            <option value="100" <?php echo e($currentPerPage == 100 ? 'selected' : ''); ?>>100</option>
+                            <option value="500" <?php echo e($currentPerPage == 500 ? 'selected' : ''); ?>>500</option>
+                            <option value="1000" <?php echo e($currentPerPage == 1000 ? 'selected' : ''); ?>>1000</option>  
+                        </select>
+                    </div>
+
+                    
+                    <div class="input-group input-group-sm" style="width: 220px;">
                         <span class="input-group-text bg-white border-end-0 rounded-start-pill text-muted ps-3">
                             <i class="fa-solid fa-magnifying-glass"></i>
                         </span>
@@ -34,7 +48,7 @@
 
                     
                     <?php if($isAdmin ?? in_array($userRole, [0, 1, 3])): ?>
-                        <select name="branch" onchange="this.form.submit()" class="form-select form-select-sm rounded-pill fw-semibold border-primary">
+                        <select name="branch" onchange="document.getElementById('creditsFilterForm').submit()" class="form-select form-select-sm rounded-pill fw-semibold border-primary" style="max-width: 210px;">
                             <option value="TODOS" <?php echo e((empty($selectedBranch) || $selectedBranch == 'TODOS') ? 'selected' : ''); ?>>-- TODAS LAS SUCURSALES --</option>
                             <?php $__currentLoopData = $branches; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $b): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                                 <option value="<?php echo e($b->name); ?>" <?php echo e($selectedBranch == $b->name ? 'selected' : ''); ?>><?php echo e($b->name); ?></option>
@@ -60,9 +74,9 @@
             </div>
 
             
-            <div class="table-responsive">
+            <div class="table-responsive" style="max-height: 550px; overflow-y: auto;">
                 <table class="table table-hover align-middle text-nowrap">
-                    <thead class="table-light">
+                    <thead class="table-light sticky-top">
                         <tr class="extra-small fw-bold text-uppercase">
                             <th>N° Venta</th>
                             <th>HORA</th>
@@ -131,85 +145,6 @@
                                     </form>
                                 </td>
                             </tr>
-
-                            
-                            <div class="modal fade" id="saleDetailModal<?php echo e($c->venta_id); ?>" tabindex="-1" aria-hidden="true">
-                                <div class="modal-dialog modal-dialog-centered modal-lg">
-                                    <div class="modal-content border-0 rounded-4 shadow">
-                                        <div class="modal-header border-0 pb-0">
-                                            <h5 class="modal-title fw-bold text-primary">
-                                                <i class="fa-solid fa-file-invoice me-2"></i>Detalle de Venta #<?php echo e($c->venta_id); ?>
-
-                                            </h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                        </div>
-                                        <div class="modal-body py-3">
-                                            <p class="mb-1"><strong>Cliente:</strong> <?php echo e($c->nombre_cliente ?? 'CLIENTE GENERAL'); ?></p>
-                                            <p class="mb-1"><strong>Fecha:</strong> <?php echo e($c->venta_fecha); ?> <?php echo e($c->venta_hora); ?></p>
-                                            <p class="mb-1"><strong>Sucursal:</strong> <?php echo e($c->venta_sucursal); ?></p>
-                                            <hr>
-                                            <div class="text-end fw-bold fs-5">
-                                                Total: $<?php echo e(number_format($c->venta_total, 2)); ?>
-
-                                            </div>
-                                        </div>
-                                        <div class="modal-footer border-0 pt-0">
-                                            <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            
-                            <div class="modal fade" id="paymentDetailModal<?php echo e($c->venta_id); ?>" tabindex="-1" aria-hidden="true">
-                                <div class="modal-dialog modal-dialog-centered">
-                                    <div class="modal-content border-0 rounded-4 shadow">
-                                        <div class="modal-header border-0 pb-0">
-                                            <h5 class="modal-title fw-bold text-info">
-                                                <i class="fa-solid fa-list-ol me-2"></i>Historial de Abonos - Venta #<?php echo e($c->venta_id); ?>
-
-                                            </h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                        </div>
-                                        <div class="modal-body py-3">
-                                            <p class="mb-1"><strong>Total Abonado:</strong> $<?php echo e(number_format($c->venta_abono, 2)); ?></p>
-                                            <p class="mb-1"><strong>Restante:</strong> $<?php echo e(number_format($restanteCalculado, 2)); ?></p>
-                                        </div>
-                                        <div class="modal-footer border-0 pt-0">
-                                            <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            
-                            <div class="modal fade" id="addPaymentModal<?php echo e($c->venta_id); ?>" tabindex="-1" aria-hidden="true">
-                                <div class="modal-dialog modal-dialog-centered">
-                                    <div class="modal-content border-0 rounded-4 shadow">
-                                        <div class="modal-header border-0 pb-0">
-                                            <h5 class="modal-title fw-bold text-success">
-                                                <i class="fa-solid fa-money-bill-wave me-2"></i>Registrar Abono - Venta #<?php echo e($c->venta_id); ?>
-
-                                            </h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                        </div>
-                                        <form action="<?php echo e(route('credits.payment', $c->venta_id)); ?>" method="POST">
-                                            <?php echo csrf_field(); ?>
-                                            <div class="modal-body py-3">
-                                                <div class="mb-3">
-                                                    <label class="form-label fw-semibold">Monto del Abono ($)</label>
-                                                    <input type="number" step="0.01" max="<?php echo e($restanteCalculado); ?>" name="monto" class="form-control rounded-3" placeholder="0.00" required>
-                                                </div>
-                                            </div>
-                                            <div class="modal-footer border-0 pt-0">
-                                                <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancelar</button>
-                                                <button type="submit" class="btn btn-success rounded-pill px-4">Guardar Abono</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-
                         <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                             <tr>
                                 <td colspan="13" class="text-center py-4 text-muted">
@@ -234,6 +169,91 @@
 
         </div>
     </div>
+
+    
+    <?php $__currentLoopData = $credits; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $c): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+        <?php
+            $restanteCalculado = $c->venta_restante > 0 ? $c->venta_restante : ($c->venta_total - $c->venta_abono);
+        ?>
+
+        
+        <div class="modal fade" id="saleDetailModal<?php echo e($c->venta_id); ?>" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content border-0 rounded-4 shadow">
+                    <div class="modal-header border-0 pb-0">
+                        <h5 class="modal-title fw-bold text-primary">
+                            <i class="fa-solid fa-file-invoice me-2"></i>Detalle de Venta #<?php echo e($c->venta_id); ?>
+
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body py-3">
+                        <p class="mb-1"><strong>Cliente:</strong> <?php echo e($c->nombre_cliente ?? 'CLIENTE GENERAL'); ?></p>
+                        <p class="mb-1"><strong>Fecha:</strong> <?php echo e($c->venta_fecha); ?> <?php echo e($c->venta_hora); ?></p>
+                        <p class="mb-1"><strong>Sucursal:</strong> <?php echo e($c->venta_sucursal); ?></p>
+                        <hr>
+                        <div class="text-end fw-bold fs-5">
+                            Total: $<?php echo e(number_format($c->venta_total, 2)); ?>
+
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 pt-0">
+                        <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="modal fade" id="paymentDetailModal<?php echo e($c->venta_id); ?>" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 rounded-4 shadow">
+                    <div class="modal-header border-0 pb-0">
+                        <h5 class="modal-title fw-bold text-info">
+                            <i class="fa-solid fa-list-ol me-2"></i>Historial de Abonos - Venta #<?php echo e($c->venta_id); ?>
+
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body py-3">
+                        <p class="mb-1"><strong>Total Abonado:</strong> $<?php echo e(number_format($c->venta_abono, 2)); ?></p>
+                        <p class="mb-1"><strong>Restante:</strong> $<?php echo e(number_format($restanteCalculado, 2)); ?></p>
+                    </div>
+                    <div class="modal-footer border-0 pt-0">
+                        <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="modal fade" id="addPaymentModal<?php echo e($c->venta_id); ?>" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 rounded-4 shadow">
+                    <div class="modal-header border-0 pb-0">
+                        <h5 class="modal-title fw-bold text-success">
+                            <i class="fa-solid fa-money-bill-wave me-2"></i>Registrar Abono - Venta #<?php echo e($c->venta_id); ?>
+
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form action="<?php echo e(route('credits.payment', $c->venta_id)); ?>" method="POST">
+                        <?php echo csrf_field(); ?>
+                        <div class="modal-body py-3">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Monto del Abono ($)</label>
+                                <input type="number" step="0.01" max="<?php echo e($restanteCalculado); ?>" name="monto" class="form-control rounded-3" placeholder="0.00" required>
+                            </div>
+                        </div>
+                        <div class="modal-footer border-0 pt-0">
+                            <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-success rounded-pill px-4">Guardar Abono</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
  <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>
 <?php if (isset($__attributesOriginal9ac128a9029c0e4701924bd2d73d7f54)): ?>

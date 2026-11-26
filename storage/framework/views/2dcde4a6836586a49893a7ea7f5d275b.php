@@ -66,8 +66,22 @@
                 </h5>
 
                 
-                <form method="GET" action="<?php echo e(route('loans.index')); ?>" class="d-flex flex-wrap gap-2 align-items-center">
+                <form method="GET" action="<?php echo e(route('loans.index')); ?>" id="loansFilterForm" class="d-flex flex-wrap gap-2 align-items-center">
                     <input type="hidden" name="mode" value="<?php echo e($viewMode); ?>">
+
+                    
+                    <div class="d-flex align-items-center gap-1 me-1">
+                        <span class="text-muted small">Mostrar</span>
+                        <select name="per_page" class="form-select form-select-sm rounded-3" style="width: 85px;" onchange="document.getElementById('loansFilterForm').submit()">
+                            <?php $currentPerPage = request('per_page', $perPage ?? 500); ?>
+                            <option value="10" <?php echo e($currentPerPage == 10 ? 'selected' : ''); ?>>10</option>
+                            <option value="25" <?php echo e($currentPerPage == 25 ? 'selected' : ''); ?>>25</option>
+                            <option value="50" <?php echo e($currentPerPage == 50 ? 'selected' : ''); ?>>50</option>
+                            <option value="100" <?php echo e($currentPerPage == 100 ? 'selected' : ''); ?>>100</option>
+                            <option value="500" <?php echo e($currentPerPage == 500 ? 'selected' : ''); ?>>500</option>
+                            <option value="1000" <?php echo e($currentPerPage == 1000 ? 'selected' : ''); ?>>1000</option>
+                        </select>
+                    </div>
 
                     <div class="input-group input-group-sm" style="max-width: 200px;">
                         <span class="input-group-text bg-white border-end-0 rounded-start-pill text-muted ps-3">
@@ -76,11 +90,11 @@
                         <input type="text" name="search" value="<?php echo e($search ?? ''); ?>" class="form-control form-control-sm border-start-0 rounded-end-pill" placeholder="Buscar empleado...">
                     </div>
 
-                    <?php if($isAdmin &&$viewMode !== 'mis_prestamos'): ?>
-                        <select name="sucursal" class="form-select form-select-sm rounded-3 border-primary" style="max-width: 180px;">
-                            <option value="TODOS" <?php echo e((empty($selectedBranch) || $selectedBranch == 'TODOS') ? 'selected' : ''); ?>>Todas las Sucursales</option>
+                    <?php if($roleId === 1 && $viewMode !== 'mis_prestamos'): ?>
+                        <select name="sucursal" class="form-select form-select-sm rounded-3 border-primary" style="max-width: 180px;" onchange="document.getElementById('loansFilterForm').submit()">
+                            <option value="TODOS" <?php echo e(($sucursalSel ?? 'TODOS') == 'TODOS' ? 'selected' : ''); ?>>Todas las Sucursales</option>
                             <?php $__currentLoopData = $branches; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $b): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                                <option value="<?php echo e($b->name); ?>" <?php echo e($selectedBranch ==$b->name ? 'selected' : ''); ?>>
+                                <option value="<?php echo e($b->name); ?>" <?php echo e(($sucursalSel ?? '') == $b->name ? 'selected' : ''); ?>>
                                     <?php echo e($b->name); ?>
 
                                 </option>
@@ -95,9 +109,9 @@
                 </form>
             </div>
 
-            <div class="table-responsive">
+            <div class="table-responsive" style="max-height: 550px; overflow-y: auto;">
                 <table class="table table-hover align-middle text-nowrap">
-                    <thead class="table-light">
+                    <thead class="table-light sticky-top">
                         <tr class="extra-small fw-bold text-uppercase">
                             <th>N° Gasto</th>
                             <th>Fecha</th>
@@ -211,7 +225,7 @@
                                     <div class="col-6 text-danger">Restante: <strong>$<?php echo e(number_format($l->pres_restante, 2)); ?></strong></div>
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label extra-small fw-bold text-muted">Monto a Abonar (\$)</label>
+                                    <label class="form-label extra-small fw-bold text-muted">Monto a Abonar ($)</label>
                                     <input type="number" step="0.01" name="monto" max="<?php echo e($l->pres_restante); ?>" class="form-control rounded-3" required>
                                 </div>
                                 <div class="mb-3">
@@ -266,7 +280,7 @@
                             <input type="text" name="pres_descripcion" class="form-control rounded-3" placeholder="Ej. Préstamo Personal / Certificación" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label extra-small fw-bold text-muted">Costo / Monto (\$)</label>
+                            <label class="form-label extra-small fw-bold text-muted">Costo / Monto ($)</label>
                             <input type="number" step="0.01" name="pres_costo" class="form-control rounded-3" placeholder="0.00" required>
                         </div>
                         <div class="mb-3">

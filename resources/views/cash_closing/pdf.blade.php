@@ -37,11 +37,6 @@
         </thead>
         <tbody>
             <tr>
-                <td>Venta General</td>
-                <td class="text-center">{{ $pctGeneral }}%</td>
-                <td class="text-end">${{ number_format($comisionGeneral, 2) }}</td>
-            </tr>
-            <tr>
                 <td>Venta de Calzado</td>
                 <td class="text-center">{{ $pctCalzado }}%</td>
                 <td class="text-end">${{ number_format($comisionCalzado, 2) }}</td>

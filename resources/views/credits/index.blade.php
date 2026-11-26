@@ -13,10 +13,24 @@
                 </div>
 
                 {{-- FORMULARIO DE FILTROS UNIFICADO --}}
-                <form method="GET" action="{{ route('credits.index') }}" data-loading-text="Filtrando créditos..." class="d-flex flex-wrap align-items-center gap-2">
+                <form method="GET" action="{{ route('credits.index') }}" id="creditsFilterForm" data-loading-text="Filtrando créditos..." class="d-flex flex-wrap align-items-center gap-2">
                     
+                    {{-- Selector de Registros por Página --}}
+                    <div class="d-flex align-items-center gap-1 me-1">
+                        <span class="text-muted small">Mostrar</span>
+                        <select name="per_page" class="form-select form-select-sm rounded-3" style="width: 85px;" onchange="document.getElementById('creditsFilterForm').submit()">
+                            @php $currentPerPage = request('per_page', $perPage ?? 500); @endphp
+                            <option value="10" {{ $currentPerPage == 10 ? 'selected' : '' }}>10</option>
+                            <option value="25" {{ $currentPerPage == 25 ? 'selected' : '' }}>25</option>
+                            <option value="50" {{ $currentPerPage == 50 ? 'selected' : '' }}>50</option>
+                            <option value="100" {{ $currentPerPage == 100 ? 'selected' : '' }}>100</option>
+                            <option value="500" {{ $currentPerPage == 500 ? 'selected' : '' }}>500</option>
+                            <option value="1000" {{ $currentPerPage == 1000 ? 'selected' : '' }}>1000</option>  
+                        </select>
+                    </div>
+
                     {{-- Caja de Búsqueda --}}
-                    <div class="input-group input-group-sm" style="min-width: 220px;">
+                    <div class="input-group input-group-sm" style="width: 220px;">
                         <span class="input-group-text bg-white border-end-0 rounded-start-pill text-muted ps-3">
                             <i class="fa-solid fa-magnifying-glass"></i>
                         </span>
@@ -25,7 +39,7 @@
 
                     {{-- Selector de Sucursal --}}
                     @if($isAdmin ?? in_array($userRole, [0, 1, 3]))
-                        <select name="branch" onchange="this.form.submit()" class="form-select form-select-sm rounded-pill fw-semibold border-primary">
+                        <select name="branch" onchange="document.getElementById('creditsFilterForm').submit()" class="form-select form-select-sm rounded-pill fw-semibold border-primary" style="max-width: 210px;">
                             <option value="TODOS" {{ (empty($selectedBranch) || $selectedBranch == 'TODOS') ? 'selected' : '' }}>-- TODAS LAS SUCURSALES --</option>
                             @foreach($branches as $b)
                                 <option value="{{ $b->name }}" {{ $selectedBranch == $b->name ? 'selected' : '' }}>{{ $b->name }}</option>
@@ -50,9 +64,9 @@
             </div>
 
             {{-- TABLA DE CRÉDITOS --}}
-            <div class="table-responsive">
+            <div class="table-responsive" style="max-height: 550px; overflow-y: auto;">
                 <table class="table table-hover align-middle text-nowrap">
-                    <thead class="table-light">
+                    <thead class="table-light sticky-top">
                         <tr class="extra-small fw-bold text-uppercase">
                             <th>N° Venta</th>
                             <th>HORA</th>
@@ -121,81 +135,6 @@
                                     </form>
                                 </td>
                             </tr>
-
-                            {{-- 1. MODAL DETALLE DE VENTA --}}
-                            <div class="modal fade" id="saleDetailModal{{ $c->venta_id }}" tabindex="-1" aria-hidden="true">
-                                <div class="modal-dialog modal-dialog-centered modal-lg">
-                                    <div class="modal-content border-0 rounded-4 shadow">
-                                        <div class="modal-header border-0 pb-0">
-                                            <h5 class="modal-title fw-bold text-primary">
-                                                <i class="fa-solid fa-file-invoice me-2"></i>Detalle de Venta #{{ $c->venta_id }}
-                                            </h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                        </div>
-                                        <div class="modal-body py-3">
-                                            <p class="mb-1"><strong>Cliente:</strong> {{ $c->nombre_cliente ?? 'CLIENTE GENERAL' }}</p>
-                                            <p class="mb-1"><strong>Fecha:</strong> {{ $c->venta_fecha }} {{ $c->venta_hora }}</p>
-                                            <p class="mb-1"><strong>Sucursal:</strong> {{ $c->venta_sucursal }}</p>
-                                            <hr>
-                                            <div class="text-end fw-bold fs-5">
-                                                Total: ${{ number_format($c->venta_total, 2) }}
-                                            </div>
-                                        </div>
-                                        <div class="modal-footer border-0 pt-0">
-                                            <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {{-- 2. MODAL DETALLE DE ABONOS --}}
-                            <div class="modal fade" id="paymentDetailModal{{ $c->venta_id }}" tabindex="-1" aria-hidden="true">
-                                <div class="modal-dialog modal-dialog-centered">
-                                    <div class="modal-content border-0 rounded-4 shadow">
-                                        <div class="modal-header border-0 pb-0">
-                                            <h5 class="modal-title fw-bold text-info">
-                                                <i class="fa-solid fa-list-ol me-2"></i>Historial de Abonos - Venta #{{ $c->venta_id }}
-                                            </h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                        </div>
-                                        <div class="modal-body py-3">
-                                            <p class="mb-1"><strong>Total Abonado:</strong> ${{ number_format($c->venta_abono, 2) }}</p>
-                                            <p class="mb-1"><strong>Restante:</strong> ${{ number_format($restanteCalculado, 2) }}</p>
-                                        </div>
-                                        <div class="modal-footer border-0 pt-0">
-                                            <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {{-- 3. MODAL REGISTRAR ABONO --}}
-                            <div class="modal fade" id="addPaymentModal{{ $c->venta_id }}" tabindex="-1" aria-hidden="true">
-                                <div class="modal-dialog modal-dialog-centered">
-                                    <div class="modal-content border-0 rounded-4 shadow">
-                                        <div class="modal-header border-0 pb-0">
-                                            <h5 class="modal-title fw-bold text-success">
-                                                <i class="fa-solid fa-money-bill-wave me-2"></i>Registrar Abono - Venta #{{ $c->venta_id }}
-                                            </h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                        </div>
-                                        <form action="{{ route('credits.payment', $c->venta_id) }}" method="POST">
-                                            @csrf
-                                            <div class="modal-body py-3">
-                                                <div class="mb-3">
-                                                    <label class="form-label fw-semibold">Monto del Abono ($)</label>
-                                                    <input type="number" step="0.01" max="{{ $restanteCalculado }}" name="monto" class="form-control rounded-3" placeholder="0.00" required>
-                                                </div>
-                                            </div>
-                                            <div class="modal-footer border-0 pt-0">
-                                                <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancelar</button>
-                                                <button type="submit" class="btn btn-success rounded-pill px-4">Guardar Abono</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-
                         @empty
                             <tr>
                                 <td colspan="13" class="text-center py-4 text-muted">
@@ -219,4 +158,85 @@
 
         </div>
     </div>
+
+    {{-- MODALES POR CRÉDITO (FUERA DE LA TABLA PARA EVITAR PROBLEMAS CON EL SCROLL) --}}
+    @foreach($credits as $c)
+        @php
+            $restanteCalculado = $c->venta_restante > 0 ? $c->venta_restante : ($c->venta_total - $c->venta_abono);
+        @endphp
+
+        {{-- 1. MODAL DETALLE DE VENTA --}}
+        <div class="modal fade" id="saleDetailModal{{ $c->venta_id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content border-0 rounded-4 shadow">
+                    <div class="modal-header border-0 pb-0">
+                        <h5 class="modal-title fw-bold text-primary">
+                            <i class="fa-solid fa-file-invoice me-2"></i>Detalle de Venta #{{ $c->venta_id }}
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body py-3">
+                        <p class="mb-1"><strong>Cliente:</strong> {{ $c->nombre_cliente ?? 'CLIENTE GENERAL' }}</p>
+                        <p class="mb-1"><strong>Fecha:</strong> {{ $c->venta_fecha }} {{ $c->venta_hora }}</p>
+                        <p class="mb-1"><strong>Sucursal:</strong> {{ $c->venta_sucursal }}</p>
+                        <hr>
+                        <div class="text-end fw-bold fs-5">
+                            Total: ${{ number_format($c->venta_total, 2) }}
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 pt-0">
+                        <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- 2. MODAL DETALLE DE ABONOS --}}
+        <div class="modal fade" id="paymentDetailModal{{ $c->venta_id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 rounded-4 shadow">
+                    <div class="modal-header border-0 pb-0">
+                        <h5 class="modal-title fw-bold text-info">
+                            <i class="fa-solid fa-list-ol me-2"></i>Historial de Abonos - Venta #{{ $c->venta_id }}
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body py-3">
+                        <p class="mb-1"><strong>Total Abonado:</strong> ${{ number_format($c->venta_abono, 2) }}</p>
+                        <p class="mb-1"><strong>Restante:</strong> ${{ number_format($restanteCalculado, 2) }}</p>
+                    </div>
+                    <div class="modal-footer border-0 pt-0">
+                        <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- 3. MODAL REGISTRAR ABONO --}}
+        <div class="modal fade" id="addPaymentModal{{ $c->venta_id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 rounded-4 shadow">
+                    <div class="modal-header border-0 pb-0">
+                        <h5 class="modal-title fw-bold text-success">
+                            <i class="fa-solid fa-money-bill-wave me-2"></i>Registrar Abono - Venta #{{ $c->venta_id }}
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form action="{{ route('credits.payment', $c->venta_id) }}" method="POST">
+                        @csrf
+                        <div class="modal-body py-3">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Monto del Abono ($)</label>
+                                <input type="number" step="0.01" max="{{ $restanteCalculado }}" name="monto" class="form-control rounded-3" placeholder="0.00" required>
+                            </div>
+                        </div>
+                        <div class="modal-footer border-0 pt-0">
+                            <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-success rounded-pill px-4">Guardar Abono</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endforeach
 </x-app-layout>

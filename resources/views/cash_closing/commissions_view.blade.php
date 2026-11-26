@@ -24,7 +24,7 @@
                     {{-- Botón Enviar por WhatsApp --}}
                     @php
                         $pdfUrl = route('cash-closing.commissions-pdf', ['usuario' => $userId, 'fecha1' => $fecha1, 'fecha2' => $fecha2, 'sucursal' => $sucursal]);
-                        $mensajeWS = "Hola *{$employeeName}*, te compartimos tu reporte de comisiones del período *{$fecha1} al {$fecha2}*.\n\n*Total a pagar:* $" . number_format($totalComisiones, 2) . "\n\nPuedes ver o descargar tu reporte en PDF aquí:\n" . $pdfUrl;
+                        $mensajeWS = "Hola *{$employeeName}*, te compartimos tu reporte de comisiones del período *{$fecha1} al {$fecha2}*.\n\n*Total a pagar:* $" . number_format($totalComisiones, 2) .;
                         $urlWhatsApp = "https://api.whatsapp.com/send?phone=" . ($employeePhoneClean ? '52' . $employeePhoneClean : '') . "&text=" . urlencode($mensajeWS);
                     @endphp
 
@@ -46,12 +46,6 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td class="fw-semibold text-dark"><i class="fa-solid fa-box-open me-2 text-info"></i>Venta General</td>
-                            <td class="text-end">${{ number_format($totalGeneral, 2) }}</td>
-                            <td class="text-center"><span class="badge bg-light text-dark border">{{ $pctGeneral }}%</span></td>
-                            <td class="text-end fw-bold text-success">${{ number_format($comisionGeneral, 2) }}</td>
-                        </tr>
                         <tr>
                             <td class="fw-semibold text-dark"><i class="fa-solid fa-shoe-prints me-2 text-primary"></i>Venta de Calzado</td>
                             <td class="text-end">${{ number_format($totalCalzado, 2) }}</td>

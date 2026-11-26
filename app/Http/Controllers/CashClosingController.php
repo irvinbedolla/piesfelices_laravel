@@ -247,7 +247,10 @@ class CashClosingController extends Controller
 
         // FÓRMULAS DE EFECTIVO FINAL EN CAJA:
         // Efectivo Neto = (Ventas Contado en Efectivo + Abonos Ventas + Abonos Préstamos) - Gastos - Préstamos Otorgados
-        $totalEfectivoNeto = ($pagoEfectivo + $totalAbonos + $totalAbonosPrestamo) - ($totalGastos + $totalPrestamosOtorgados);
+        //$totalEfectivoNeto = ($pagoEfectivo + $totalAbonos + $totalAbonosPrestamo) - ($totalGastos + $totalPrestamosOtorgados);
+        //$totalEfectivoMasCredito = $totalContado + $totalCredito + $totalLiquidado;
+
+        $totalEfectivoNeto = ($pagoEfectivo + $totalAbonos) - $totalGastos;
         $totalEfectivoMasCredito = $totalContado + $totalCredito + $totalLiquidado;
 
         $pdf = Pdf::loadView('cash_closing.daily', compact(
@@ -356,47 +359,43 @@ class CashClosingController extends Controller
         $totalCalzado     = 0;
         $totalMedicamento = 0;
         $totalConsulta    = 0;
-        $totalGeneral     = 0;
 
         foreach ($items as $item) {
-            $subtotal = (float)($item->cantidad * $item->precio);
+            $subtotal  = (float)($item->cantidad * $item->precio);
             $productId = (int)($item->producto_id ?? 0);
 
             if ($productId === 0) {
                 $totalConsulta += $subtotal;
             } else {
-                $catId = (int)($item->producto_categoria ?? 0);
-                $tipoStr = strtoupper($item->producto_tipo ?? '');
+                $catId   = (int)($item->producto_categoria ?? 0);
+                $tipoStr = strtoupper(trim($item->producto_tipo ?? ''));
 
                 if ($catId === 3 || $tipoStr === 'CALZADO') {
                     $totalCalzado += $subtotal;
-                } elseif ($catId === 2 || $tipoStr === 'MEDICAMENTO') {
-                    $totalMedicamento += $subtotal;
                 } else {
-                    $totalGeneral += $subtotal;
+                    // Incluye Medicamento y artículos generales/históricos
+                    $totalMedicamento += $subtotal;
                 }
             }
         }
 
         // Porcentajes
-        $pctGeneral     = 10;
         $pctCalzado     = 10;
         $pctMedicamento = 10;
 
         // Cálculo de comisiones
-        $comisionGeneral     = ($totalGeneral * $pctGeneral) / 100;
         $comisionCalzado     = ($totalCalzado * $pctCalzado) / 100;
         $comisionMedicamento = ($totalMedicamento * $pctMedicamento) / 100;
         $comisionConsulta    = ($totalConsulta * $pctConsulta) / 100;
 
-        $totalVentas     = $totalCalzado + $totalMedicamento + $totalConsulta + $totalGeneral;
-        $totalComisiones = $comisionCalzado + $comisionMedicamento + $comisionConsulta + $comisionGeneral;
+        $totalVentas     = $totalCalzado + $totalMedicamento + $totalConsulta;
+        $totalComisiones = $comisionCalzado + $comisionMedicamento + $comisionConsulta;
 
         return view('cash_closing.commissions_view', compact(
             'userId', 'employeeName', 'employeePhoneClean', 'fecha1', 'fecha2', 'sucursal',
-            'totalCalzado', 'totalMedicamento', 'totalConsulta', 'totalGeneral', 'totalVentas',
-            'comisionCalzado', 'comisionMedicamento', 'comisionConsulta', 'comisionGeneral',
-            'totalComisiones', 'pctGeneral', 'pctCalzado', 'pctMedicamento', 'pctConsulta'
+            'totalCalzado', 'totalMedicamento', 'totalConsulta', 'totalVentas',
+            'comisionCalzado', 'comisionMedicamento', 'comisionConsulta',
+            'totalComisiones', 'pctCalzado', 'pctMedicamento', 'pctConsulta'
         ));
     }
 

@@ -25,7 +25,7 @@
 
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
-        <?php endif; ?>
+        <?php endif; ?> 
 
         
         <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
@@ -81,27 +81,49 @@
 
         
         <div class="card border-0 shadow-sm rounded-4 p-4">
-            <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-3">
                 <h5 class="fw-bold text-dark m-0">
                     <i class="fa-solid fa-receipt me-2 text-primary"></i>Historial de Gastos
                 </h5>
                 
                 
-                <form method="GET" action="<?php echo e(route('expenses.index')); ?>" data-loading-text="Filtrando Gastos..." class="d-flex flex-wrap gap-2 align-items-center">
+                <form method="GET" action="<?php echo e(route('expenses.index')); ?>" id="expensesFilterForm" data-loading-text="Filtrando Gastos..." class="d-flex flex-wrap gap-2 align-items-center">
                     
                     
-                    <div class="input-group input-group-sm" style="max-width: 200px;">
+                    <div class="d-flex align-items-center gap-1 me-1">
+                        <span class="text-muted small">Mostrar</span>
+                        <select name="per_page" class="form-select form-select-sm rounded-3" style="width: 85px;" onchange="document.getElementById('expensesFilterForm').submit()">
+                            <?php $currentPerPage = request('per_page', $perPage ?? 500); ?>
+                            <option value="10" <?php echo e($currentPerPage == 10 ? 'selected' : ''); ?>>10</option>
+                            <option value="25" <?php echo e($currentPerPage == 25 ? 'selected' : ''); ?>>25</option>
+                            <option value="50" <?php echo e($currentPerPage == 50 ? 'selected' : ''); ?>>50</option>
+                            <option value="100" <?php echo e($currentPerPage == 100 ? 'selected' : ''); ?>>100</option>
+                            <option value="500" <?php echo e($currentPerPage == 500 ? 'selected' : ''); ?>>500</option>
+                            <option value="1000" <?php echo e($currentPerPage == 1000 ? 'selected' : ''); ?>>1000</option>
+                        </select>
+                    </div>
+
+                    
+                    <div class="input-group input-group-sm" style="max-width: 190px;">
                         <span class="input-group-text bg-white border-end-0 rounded-start-pill text-muted ps-3">
                             <i class="fa-solid fa-magnifying-glass"></i>
                         </span>
                         <input type="text" name="search" value="<?php echo e($search ?? ''); ?>" class="form-control form-control-sm border-start-0 rounded-end-pill" placeholder="Buscar concepto...">
                     </div>
 
-                    <input type="date" name="fecha1" value="<?php echo e($fecha1); ?>" class="form-control form-control-sm rounded-3" style="max-width: 140px;">
-                    <input type="date" name="fecha2" value="<?php echo e($fecha2); ?>" class="form-control form-control-sm rounded-3" style="max-width: 140px;">
+                    <input type="date" name="fecha1" value="<?php echo e($fecha1); ?>" class="form-control form-control-sm rounded-3" style="max-width: 135px;">
+                    <input type="date" name="fecha2" value="<?php echo e($fecha2); ?>" class="form-control form-control-sm rounded-3" style="max-width: 135px;">
+
+                    
+                    <select name="tipo" class="form-select form-select-sm rounded-3" style="max-width: 155px;" onchange="document.getElementById('expensesFilterForm').submit()">
+                        <option value="TODOS" <?php echo e(request('tipo', 'TODOS') == 'TODOS' ? 'selected' : ''); ?>>Todos los Tipos</option>
+                        <option value="2" <?php echo e(request('tipo') == '2' ? 'selected' : ''); ?>>CONSULTORIO</option>
+                        <option value="1" <?php echo e(request('tipo') == '1' ? 'selected' : ''); ?>>PROVEEDOR</option>
+                        <option value="3" <?php echo e(request('tipo') == '3' ? 'selected' : ''); ?>>SUELDOS</option>
+                    </select>
                     
                     <?php if($isAdmin): ?>
-                        <select name="sucursal" class="form-select form-select-sm rounded-3 border-primary" style="max-width: 180px;">
+                        <select name="sucursal" class="form-select form-select-sm rounded-3 border-primary" style="max-width: 175px;" onchange="document.getElementById('expensesFilterForm').submit()">
                             <option value="TODOS" <?php echo e($selectedBranch == 'TODOS' ? 'selected' : ''); ?>>Todas las Sucursales</option>
                             <?php $__currentLoopData = $branches; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $b): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                                 <option value="<?php echo e($b->name); ?>" <?php echo e($selectedBranch == $b->name ? 'selected' : ''); ?>>
@@ -126,9 +148,9 @@
             </div>
 
             
-            <div class="table-responsive">
+            <div class="table-responsive" style="max-height: 550px; overflow-y: auto;">
                 <table class="table table-hover align-middle text-nowrap">
-                    <thead class="table-light">
+                    <thead class="table-light sticky-top">
                         <tr class="extra-small fw-bold text-uppercase">
                             <th>CONCEPTO</th>
                             <th>FECHA</th>

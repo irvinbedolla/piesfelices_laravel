@@ -228,32 +228,89 @@
                                 </tr>
 
                                 
+                                <?php
+                                    $isFacturada = in_array(strtoupper(trim((string) ($v->venta_factura ?? ''))), ['SI', '1']);
+                                ?>
                                 <div class="modal fade" id="infoVentaModal<?php echo e($v->venta_id); ?>" tabindex="-1" aria-hidden="true">
-                                    <div class="modal-dialog modal-dialog-centered modal-sm">
+                                    <div class="modal-dialog modal-dialog-centered">
                                         <div class="modal-content rounded-4 border-0 p-3 text-center">
                                             <div class="modal-header border-0 pb-0">
-                                                <h6 class="fw-bold text-primary m-0 w-100">Información Venta #<?php echo e($v->venta_id); ?></h6>
+                                                <h6 class="fw-bold text-primary m-0 w-100">
+                                                    Información Venta — Folio #<?php echo e($v->folio_sucursal ?? $v->venta_id); ?>
+
+                                                    <small class="d-block text-muted fw-normal extra-small">ID Interno: #<?php echo e($v->venta_id); ?></small>
+                                                </h6>
                                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                             </div>
                                             <div class="modal-body py-3">
-                                                <div class="mb-3">
-                                                    <small class="text-muted d-block fw-bold mb-1">Forma de Pago:</small>
-                                                    <span class="badge bg-info-subtle text-info border border-info-subtle fs-6 px-3 py-2 rounded-pill">
-                                                        <?php echo e($v->venta_tipopago ?? 'Efectivo'); ?>
+                                                <div class="row g-2 mb-3">
+                                                    <div class="col-6">
+                                                        <small class="text-muted d-block fw-bold mb-1">Folio Sucursal:</small>
+                                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-6 px-3 py-2 rounded-pill">
+                                                            #<?php echo e($v->folio_sucursal ?? 'N/A'); ?>
 
-                                                    </span>
+                                                        </span>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <small class="text-muted d-block fw-bold mb-1">Sucursal:</small>
+                                                        <span class="badge bg-light text-dark border fs-6 px-3 py-2 rounded-pill">
+                                                            <?php echo e($v->venta_sucursal); ?>
+
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                <div class="mb-3">
-                                                    <small class="text-muted d-block fw-bold mb-1">Tipo de Venta:</small>
-                                                    <?php if($isCred): ?>
-                                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-bold fs-6 px-3 py-2 rounded-pill">CRÉDITO</span>
+
+                                                <div class="row g-2 mb-3">
+                                                    <div class="col-6">
+                                                        <small class="text-muted d-block fw-bold mb-1">Forma de Pago:</small>
+                                                        <span class="badge bg-info-subtle text-info border border-info-subtle fs-6 px-3 py-2 rounded-pill">
+                                                            <?php echo e($v->venta_tipopago ?? 'Efectivo'); ?>
+
+                                                        </span>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <small class="text-muted d-block fw-bold mb-1">Tipo de Venta:</small>
+                                                        <?php if($isCred): ?>
+                                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-bold fs-6 px-3 py-2 rounded-pill">CRÉDITO</span>
+                                                        <?php else: ?>
+                                                            <span class="badge bg-success-subtle text-success border border-success-subtle fw-bold fs-6 px-3 py-2 rounded-pill">CONTADO</span>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </div>
+
+                                                
+                                                <div class="border-top pt-3 mt-2">
+                                                    <small class="text-muted d-block fw-bold mb-2">
+                                                        <i class="fa-solid fa-file-invoice me-1 text-danger"></i> Estado de Facturación
+                                                    </small>
+
+                                                    <?php if($isFacturada): ?>
+                                                        <div class="card border border-success-subtle bg-success-subtle bg-opacity-25 rounded-4 p-3 text-start">
+                                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                                <span class="fw-bold text-success">
+                                                                    <i class="fa-solid fa-circle-check me-1"></i> FACTURADA
+                                                                </span>
+                                                                <span class="badge bg-success text-white rounded-pill px-3 py-1 fs-6">
+                                                                    Folio Factura: #<?php echo e($v->numero_factura ?? 'Sin asignar'); ?>
+
+                                                                </span>
+                                                            </div>
+                                                            <ul class="list-unstyled mb-0 small">
+                                                                <li class="d-flex justify-content-between py-1 border-bottom border-success-subtle">
+                                                                    <span class="text-muted fw-semibold">Uso de CFDI:</span>
+                                                                    <span class="fw-bold text-dark"><?php echo e($v->venta_cfdi ?: 'No especificado'); ?></span>
+                                                                </li>
+                                                                <li class="d-flex justify-content-between pt-1">
+                                                                    <span class="text-muted fw-semibold">Tipo de Factura:</span>
+                                                                    <span class="fw-bold text-dark"><?php echo e($v->venta_tipo_factura ?: 'No especificado'); ?></span>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
                                                     <?php else: ?>
-                                                        <span class="badge bg-success-subtle text-success border border-success-subtle fw-bold fs-6 px-3 py-2 rounded-pill">CONTADO</span>
+                                                        <span class="badge bg-secondary-subtle text-secondary border rounded-pill px-3 py-2">
+                                                            No requiere factura (NO)
+                                                        </span>
                                                     <?php endif; ?>
-                                                </div>
-                                                <div>
-                                                    <small class="text-muted d-block fw-bold mb-1">Sucursal:</small>
-                                                    <span class="badge bg-light text-dark border fs-6 px-3 py-2 rounded-pill"><?php echo e($v->venta_sucursal); ?></span>
                                                 </div>
                                             </div>
                                         </div>

@@ -152,10 +152,13 @@ class SalesConsultationController extends Controller
             }
 
             if (!empty($search)) {
-                $query->where(function($q) use ($search) {
-                    $q->where('venta_id', 'LIKE', "%{$search}%")
-                    ->orWhere('nombre_cliente', 'LIKE', "%{$search}%")
-                    ->orWhere('venta_tipopago', 'LIKE', "%{$search}%");
+                $cleanSearch = ltrim($search, '#');
+                $query->where(function($q) use ($search, $cleanSearch) {
+                    $q->where('venta_id', 'LIKE', "%{$cleanSearch}%")
+                      ->orWhere('folio_sucursal', 'LIKE', "%{$cleanSearch}%")
+                      ->orWhere('numero_factura', 'LIKE', "%{$cleanSearch}%")
+                      ->orWhere('nombre_cliente', 'LIKE', "%{$search}%")
+                      ->orWhere('venta_tipopago', 'LIKE', "%{$search}%");
                 });
             }
 

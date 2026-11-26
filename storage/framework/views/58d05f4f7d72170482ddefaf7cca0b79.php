@@ -57,12 +57,6 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="fw-semibold text-dark"><i class="fa-solid fa-box-open me-2 text-info"></i>Venta General</td>
-                            <td class="text-end">$<?php echo e(number_format($totalGeneral, 2)); ?></td>
-                            <td class="text-center"><span class="badge bg-light text-dark border"><?php echo e($pctGeneral); ?>%</span></td>
-                            <td class="text-end fw-bold text-success">$<?php echo e(number_format($comisionGeneral, 2)); ?></td>
-                        </tr>
-                        <tr>
                             <td class="fw-semibold text-dark"><i class="fa-solid fa-shoe-prints me-2 text-primary"></i>Venta de Calzado</td>
                             <td class="text-end">$<?php echo e(number_format($totalCalzado, 2)); ?></td>
                             <td class="text-center"><span class="badge bg-light text-dark border"><?php echo e($pctCalzado); ?>%</span></td>

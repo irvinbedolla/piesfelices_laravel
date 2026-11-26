@@ -159,7 +159,7 @@ unset($__defined_vars, $__key, $__value); ?>
     </div>
 
     <div class="flex flex-col gap-1">
-        <?php $__empty_2 = true; $__currentLoopData = array_slice($queries, 0, 100); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $index => ['connectionName' => $connectionName, 'sql' => $sql, 'time' => $time]): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_2 = false; ?>
+        <?php $__empty_1 = true; $__currentLoopData = array_slice($queries, 0, 100); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $index => ['connectionName' => $connectionName, 'sql' => $sql, 'time' => $time]): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
         <div
             class="border border-neutral-200 dark:border-none bg-white dark:bg-white/[3%] rounded-md h-10 flex items-center justify-between gap-4 px-4 text-xs font-mono shadow-xs"
             x-show="Math.floor(<?php echo e($index); ?> / perPage) === (currentPage - 1)"
@@ -211,7 +211,7 @@ unset($__defined_vars, $__key, $__value); ?>
             </div>
             <div class="text-neutral-500 dark:text-neutral-200 text-right flex-shrink-0"><?php echo e($time); ?>ms</div>
         </div>
-        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_2): ?>
+        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
         <?php if (isset($component)) { $__componentOriginal612ffe32146e3bd2ac6ba6076cca9520 = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginal612ffe32146e3bd2ac6ba6076cca9520 = $attributes; } ?>
 <?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'laravel-exceptions-renderer::components.empty-state','data' => ['message' => 'No queries executed']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>

@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 
 class ExpenseController extends Controller
 {
+    
     public function index(Request $request)
     {
         $user = Auth::user();
@@ -22,7 +23,13 @@ class ExpenseController extends Controller
         $fecha1 = $request->get('fecha1', date('Y-m-d'));
         $fecha2 = $request->get('fecha2', date('Y-m-d'));
         $sucursalSel = $request->get('sucursal');
-        $search = trim($request->get('search')); // <--- Capturar texto a buscar
+        $search = trim($request->get('search'));
+        $tipoSel = $request->get('tipo', 'TODOS');
+
+        $perPage = (int) $request->get('per_page', 10);
+        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000])) {
+            $perPage = 500;
+        }
 
         $isAdmin = in_array($userRole, [1]);
 
@@ -47,11 +54,16 @@ class ExpenseController extends Controller
             $query->where('sucursal', $userBranch);
         }
 
+        // 2.5 Filtro por tipo de gasto (Consultorio, Proveedor, Sueldos)
+        if (!empty($tipoSel) && $tipoSel !== 'TODOS') {
+            $query->where('tipo', $tipoSel);
+        }
+
         // 3. Filtro por texto de búsqueda (Concepto / Cantidad)
         if (!empty($search)) {
             $query->where(function($q) use ($search) {
                 $q->where('concepto', 'LIKE', "%{$search}%")
-                ->orWhere('cantidad', 'LIKE', "%{$search}%");
+                  ->orWhere('cantidad', 'LIKE', "%{$search}%");
             });
         }
 
@@ -65,12 +77,12 @@ class ExpenseController extends Controller
 
         // 5. Paginar resultados manteniendo query strings
         $expenses = $query->latest('fecha')
-                        ->latest('id')
-                        ->paginate(10)
-                        ->appends($request->all());
+                          ->latest('id')
+                          ->paginate($perPage)
+                          ->appends($request->all());
 
         return view('expenses.index', compact(
-            'expenses', 'branches', 'fecha1', 'fecha2', 'selectedBranch', 'search',
+            'expenses', 'branches', 'fecha1', 'fecha2', 'selectedBranch', 'search', 'tipoSel', 'perPage',
             'totalConsultorio', 'totalProveedor', 'totalSueldos', 'totalGeneral',
             'userRole', 'user', 'userBranch', 'isAdmin'
         ));
@@ -144,17 +156,22 @@ class ExpenseController extends Controller
         $roleId = (int) ($authUser->role_id ?? $authUser->user_type ?? 2);
         $isAdmin = in_array($roleId, [1, 2]);
 
-        $viewMode = $request->get('mode', 'activos');
+        $viewMode    = $request->get('mode', 'activos');
+        $search      = trim($request->get('search', ''));
+        $sucursalSel = $request->get('sucursal', 'TODOS');
+
+        $perPage = (int) $request->get('per_page', 10);
+        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000])) {
+            $perPage = 500;
+        }
 
         // 2. Obtener la lista general de sucursales activas
         $branches = Branch::where('status', true)->get();
 
         // 3. DETERMINAR LA SUCURSAL SELECCIONADA/ACTIVA ($selectedBranch y $selectedBranchId)
         if ($roleId === 1) {
-            // SuperAdmin (Rol 1): Puede filtrar por la sucursal enviada en la URL o ver la de su perfil por defecto
             $selectedBranchId = $request->get('branch_id', $authUser->branch_id ?? $branches->first()?->id ?? 1);
         } else {
-            // Admin de Centro (Rol 2) y Empleados: Forzados estrictamente a su sucursal asignada
             $selectedBranchId = $authUser->branch_id ?? 1;
         }
 
@@ -162,10 +179,8 @@ class ExpenseController extends Controller
 
         // 4. Filtrar los usuarios para el modal según el alcance del rol
         if ($roleId === 1) {
-            // SuperAdmin: Todos los usuarios activos
             $users = User::where('status', 'Activo')->orderBy('username', 'asc')->get();
         } elseif ($roleId === 2) {
-            // Admin de Centro: Únicamente los usuarios de su sucursal
             $users = User::where('status', 'Activo')
                 ->where('branch_id', $authUser->branch_id)
                 ->orderBy('username', 'asc')
@@ -181,9 +196,15 @@ class ExpenseController extends Controller
             if ($viewMode === 'mis_prestamos') {
                 $query->where('user_id', $authUser->id);
             } elseif ($viewMode === 'historial') {
-                $query->where('status', 'Pagado')->orWhere('pres_restante', 0);
+                $query->where(function ($q) {
+                    $q->where('status', 'Pagado')->orWhere('pres_restante', 0);
+                });
             } else {
                 $query->where('status', 'Activo');
+            }
+
+            if ($viewMode !== 'mis_prestamos' && !empty($sucursalSel) && $sucursalSel !== 'TODOS') {
+                $query->where('sucursal', $sucursalSel);
             }
         } elseif ($roleId === 2) {
             $branchName = $authUser->branch?->name ?? $authUser->sucursal;
@@ -191,7 +212,10 @@ class ExpenseController extends Controller
             if ($viewMode === 'mis_prestamos') {
                 $query->where('user_id', $authUser->id);
             } elseif ($viewMode === 'historial') {
-                $query->where('sucursal', $branchName)->where('status', 'Pagado')->orWhere('pres_restante', 0);
+                $query->where('sucursal', $branchName)
+                      ->where(function ($q) {
+                          $q->where('status', 'Pagado')->orWhere('pres_restante', 0);
+                      });
             } else {
                 $query->where('sucursal', $branchName)->where('status', 'Activo');
             }
@@ -200,9 +224,23 @@ class ExpenseController extends Controller
             $query->where('user_id', $authUser->id);
         }
 
-        $loans = $query->orderBy('created_at', 'desc')->paginate(10);
+        // Filtro de búsqueda por empleado, descripción o número de préstamo
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('pres_descripcion', 'LIKE', "%{$search}%")
+                  ->orWhere('pres_id', 'LIKE', "%{$search}%")
+                  ->orWhereHas('user', function ($u) use ($search) {
+                      $u->where('name', 'LIKE', "%{$search}%")
+                        ->orWhere('username', 'LIKE', "%{$search}%");
+                  });
+            });
+        }
 
-        // 6. INCLUIR $selectedBranch Y $selectedBranchId EN EL COMPACT
+        $loans = $query->orderBy('created_at', 'desc')
+                       ->paginate($perPage)
+                       ->withQueryString();
+
+        // 6. INCLUIR VARIABLES EN EL COMPACT
         return view('loans.index', compact(
             'loans', 
             'isAdmin', 
@@ -211,7 +249,10 @@ class ExpenseController extends Controller
             'users', 
             'branches', 
             'selectedBranch', 
-            'selectedBranchId'
+            'selectedBranchId',
+            'sucursalSel',
+            'search',
+            'perPage'
         ));
     }
 

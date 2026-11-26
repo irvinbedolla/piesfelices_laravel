@@ -69,27 +69,49 @@
 
         {{-- INDEX CON FILTROS INTEGRADOS --}}
         <div class="card border-0 shadow-sm rounded-4 p-4">
-            <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-3">
                 <h5 class="fw-bold text-dark m-0">
                     <i class="fa-solid fa-receipt me-2 text-primary"></i>Historial de Gastos
                 </h5>
                 
-                {{-- Filtro de Búsqueda, Fechas y Sucursal --}}
-                <form method="GET" action="{{ route('expenses.index') }}" data-loading-text="Filtrando Gastos..." class="d-flex flex-wrap gap-2 align-items-center">
+                {{-- Filtro de Búsqueda, Fechas, Tipo y Sucursal --}}
+                <form method="GET" action="{{ route('expenses.index') }}" id="expensesFilterForm" data-loading-text="Filtrando Gastos..." class="d-flex flex-wrap gap-2 align-items-center">
                     
+                    {{-- Selector de Registros por Página --}}
+                    <div class="d-flex align-items-center gap-1 me-1">
+                        <span class="text-muted small">Mostrar</span>
+                        <select name="per_page" class="form-select form-select-sm rounded-3" style="width: 85px;" onchange="document.getElementById('expensesFilterForm').submit()">
+                            @php $currentPerPage = request('per_page', $perPage ?? 500); @endphp
+                            <option value="10" {{ $currentPerPage == 10 ? 'selected' : '' }}>10</option>
+                            <option value="25" {{ $currentPerPage == 25 ? 'selected' : '' }}>25</option>
+                            <option value="50" {{ $currentPerPage == 50 ? 'selected' : '' }}>50</option>
+                            <option value="100" {{ $currentPerPage == 100 ? 'selected' : '' }}>100</option>
+                            <option value="500" {{ $currentPerPage == 500 ? 'selected' : '' }}>500</option>
+                            <option value="1000" {{ $currentPerPage == 1000 ? 'selected' : '' }}>1000</option>
+                        </select>
+                    </div>
+
                     {{-- Campo de Búsqueda por Concepto --}}
-                    <div class="input-group input-group-sm" style="max-width: 200px;">
+                    <div class="input-group input-group-sm" style="max-width: 190px;">
                         <span class="input-group-text bg-white border-end-0 rounded-start-pill text-muted ps-3">
                             <i class="fa-solid fa-magnifying-glass"></i>
                         </span>
                         <input type="text" name="search" value="{{ $search ?? '' }}" class="form-control form-control-sm border-start-0 rounded-end-pill" placeholder="Buscar concepto...">
                     </div>
 
-                    <input type="date" name="fecha1" value="{{ $fecha1 }}" class="form-control form-control-sm rounded-3" style="max-width: 140px;">
-                    <input type="date" name="fecha2" value="{{ $fecha2 }}" class="form-control form-control-sm rounded-3" style="max-width: 140px;">
+                    <input type="date" name="fecha1" value="{{ $fecha1 }}" class="form-control form-control-sm rounded-3" style="max-width: 135px;">
+                    <input type="date" name="fecha2" value="{{ $fecha2 }}" class="form-control form-control-sm rounded-3" style="max-width: 135px;">
+
+                    {{-- Filtro por Tipo de Gasto --}}
+                    <select name="tipo" class="form-select form-select-sm rounded-3" style="max-width: 155px;" onchange="document.getElementById('expensesFilterForm').submit()">
+                        <option value="TODOS" {{ request('tipo', 'TODOS') == 'TODOS' ? 'selected' : '' }}>Todos los Tipos</option>
+                        <option value="2" {{ request('tipo') == '2' ? 'selected' : '' }}>CONSULTORIO</option>
+                        <option value="1" {{ request('tipo') == '1' ? 'selected' : '' }}>PROVEEDOR</option>
+                        <option value="3" {{ request('tipo') == '3' ? 'selected' : '' }}>SUELDOS</option>
+                    </select>
                     
                     @if($isAdmin)
-                        <select name="sucursal" class="form-select form-select-sm rounded-3 border-primary" style="max-width: 180px;">
+                        <select name="sucursal" class="form-select form-select-sm rounded-3 border-primary" style="max-width: 175px;" onchange="document.getElementById('expensesFilterForm').submit()">
                             <option value="TODOS" {{ $selectedBranch == 'TODOS' ? 'selected' : '' }}>Todas las Sucursales</option>
                             @foreach($branches as $b)
                                 <option value="{{ $b->name }}" {{ $selectedBranch == $b->name ? 'selected' : '' }}>
@@ -111,10 +133,10 @@
                 </form>
             </div>
 
-            {{-- TABLA DE REGISTROS --}}
-            <div class="table-responsive">
+            {{-- TABLA DE REGISTROS CON SCROLL Y ENCABEZADO FIJO --}}
+            <div class="table-responsive" style="max-height: 550px; overflow-y: auto;">
                 <table class="table table-hover align-middle text-nowrap">
-                    <thead class="table-light">
+                    <thead class="table-light sticky-top">
                         <tr class="extra-small fw-bold text-uppercase">
                             <th>CONCEPTO</th>
                             <th>FECHA</th>

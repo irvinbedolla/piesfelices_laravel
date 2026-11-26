@@ -130,21 +130,7 @@
             <td class="text-right">-${{ number_format($totalGastos ?? 0, 2) }}</td>
         </tr>
     </table>
-
-    <div class="divider-dashed"></div>
-
-    {{-- PRÉSTAMOS / ABONOS PRÉSTAMO --}}
-    <table>
-        <tr>
-            <td>Préstamos Otorgados:</td>
-            <td class="text-right">-${{ number_format($totalPrestamosOtorgados ?? 0, 2) }}</td>
-        </tr>
-        <tr>
-            <td>Abonos a Préstamos (+):</td>
-            <td class="text-right">+${{ number_format($totalAbonosPrestamo ?? 0, 2) }}</td>
-        </tr>
-    </table>
-
+    
     <div class="divider-double"></div>
 
     {{-- DESGLOSE DE FORMAS DE PAGO --}}

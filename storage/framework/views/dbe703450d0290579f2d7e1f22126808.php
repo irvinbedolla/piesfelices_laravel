@@ -46,13 +46,13 @@
                         
                         <div class="col-6 col-sm-auto">
                             <?php if($canManageSellers): ?>
-                                <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate open-modal-btn" data-target="#sellerModal">
+                                <button type="button" id="btnHeaderSeller" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate open-modal-btn" data-target="#sellerModal">
                                     <i class="fa-solid fa-id-badge me-1 text-success"></i> 
                                     <?php echo e($sale->seller->name ?? $sale->seller->username ?? 'Empleado'); ?>
 
                                 </button>
                             <?php else: ?>
-                                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill fw-semibold w-100 text-truncate" disabled>
+                                <button type="button" id="btnHeaderSeller" class="btn btn-sm btn-outline-secondary rounded-pill fw-semibold w-100 text-truncate" disabled>
                                     <i class="fa-solid fa-id-badge me-1 text-secondary"></i> 
                                     <?php echo e($sale->seller->name ?? $sale->seller->username ?? auth()->user()->name); ?>
 
@@ -62,7 +62,7 @@
 
                         
                         <div class="col-6 col-sm-auto">
-                            <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate open-modal-btn" data-target="#customerModal">
+                            <button type="button" id="btnHeaderCustomer" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate open-modal-btn" data-target="#customerModal">
                                 <i class="fa-solid fa-user me-1 text-primary"></i> 
                                 <?php echo e($sale->customer->nombre ?? $sale->nombre_cliente ?: 'Cliente General'); ?>
 
@@ -72,12 +72,12 @@
                         
                         <div class="col-6 col-sm-auto">
                             <?php if(auth()->user()->isAdmin()): ?>
-                                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill fw-semibold w-100 text-truncate open-modal-btn" data-target="#saleDateModal">
+                                <button type="button" id="btnHeaderDate" class="btn btn-sm btn-outline-danger rounded-pill fw-semibold w-100 text-truncate open-modal-btn" data-target="#saleDateModal">
                                     <i class="fa-solid fa-calendar-day me-1"></i> Fecha: <?php echo e(\Carbon\Carbon::parse($sale->venta_fecha)->format('d/m/Y')); ?>
 
                                 </button>
                             <?php else: ?>
-                                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill fw-semibold w-100 text-truncate" disabled>
+                                <button type="button" id="btnHeaderDate" class="btn btn-sm btn-outline-secondary rounded-pill fw-semibold w-100 text-truncate" disabled>
                                     <i class="fa-solid fa-calendar-day me-1"></i> Fecha: <?php echo e(\Carbon\Carbon::parse($sale->venta_fecha)->format('d/m/Y')); ?>
 
                                 </button>
@@ -93,7 +93,7 @@
 
                         
                         <div class="col-6 col-sm-auto">
-                            <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate open-modal-btn" data-target="#paymentTypeModal">
+                            <button type="button" id="btnHeaderPaymentType" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate open-modal-btn" data-target="#paymentTypeModal">
                                 <i class="fa-solid fa-credit-card me-1 text-info"></i> <?php echo e($sale->venta_tipopago); ?>
 
                             </button>
@@ -101,7 +101,7 @@
 
                         
                         <div class="col-6 col-sm-auto">
-                            <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate open-modal-btn" data-target="#saleTypeModal">
+                            <button type="button" id="btnHeaderSaleType" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate open-modal-btn" data-target="#saleTypeModal">
                                 <i class="fa-solid fa-tags me-1 text-warning"></i> <?php echo e($sale->venta_tipo == '1' ? 'Contado' : 'Crédito'); ?>
 
                             </button>
@@ -109,7 +109,7 @@
 
                         
                         <div class="col-6 col-sm-auto">
-                            <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate open-modal-btn" data-target="#invoiceModal">
+                            <button type="button" id="btnHeaderInvoice" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate open-modal-btn" data-target="#invoiceModal">
                                 <i class="fa-solid fa-file-invoice me-1 text-danger"></i> Factura: <?php echo e($sale->venta_factura); ?>
 
                             </button>
@@ -117,7 +117,7 @@
 
                         
                         <div class="col-6 col-sm-auto">
-                            <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate open-modal-btn" data-target="#discountModal">
+                            <button type="button" id="btnHeaderDiscount" class="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100 text-truncate open-modal-btn" data-target="#discountModal">
                                 <i class="fa-solid fa-percent me-1 text-danger"></i> Desc: <?php echo e($currentPercent); ?>% ($<?php echo e(number_format($sale->venta_descuento, 2)); ?>)
                             </button>
                         </div>
@@ -217,12 +217,12 @@
                     <div class="border-top pt-3">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="text-muted">Descuento:</span>
-                            <span class="fw-semibold text-danger">-$<?php echo e(number_format($sale->venta_descuento, 2)); ?></span>
+                            <span id="cartDiscountDisplay" class="fw-semibold text-danger">-$<?php echo e(number_format($sale->venta_descuento, 2)); ?></span>
                         </div>
 
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h4 class="fw-bold text-dark m-0">TOTAL:</h4>
-                            <h2 class="fw-bold text-success m-0">$<?php echo e(number_format($sale->venta_total, 2)); ?></h2>
+                            <h2 id="cartTotalDisplay" class="fw-bold text-success m-0">$<?php echo e(number_format($sale->venta_total, 2)); ?></h2>
                         </div>
 
                         <div class="d-flex gap-2">
@@ -248,8 +248,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body py-3">
-                    <h3 class="fw-bold text-dark mb-3">Total: <span class="text-success">$<?php echo e(number_format($sale->venta_total, 2)); ?></span></h3>
-                    
+                    <h3 class="fw-bold text-dark mb-3">Total: <span id="modalTotalDisplay" class="text-success">$<?php echo e(number_format($sale->venta_total, 2)); ?></span></h3>
                     
                     <div id="payErrorAlert" class="alert alert-danger py-2 mb-3 d-none fw-semibold small rounded-3">
                         <i class="fa-solid fa-triangle-exclamation me-1"></i> <span id="payErrorMessage">El monto ingresado es insuficiente.</span>
@@ -319,7 +318,7 @@
 
                     
                     <div class="mb-3">
-                        <input type="text" id="searchCustomerInput" class="form-control rounded-pill" placeholder="Buscar por nombre de cliente...">
+                        <input type="text" id="searchCustomerInput" class="form-control rounded-pill" placeholder="Buscar por nombre o teléfono de cliente..." autocomplete="off">
                     </div>
 
                     
@@ -332,7 +331,7 @@
                                     <th class="text-end">Acción</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="customersTableBody">
                                 <tr>
                                     <td>
                                         <strong class="text-dark d-block">Cliente General / Público</strong>
@@ -345,7 +344,7 @@
                                 </tr>
 
                                 <?php $__empty_1 = true; $__currentLoopData = $customers; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $c): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
-                                    <tr class="customer-row <?php echo e($loop->index >= 50 ? 'd-none' : ''); ?>" data-index="<?php echo e($loop->index); ?>" data-name="<?php echo e(strtolower($c->nombre)); ?>">
+                                    <tr class="customer-row">
                                         <td><strong class="text-dark d-block"><?php echo e($c->nombre); ?></strong></td>
                                         <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1 extra-small"><?php echo e($c->sucursal ?? $sale->venta_sucursal); ?></span></td>
                                         <td class="text-end">
@@ -448,7 +447,6 @@
                         </select>
                     </div>
 
-                    
                     <div id="invoiceFieldsContainer" class="<?php echo e($sale->venta_factura == 'SI' ? '' : 'd-none'); ?>">
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Número / Folio de Factura (Consecutivo Global)</label>
@@ -694,9 +692,90 @@
             document.body.style.paddingRight = '';
         }
 
+        function closeAllPosModals() {
+            document.querySelectorAll('.modal.show').forEach(modalEl => {
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    bootstrap.Modal.getInstance(modalEl)?.hide();
+                } else {
+                    modalEl.classList.remove('show');
+                    modalEl.style.display = 'none';
+                }
+            });
+            forceCleanBackdrops();
+            isProcessing = false;
+            hideLoading();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text ?? '';
+            return div.innerHTML;
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             const saleId = "<?php echo e($sale->venta_id); ?>";
+            const currentBranch = "<?php echo e($sale->venta_sucursal); ?>";
+            const searchCustomersUrl = "<?php echo e(route('pos.searchCustomers')); ?>";
             let totalSale = parseFloat("<?php echo e($sale->venta_total); ?>") || 0;
+            let saleTypeGlobal = "<?php echo e($sale->venta_tipo); ?>";
+
+            // RENDERIZAR CARRITO Y TOTALES EN EL DOM SIN RECARGAR LA PÁGINA
+            function renderCart(data) {
+                const tbody = document.getElementById('cartTableBody');
+                if (tbody) {
+                    if (!data.items || data.items.length === 0) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-5">
+                                    <i class="fa-solid fa-cart-flatbed fa-2x mb-2 d-block"></i>
+                                    Carrito de venta vacío
+                                </td>
+                            </tr>`;
+                    } else {
+                        tbody.innerHTML = data.items.map(item => {
+                            const qty = parseFloat(item.cantidad) || 1;
+                            const price = parseFloat(item.precio) || 0;
+                            const rowTotal = (qty * price).toFixed(2);
+                            return `
+                                <tr>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-outline-danger border-0 remove-item-btn" data-id="${item.id}">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </td>
+                                    <td>
+                                        <strong class="text-dark d-block text-truncate" style="max-width: 180px;">${escapeHtml(item.nombre)}</strong>
+                                        <small class="text-muted">${escapeHtml(item.sku || '')}</small>
+                                    </td>
+                                    <td class="text-center">
+                                        <input type="number" value="${qty}" min="1" class="form-control form-control-sm text-center fw-bold update-qty-input rounded-3" data-id="${item.id}" style="width: 65px;">
+                                    </td>
+                                    <td class="text-end">$${price.toFixed(2)}</td>
+                                    <td class="text-end fw-bold text-success">$${rowTotal}</td>
+                                </tr>`;
+                        }).join('');
+                    }
+                }
+
+                totalSale = parseFloat(data.venta_total) || 0;
+
+                const mainTotalEl = document.getElementById('cartTotalDisplay');
+                if (mainTotalEl) mainTotalEl.textContent = '$' + data.venta_total_fmt;
+
+                const modalTotalEl = document.getElementById('modalTotalDisplay');
+                if (modalTotalEl) modalTotalEl.textContent = '$' + data.venta_total_fmt;
+
+                const discountValEl = document.getElementById('cartDiscountDisplay');
+                if (discountValEl) discountValEl.textContent = '-$' + data.descuento_fmt;
+
+                const discountBtn = document.getElementById('btnHeaderDiscount');
+                if (discountBtn) {
+                    discountBtn.innerHTML = `<i class="fa-solid fa-percent me-1 text-danger"></i> Desc: ${data.descuento_pct}% ($${data.descuento_fmt})`;
+                }
+
+                isProcessing = false;
+                hideLoading();
+            }
 
             // BUSCADOR EN VIVO DEL CATÁLOGO DE PRODUCTOS
             const searchCatalogInput = document.getElementById('searchCatalog');
@@ -754,31 +833,114 @@
                     }
                 });
             }
-            
-            // BUSCADOR EN VIVO DE CLIENTES EN EL MODAL (#customerModal)
+
+            // BUSCADOR DE CLIENTES POR AJAX (BAJO DEMANDA EN TODAS LAS SUCURSALES)
             const searchCustomerInput = document.getElementById('searchCustomerInput');
+            const customersTableBody = document.getElementById('customersTableBody');
+            let customerSearchTimer = null;
+
+            function fetchCustomersList(query) {
+                if (!customersTableBody) return;
+
+                const url = `${searchCustomersUrl}?q=${encodeURIComponent(query)}&branch=${encodeURIComponent(currentBranch)}`;
+
+                fetch(url, {
+                    headers: { 'Accept': 'application/json' }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) return;
+
+                    const defaultRow = `
+                        <tr>
+                            <td>
+                                <strong class="text-dark d-block">Cliente General / Público</strong>
+                                <small class="text-muted">Venta mostrador general</small>
+                            </td>
+                            <td><span class="badge bg-secondary-subtle text-secondary rounded-pill px-2 py-1 extra-small">${escapeHtml(currentBranch)}</span></td>
+                            <td class="text-end">
+                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 assign-customer-btn" data-id="0" data-name="Cliente General">Seleccionar</button>
+                            </td>
+                        </tr>`;
+
+                    const rowsHtml = (data.customers || []).map(c => `
+                        <tr class="customer-row">
+                            <td>
+                                <strong class="text-dark d-block">${escapeHtml(c.nombre)}</strong>
+                                ${c.telefono ? `<small class="text-muted">${escapeHtml(c.telefono)}</small>` : ''}
+                            </td>
+                            <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1 extra-small">${escapeHtml(c.sucursal || currentBranch)}</span></td>
+                            <td class="text-end">
+                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 assign-customer-btn" data-id="${c.cliente_id}" data-name="${escapeHtml(c.nombre)}">Seleccionar</button>
+                            </td>
+                        </tr>
+                    `).join('');
+
+                    customersTableBody.innerHTML = defaultRow + (rowsHtml || '<tr><td colspan="3" class="text-center py-3 text-muted">No se encontraron clientes con ese nombre.</td></tr>');
+                })
+                .catch(err => console.error('Error buscando clientes:', err));
+            }
+
             if (searchCustomerInput) {
                 searchCustomerInput.addEventListener('input', function () {
-                    const query = this.value.toLowerCase().trim();
-                    const rows = document.querySelectorAll('#customersPosTable tbody .customer-row');
+                    const query = this.value.trim();
+                    clearTimeout(customerSearchTimer);
+                    customerSearchTimer = setTimeout(() => fetchCustomersList(query), 250);
+                });
+            }
 
-                    rows.forEach(row => {
-                        const idx = parseInt(row.getAttribute('data-index') || '0', 10);
-                        if (query === '') {
-                            if (idx < 50) {
-                                row.classList.remove('d-none');
-                            } else {
-                                row.classList.add('d-none');
+            // Al abrir el modal de clientes, enfocar el buscador automáticamente
+            document.querySelectorAll('[data-target="#customerModal"]').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    setTimeout(() => {
+                        if (searchCustomerInput) {
+                            searchCustomerInput.focus();
+                        }
+                    }, 150);
+                });
+            });
+
+            // ASIGNAR CLIENTE EXISTENTE (ÚNICO LISTENER CON DELEGACIÓN DE EVENTOS)
+            if (customersTableBody) {
+                customersTableBody.addEventListener('click', function (e) {
+                    const btn = e.target.closest('.assign-customer-btn');
+                    if (!btn || isProcessing) return;
+
+                    isProcessing = true;
+                    showLoading();
+
+                    const customerId = btn.getAttribute('data-id');
+                    const customerName = btn.getAttribute('data-name');
+
+                    fetch("<?php echo e(url('pos')); ?>/" + saleId + "/header", {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': '<?php echo e(csrf_token()); ?>'
+                        },
+                        body: JSON.stringify({
+                            venta_idcliente: customerId,
+                            nombre_cliente: customerName
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            const customerBtn = document.getElementById('btnHeaderCustomer');
+                            if (customerBtn) {
+                                customerBtn.innerHTML = `<i class="fa-solid fa-user me-1 text-primary"></i> ${escapeHtml(customerName)}`;
                             }
-                            return;
-                        }
-
-                        const name = row.getAttribute('data-name') || '';
-                        if (name.includes(query)) {
-                            row.classList.remove('d-none');
+                            closeAllPosModals();
                         } else {
-                            row.classList.add('d-none');
+                            isProcessing = false;
+                            hideLoading();
+                            alert(data.message || 'Error al asignar cliente');
                         }
+                    })
+                    .catch(() => {
+                        isProcessing = false;
+                        hideLoading();
                     });
                 });
             }
@@ -803,13 +965,14 @@
                 });
             });
 
-            // 1. GUARDAR CLIENTE RÁPIDO
+            // 1. GUARDAR CLIENTE RÁPIDO (SIN RECARGA)
             const saveFastCustomerBtn = document.getElementById('saveFastCustomerBtn');
             if (saveFastCustomerBtn) {
                 saveFastCustomerBtn.addEventListener('click', function () {
                     if (isProcessing) return;
-                    const name = document.getElementById('fastCustomerName').value.trim();
-                    const branch = document.getElementById('fastCustomerBranch').value || '<?php echo e($sale->venta_sucursal); ?>';
+                    const nameInput = document.getElementById('fastCustomerName');
+                    const name = nameInput.value.trim();
+                    const branch = document.getElementById('fastCustomerBranch').value || currentBranch;
 
                     if (!name) {
                         alert('Por favor ingresa el nombre completo del cliente');
@@ -838,21 +1001,26 @@
                                 method: 'PUT',
                                 headers: {
                                     'Content-Type': 'application/json',
+                                    'Accept': 'application/json',
                                     'X-CSRF-TOKEN': '<?php echo e(csrf_token()); ?>'
                                 },
                                 body: JSON.stringify({
                                     venta_idcliente: newCustomerId,
                                     nombre_cliente: newCustomerName
                                 })
-                            });
+                            }).then(r => r.json()).then(d => ({ data: d, customerName: newCustomerName }));
                         } else {
                             throw new Error(res.message || 'Error al registrar cliente');
                         }
                     })
-                    .then(res => res ? res.json() : null)
-                    .then(data => {
-                        if (data && data.success) {
-                            location.reload();
+                    .then(result => {
+                        if (result && result.data && result.data.success) {
+                            nameInput.value = '';
+                            const customerBtn = document.getElementById('btnHeaderCustomer');
+                            if (customerBtn) {
+                                customerBtn.innerHTML = `<i class="fa-solid fa-user me-1 text-primary"></i> ${escapeHtml(result.customerName)}`;
+                            }
+                            closeAllPosModals();
                         }
                     })
                     .catch(err => {
@@ -863,13 +1031,13 @@
                 });
             }
 
-            // 2. GUARDAR CLIENTE COMPLETO
+            // 2. GUARDAR CLIENTE COMPLETO (SIN RECARGA)
             const saveFullCustomerBtn = document.getElementById('saveFullCustomerBtn');
             if (saveFullCustomerBtn) {
                 saveFullCustomerBtn.addEventListener('click', function () {
                     if (isProcessing) return;
                     const name = document.getElementById('fullCustomerName').value.trim();
-                    const branch = document.getElementById('fullCustomerBranch').value || '<?php echo e($sale->venta_sucursal); ?>';
+                    const branch = document.getElementById('fullCustomerBranch').value || currentBranch;
 
                     if (!name) {
                         alert('Por favor ingresa el nombre completo del cliente');
@@ -909,21 +1077,26 @@
                                 method: 'PUT',
                                 headers: {
                                     'Content-Type': 'application/json',
+                                    'Accept': 'application/json',
                                     'X-CSRF-TOKEN': '<?php echo e(csrf_token()); ?>'
                                 },
                                 body: JSON.stringify({
                                     venta_idcliente: newCustomerId,
                                     nombre_cliente: name
                                 })
-                            });
+                            }).then(r => r.json());
                         } else {
                             throw new Error(res.data.message || 'Error al registrar el cliente');
                         }
                     })
-                    .then(res => res ? res.json() : null)
                     .then(data => {
                         if (data && data.success) {
-                            location.reload();
+                            document.getElementById('fullCustomerForm')?.reset();
+                            const customerBtn = document.getElementById('btnHeaderCustomer');
+                            if (customerBtn) {
+                                customerBtn.innerHTML = `<i class="fa-solid fa-user me-1 text-primary"></i> ${escapeHtml(name)}`;
+                            }
+                            closeAllPosModals();
                         }
                     })
                     .catch(err => {
@@ -934,7 +1107,7 @@
                 });
             }
 
-            // 3. CAMBIAR FECHA DE VENTA
+            // 3. CAMBIAR FECHA DE VENTA (SIN RECARGA)
             const saveSaleDateBtn = document.getElementById('saveSaleDateBtn');
             if (saveSaleDateBtn) {
                 saveSaleDateBtn.addEventListener('click', function () {
@@ -953,6 +1126,7 @@
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Accept': 'application/json',
                             'X-CSRF-TOKEN': '<?php echo e(csrf_token()); ?>'
                         },
                         body: JSON.stringify({ venta_fecha: newDate })
@@ -960,7 +1134,13 @@
                     .then(res => res.json())
                     .then(data => {
                         if (data.success) {
-                            location.reload();
+                            const parts = newDate.split('-');
+                            const formattedDate = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : newDate;
+                            const dateBtn = document.getElementById('btnHeaderDate');
+                            if (dateBtn) {
+                                dateBtn.innerHTML = `<i class="fa-solid fa-calendar-day me-1"></i> Fecha: ${formattedDate}`;
+                            }
+                            closeAllPosModals();
                         } else {
                             isProcessing = false;
                             hideLoading();
@@ -972,85 +1152,6 @@
                         hideLoading();
                     });
                 });
-            }
-
-            document.querySelectorAll('[data-target="#sellerModal"]').forEach(btn => {
-                btn.addEventListener('click', function () {
-                    setTimeout(() => {
-                        if (searchSellerInput) {
-                            searchSellerInput.value = '';
-                            document.querySelectorAll('#sellersList .seller-row-item').forEach(el => {
-                                el.style.setProperty('display', 'block', 'important');
-                            });
-                            searchSellerInput.focus();
-                        }
-                    }, 150);
-                });
-            });
-
-            // FUNCIÓN PARA RENDERIZAR EL CARRITO AL INSTANTE SIN RECARGAR LA PÁGINA
-            function escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text ?? '';
-                return div.innerHTML;
-            }
-
-            function renderCart(data) {
-                const tbody = document.getElementById('cartTableBody');
-                if (tbody) {
-                    if (!data.items || data.items.length === 0) {
-                        tbody.innerHTML = `
-                            <tr>
-                                <td colspan="5" class="text-center text-muted py-5">
-                                    <i class="fa-solid fa-cart-flatbed fa-2x mb-2 d-block"></i>
-                                    Carrito de venta vacío
-                                </td>
-                            </tr>`;
-                    } else {
-                        tbody.innerHTML = data.items.map(item => {
-                            const qty = parseFloat(item.cantidad) || 1;
-                            const price = parseFloat(item.precio) || 0;
-                            const rowTotal = (qty * price).toFixed(2);
-                            return `
-                                <tr>
-                                    <td>
-                                        <button type="button" class="btn btn-sm btn-outline-danger border-0 remove-item-btn" data-id="${item.id}">
-                                            <i class="fa-solid fa-trash-can"></i>
-                                        </button>
-                                    </td>
-                                    <td>
-                                        <strong class="text-dark d-block text-truncate" style="max-width: 180px;">${escapeHtml(item.nombre)}</strong>
-                                        <small class="text-muted">${escapeHtml(item.sku || '')}</small>
-                                    </td>
-                                    <td class="text-center">
-                                        <input type="number" value="${qty}" min="1" class="form-control form-control-sm text-center fw-bold update-qty-input rounded-3" data-id="${item.id}" style="width: 65px;">
-                                    </td>
-                                    <td class="text-end">$${price.toFixed(2)}</td>
-                                    <td class="text-end fw-bold text-success">$${rowTotal}</td>
-                                </tr>`;
-                        }).join('');
-                    }
-                }
-                // Actualizar variable global del total para validaciones de cobro y cambio
-                totalSale = parseFloat(data.venta_total) || 0;
-
-                // Actualizar etiquetas de Total y Descuento en pantalla y en el modal de cobro
-                const mainTotalEl = document.querySelector('.border-top h2.text-success');
-                if (mainTotalEl) mainTotalEl.textContent = '$' + data.venta_total_fmt;
-
-                const modalTotalEl = document.querySelector('#payModal h3 span.text-success');
-                if (modalTotalEl) modalTotalEl.textContent = '$' + data.venta_total_fmt;
-
-                const discountValEl = document.querySelector('.border-top span.text-danger');
-                if (discountValEl) discountValEl.textContent = '-$' + data.descuento_fmt;
-
-                const discountBtn = document.querySelector('[data-target="#discountModal"]');
-                if (discountBtn) {
-                    discountBtn.innerHTML = `<i class="fa-solid fa-percent me-1 text-danger"></i> Desc: ${data.descuento_pct}% ($${data.descuento_fmt})`;
-                }
-
-                isProcessing = false;
-                hideLoading();
             }
 
             // 4. AGREGAR SERVICIO AL CARRITO (SIN RECARGA)
@@ -1086,11 +1187,7 @@
                         if (data.success) {
                             conceptInput.value = '';
                             amountInput.value = '';
-                            const serviceModalEl = document.getElementById('serviceModal');
-                            if (serviceModalEl && typeof bootstrap !== 'undefined') {
-                                bootstrap.Modal.getInstance(serviceModalEl)?.hide();
-                            }
-                            forceCleanBackdrops();
+                            closeAllPosModals();
                             renderCart(data);
                         } else {
                             isProcessing = false;
@@ -1145,7 +1242,7 @@
                 });
             }
 
-            // 6 y 7. DELEGACIÓN DE EVENTOS EN #cartTableBody PARA CANTIDAD Y ELIMINAR (SIN RECARGA)
+            // 6 y 7. DELEGACIÓN DE EVENTOS PARA CAMBIO DE CANTIDAD Y ELIMINAR ITEM (SIN RECARGA)
             const cartTableBody = document.getElementById('cartTableBody');
             if (cartTableBody) {
                 cartTableBody.addEventListener('change', function (e) {
@@ -1216,35 +1313,7 @@
                 });
             }
 
-            // 8. ASIGNAR CLIENTE EXISTENTE
-            document.querySelectorAll('.assign-customer-btn').forEach(btn => {
-                btn.addEventListener('click', function () {
-                    if (isProcessing) return;
-                    isProcessing = true;
-                    showLoading();
-
-                    const customerId = this.getAttribute('data-id');
-                    const customerName = this.getAttribute('data-name');
-
-                    fetch("<?php echo e(url('pos')); ?>/" + saleId + "/header", {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': '<?php echo e(csrf_token()); ?>'
-                        },
-                        body: JSON.stringify({
-                            venta_idcliente: customerId,
-                            nombre_cliente: customerName
-                        })
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success) location.reload();
-                    });
-                });
-            });
-
-            // 9. APLICAR DESCUENTO POR PORCENTAJE
+            // 8. APLICAR DESCUENTO POR PORCENTAJE (SIN RECARGA)
             const saveDiscountBtn = document.getElementById('saveDiscountBtn');
             if (saveDiscountBtn) {
                 saveDiscountBtn.addEventListener('click', function () {
@@ -1264,18 +1333,33 @@
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Accept': 'application/json',
                             'X-CSRF-TOKEN': '<?php echo e(csrf_token()); ?>'
                         },
                         body: JSON.stringify({ venta_descuento_porcentaje: discountPercent })
                     })
                     .then(res => res.json())
                     .then(data => {
-                        if (data.success) location.reload();
+                        if (data.success) {
+                            closeAllPosModals();
+                            if (data.items) {
+                                renderCart(data);
+                            } else {
+                                location.reload();
+                            }
+                        } else {
+                            isProcessing = false;
+                            hideLoading();
+                        }
+                    })
+                    .catch(() => {
+                        isProcessing = false;
+                        hideLoading();
                     });
                 });
             }
 
-            // 10. ASIGNAR VENDEDOR
+            // 9. ASIGNAR VENDEDOR (Mantiene recarga solo si cambia de sucursal para refrescar catálogo de stock)
             document.querySelectorAll('.assign-seller-btn').forEach(btn => {
                 btn.addEventListener('click', function () {
                     if (isProcessing) return;
@@ -1316,7 +1400,7 @@
                 });
             });
 
-            // 11. FACTURACIÓN
+            // 10. FACTURACIÓN (SIN RECARGA)
             const invoiceRequiredSelect = document.getElementById('invoiceRequiredSelect');
             const invoiceFieldsContainer = document.getElementById('invoiceFieldsContainer');
             const invoiceNumberInput = document.getElementById('invoiceNumberInput');
@@ -1382,6 +1466,7 @@
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Accept': 'application/json',
                             'X-CSRF-TOKEN': '<?php echo e(csrf_token()); ?>'
                         },
                         body: JSON.stringify({
@@ -1394,7 +1479,11 @@
                     .then(res => res.json())
                     .then(data => {
                         if (data.success) {
-                            location.reload();
+                            const invoiceBtn = document.getElementById('btnHeaderInvoice');
+                            if (invoiceBtn) {
+                                invoiceBtn.innerHTML = `<i class="fa-solid fa-file-invoice me-1 text-danger"></i> Factura: ${escapeHtml(isRequired)}`;
+                            }
+                            closeAllPosModals();
                         } else {
                             isProcessing = false;
                             hideLoading();
@@ -1409,7 +1498,7 @@
                 });
             }
 
-            // 12. CÁLCULO DINÁMICO DEL CAMBIO Y CONFIRMACIÓN DE PAGO ÚNICA
+            // 11. CÁLCULO DINÁMICO DEL CAMBIO Y CONFIRMACIÓN DE PAGO ÚNICA
             const receivedInput = document.getElementById('receivedInput');
             const changeOutput = document.getElementById('changeOutput');
             const confirmPayBtn = document.getElementById('confirmPayBtn');
@@ -1469,14 +1558,13 @@
                     }
 
                     const received = parseFloat(rawVal);
-                    const saleType = "<?php echo e($sale->venta_tipo); ?>"; // '1' = Contado, '2' = Crédito
 
                     if (isNaN(received) || received < 0) {
                         showPayError('Por favor ingresa un monto válido.');
                         return;
                     }
 
-                    if ((saleType === '1' || saleType === 1) && received < totalSale) {
+                    if ((saleTypeGlobal === '1' || saleTypeGlobal === 1) && received < totalSale) {
                         const faltante = (totalSale - received).toFixed(2);
                         showPayError(`Monto insuficiente. Falta $${faltante} para completar el total ($${totalSale.toFixed(2)}).`);
                         return;
@@ -1532,7 +1620,7 @@
                 });
             }
 
-            // 13. ENCABEZADO GENÉRICO (TIPO PAGO Y TIPO VENTA)
+            // 12. ENCABEZADO GENÉRICO (TIPO PAGO Y TIPO VENTA SIN RECARGA)
             document.querySelectorAll('.set-header-btn').forEach(btn => {
                 btn.addEventListener('click', function () {
                     if (isProcessing) return;
@@ -1549,18 +1637,42 @@
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Accept': 'application/json',
                             'X-CSRF-TOKEN': '<?php echo e(csrf_token()); ?>'
                         },
                         body: JSON.stringify(payload)
                     })
                     .then(res => res.json())
                     .then(data => {
-                        if (data.success) location.reload();
+                        if (data.success) {
+                            if (field === 'venta_tipopago') {
+                                const payTypeBtn = document.getElementById('btnHeaderPaymentType');
+                                if (payTypeBtn) {
+                                    payTypeBtn.innerHTML = `<i class="fa-solid fa-credit-card me-1 text-info"></i> ${escapeHtml(val)}`;
+                                }
+                            } else if (field === 'venta_tipo') {
+                                saleTypeGlobal = String(val);
+                                const label = String(val) === '1' ? 'Contado' : 'Crédito';
+                                const saleTypeBtn = document.getElementById('btnHeaderSaleType');
+                                if (saleTypeBtn) {
+                                    saleTypeBtn.innerHTML = `<i class="fa-solid fa-tags me-1 text-warning"></i> ${label}`;
+                                }
+                            }
+                            closeAllPosModals();
+                        } else {
+                            isProcessing = false;
+                            hideLoading();
+                            alert(data.message || 'Error al actualizar');
+                        }
+                    })
+                    .catch(() => {
+                        isProcessing = false;
+                        hideLoading();
                     });
                 });
             });
 
-            // 14. BUSCADOR DE VENDEDOR
+            // 13. BUSCADOR DE VENDEDOR
             const searchSellerInput = document.getElementById('searchSellerInput');
             if (searchSellerInput) {
                 searchSellerInput.addEventListener('input', function () {
@@ -1579,6 +1691,20 @@
                     });
                 });
             }
+
+            document.querySelectorAll('[data-target="#sellerModal"]').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    setTimeout(() => {
+                        if (searchSellerInput) {
+                            searchSellerInput.value = '';
+                            document.querySelectorAll('#sellersList .seller-row-item').forEach(el => {
+                                el.style.setProperty('display', 'block', 'important');
+                            });
+                            searchSellerInput.focus();
+                        }
+                    }, 150);
+                });
+            });
         });
     </script>
  <?php echo $__env->renderComponent(); ?>

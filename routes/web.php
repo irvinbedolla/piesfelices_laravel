@@ -267,7 +267,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/reports/loans', [ReportController::class, 'exportLoansReport'])->name('reports.loans');
     Route::get('/reports/sales-normal', [ReportController::class, 'exportNormalSales'])->name('reports.sales.normal');
     Route::get('/reports/sales-credit', [ReportController::class, 'exportCreditSales'])->name('reports.sales.credit');
+    
+    // Ruta dedicada de búsqueda de clientes (no colisiona con /pos/{id?})
+    Route::get('/pos-search-customers', [PosController::class, 'searchCustomers'])->name('pos.searchCustomers');
 
+    // Ruta principal del POS restringida solo a IDs numéricos
+    Route::get('/pos/{id?}', [PosController::class, 'index'])
+        ->whereNumber('id')
+        ->name('pos.index');
 });
 
 require __DIR__.'/auth.php';

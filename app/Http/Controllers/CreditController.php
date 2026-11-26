@@ -24,6 +24,11 @@ class CreditController extends Controller
         $selectedBranch = $request->get('branch', $request->get('sucursal'));
         $search = trim($request->get('search'));
 
+        $perPage = (int) $request->get('per_page', 10);
+        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000])) {
+            $perPage = 500;
+        }
+
         // Query base de ventas a crédito
         $query = Sale::with(['details', 'payments', 'seller'])
             ->where(function($q) {
@@ -62,10 +67,12 @@ class CreditController extends Controller
         }
 
         $credits = $query->latest('venta_fecha')
-                         ->paginate(10)
+                         ->paginate($perPage)
                          ->appends($request->all());
 
-        return view('credits.index', compact('credits', 'branches', 'selectedBranch', 'search', 'userRole', 'userBranch', 'isAdmin'));
+        return view('credits.index', compact(
+            'credits', 'branches', 'selectedBranch', 'search', 'perPage', 'userRole', 'userBranch', 'isAdmin'
+        ));
     }
 
     /**

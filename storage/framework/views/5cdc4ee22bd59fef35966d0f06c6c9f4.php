@@ -153,6 +153,8 @@
                             <option value="25" <?php echo e($perPage == 25 ? 'selected' : ''); ?>>25</option>
                             <option value="50" <?php echo e($perPage == 50 ? 'selected' : ''); ?>>50</option>
                             <option value="100" <?php echo e($perPage == 100 ? 'selected' : ''); ?>>100</option>
+                            <option value="500" <?php echo e($perPage == 500 ? 'selected' : ''); ?>>500</option>
+                            <option value="1000" <?php echo e($perPage == 1000 ? 'selected' : ''); ?>>1000</option>
                         </select>
                         <span class="text-muted small">registros</span>
                     </div>
