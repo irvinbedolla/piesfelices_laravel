@@ -219,7 +219,17 @@
                                 </td>
                                 <td class="text-end">
                                     <div class="d-flex justify-content-end gap-1">
-                                        
+                                        @if(date('Y-m-d') === '2026-11-26')
+                                            <button type="button"
+                                                    class="btn btn-sm btn-warning text-dark rounded-pill px-2 py-1 fw-semibold open-real-stock-modal"
+                                                    data-id="{{ $p->id }}"
+                                                    data-name="{{ $p->name }}"
+                                                    data-stock="{{ $currentStock }}"
+                                                    title="Capturar Cantidad Real Hoy">
+                                                <i class="fa-solid fa-pen-ruler me-1"></i> Cantidad Real
+                                            </button>
+                                        @endif
+
                                             @if (in_array($userRoleType, [1, 2, 3]))
                                                 {{-- BOTÓN STOCK --}}
                                                 <button type="button" 
@@ -838,6 +848,40 @@
     </div>
 
 
+    @if(date('Y-m-d') === '2026-11-26')
+        <!-- MODAL TEMPORAL: EDITAR CANTIDAD REAL -->
+        <div class="modal fade" id="realStockModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-sm">
+                <div class="modal-content border-0 shadow-lg rounded-4">
+                    <div class="modal-header border-0 pb-0">
+                        <h6 class="modal-title fw-bold text-dark">
+                            <i class="fa-solid fa-pen-ruler text-warning me-2"></i>Inventario Real
+                        </h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="POST" action="{{ route('inventory.set-real-stock') }}">
+                        @csrf
+                        <input type="hidden" name="product_id" id="real_product_id">
+                        <input type="hidden" name="branch_id" value="{{ $selectedBranchId }}">
+
+                        <div class="modal-body py-3">
+                            <p class="fw-semibold text-dark small mb-1" id="real_product_name"></p>
+                            <p class="extra-small text-muted mb-3">En sistema: <strong id="real_product_current"></strong></p>
+
+                            <label class="form-label fw-bold small">Cantidad Física Real (*)</label>
+                            <input type="number" name="real_stock" id="real_stock_input" class="form-control form-control-lg text-center fw-bold rounded-3 border-warning" min="0" required autofocus>
+                        </div>
+
+                        <div class="modal-footer border-0 pt-0">
+                            <button type="button" class="btn btn-sm btn-light rounded-pill px-3" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-sm btn-warning text-dark rounded-pill px-3 fw-bold">Guardar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <!-- SCRIPTS JS CORREGIDOS Y ROBUSTOS -->
     <script>
         document.addEventListener('DOMContentLoaded', function () {
@@ -920,7 +964,7 @@
                 });
             }
 
-            // MAPEO AUTOMÁTICO DE CATEGORÍAS SEGÚN TIPO DE PRODUCTO
+            // 4. MAPEO AUTOMÁTICO DE CATEGORÍAS SEGÚN TIPO DE PRODUCTO
             const typeSelect = document.getElementById('product_type_select');
             const categoryInput = document.getElementById('product_category_id');
             const footwearFields = document.getElementById('footwear_fields');
@@ -931,22 +975,22 @@
                     const selectedType = typeSelect.value;
 
                     if (selectedType === 'CALZADO') {
-                        categoryInput.value = 3; // Categoría 3 = Calzado
+                        categoryInput.value = 3;
                         if (footwearFields) footwearFields.classList.remove('d-none');
                         if (medicineFields) medicineFields.classList.add('d-none');
                     } else if (selectedType === 'MEDICAMENTO') {
-                        categoryInput.value = 2; // Categoría 2 = Medicamento
+                        categoryInput.value = 2;
                         if (medicineFields) medicineFields.classList.remove('d-none');
                         if (footwearFields) footwearFields.classList.add('d-none');
                     } else {
-                        categoryInput.value = 4; // Categoría 4 = General
+                        categoryInput.value = 4;
                         if (footwearFields) footwearFields.classList.add('d-none');
                         if (medicineFields) medicineFields.classList.add('d-none');
                     }
                 }
 
                 typeSelect.addEventListener('change', handleTypeChange);
-                handleTypeChange(); // Ejecutar al cargar para inicializar el estado
+                handleTypeChange();
             }
             
             // 5. BUSCADOR TRASPASOS
@@ -1026,25 +1070,46 @@
                     });
                 }
             }
+
+            // 6. CONTROLADOR DE CASILLAS PARA ORDEN DE SURTIDO
+            const masterCheck = document.getElementById('so_check_master');
+            const btnSelectAll = document.getElementById('btnSelectAllSO');
+
+            if (masterCheck) {
+                masterCheck.addEventListener('change', function () {
+                    const itemChecks = document.querySelectorAll('.so-item-check');
+                    itemChecks.forEach(chk => chk.checked = this.checked);
+                });
+            }
+
+            if (btnSelectAll) {
+                btnSelectAll.addEventListener('click', function () {
+                    const itemChecks = document.querySelectorAll('.so-item-check');
+                    const anyUnchecked = Array.from(itemChecks).some(chk => !chk.checked);
+                    itemChecks.forEach(chk => chk.checked = anyUnchecked);
+                    if (masterCheck) masterCheck.checked = anyUnchecked;
+                });
+            }
+            
+            // 7. MODAL TEMPORAL: CANTIDAD REAL
+            const realStockBtns = document.querySelectorAll('.open-real-stock-modal');
+            const realStockModalElem = document.getElementById('realStockModal');
+            if (realStockModalElem) {
+                const realStockModal = new bootstrap.Modal(realStockModalElem);
+                realStockBtns.forEach(btn => {
+                    btn.addEventListener('click', function () {
+                        document.getElementById('real_product_id').value = this.getAttribute('data-id');
+                        document.getElementById('real_product_name').textContent = this.getAttribute('data-name');
+                        const current = this.getAttribute('data-stock');
+                        document.getElementById('real_product_current').textContent = current;
+                        const input = document.getElementById('real_stock_input');
+                        input.value = current;
+                        realStockModal.show();
+                        setTimeout(() => input.select(), 250);
+                    });
+                });
+            }
+
         });
-        // CONTROLADOR DE CASILLAS PARA ORDEN DE SURTIDO
-        const masterCheck = document.getElementById('so_check_master');
-        const btnSelectAll = document.getElementById('btnSelectAllSO');
-
-        if (masterCheck) {
-            masterCheck.addEventListener('change', function () {
-                const itemChecks = document.querySelectorAll('.so-item-check');
-                itemChecks.forEach(chk => chk.checked = this.checked);
-            });
-        }
-
-        if (btnSelectAll) {
-            btnSelectAll.addEventListener('click', function () {
-                const itemChecks = document.querySelectorAll('.so-item-check');
-                const anyUnchecked = Array.from(itemChecks).some(chk => !chk.checked);
-                itemChecks.forEach(chk => chk.checked = anyUnchecked);
-                if (masterCheck) masterCheck.checked = anyUnchecked;
-            });
-        }
     </script>
 </x-app-layout>

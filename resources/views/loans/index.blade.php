@@ -88,6 +88,10 @@
                                 </option>
                             @endforeach
                         </select>
+                    @elseif($roleId === 2 && $viewMode !== 'mis_prestamos')
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2">
+                            <i class="fa-solid fa-hospital me-1"></i> {{ auth()->user()->branch?->name ?? $selectedBranch->name ?? 'Sucursal' }}
+                        </span>
                     @endif
 
                     <button type="submit" class="btn btn-sm btn-dark rounded-pill px-3">Filtrar</button>
@@ -120,8 +124,22 @@
                             <tr>
                                 <td><span class="badge bg-light text-primary border">#{{ $l->pres_id }}</span></td>
                                 <td>{{ $l->pres_fecha }}</td>
+                                @php
+                                    $nombreEmpleado = trim(
+                                        $l->user?->name
+                                        ?? $l->user?->username
+                                        ?? $l->usuario
+                                        ?? $l->pres_usuario
+                                        ?? ''
+                                    );
+                                    if ($nombreEmpleado === '') {
+                                        $nombreEmpleado = !empty($l->user_id)
+                                            ? 'Empleado #' . $l->user_id
+                                            : 'Sin usuario asignado';
+                                    }
+                                @endphp
                                 <td class="fw-bold text-dark">
-                                    {{ $l->user->name ?? $l->user->username ?? $l->usuario ?? 'Empleado #'.$l->user_id }}
+                                    {{ $nombreEmpleado }}
                                 </td>
                                 <td>{{ $l->pres_descripcion }}</td>
                                 <td><span class="badge bg-light text-dark border">{{ $l->sucursal }}</span></td>
@@ -135,7 +153,7 @@
                                     <button type="button" 
                                             class="btn btn-sm btn-info text-white rounded-circle p-1 px-2 btn-fetch-history" 
                                             data-loan-id="{{ $l->pres_id }}" 
-                                            data-employee="{{ $l->user->name ?? $l->user->username ?? $l->usuario }}"
+                                            data-employee="{{ $nombreEmpleado }}"
                                             title="Ver Historial">
                                         <i class="fa-solid fa-receipt"></i>
                                     </button>

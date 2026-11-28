@@ -61,11 +61,22 @@ class ExpenseController extends Controller
 
         // 3. Filtro por texto de búsqueda (Concepto / Cantidad)
         if (!empty($search)) {
-            $query->where(function($q) use ($search) {
-                $q->where('concepto', 'LIKE', "%{$search}%")
-                  ->orWhere('cantidad', 'LIKE', "%{$search}%");
+            $query->where(function ($q) use ($search) {
+                $q->where('pres_descripcion', 'LIKE', "%{$search}%")
+                  ->orWhere('pres_id', 'LIKE', "%{$search}%")
+                  ->orWhere('usuario', 'LIKE', "%{$search}%")
+                  ->orWhereHas('user', function ($u) use ($search) {
+                      $u->where('username', 'LIKE', "%{$search}%");
+                      // Si tu tabla users sí tiene columna 'name', descomenta la siguiente línea:
+                      // $u->orWhere('name', 'LIKE', "%{$search}%");
+                  });
             });
         }
+
+        $loans = $query->orderBy('pres_fecha', 'desc')
+                       ->orderBy('pres_id', 'desc')
+                       ->paginate($perPage)
+                       ->withQueryString();
 
         // 4. Calcular los totales sobre los registros filtrados
         $allFilteredExpenses = (clone $query)->get();
@@ -125,24 +136,25 @@ class ExpenseController extends Controller
 
         // 1. Validar que el usuario tenga rol autorizado (Rol 1 o Rol 2)
         if (!in_array($roleId, [1, 2])) {
-            return redirect()->back()->with('error', 'No tienes permisos para eliminar préstamos.');
+            return redirect()->back()->with('error', 'No tienes permisos para eliminar gastos.');
         }
 
-        $loan = Loan::findOrFail($id);
+        $expense = Expense::findOrFail($id);
 
         // 2. Si es Admin de Centro (Rol 2), validar estricta pertenencia de sucursal
         if ($roleId === 2) {
             $userBranch = $authUser->branch?->name ?? $authUser->sucursal;
             
-            if ($loan->sucursal !== $userBranch) {
-                return redirect()->back()->with('error', 'No puedes eliminar préstamos de otra sucursal.');
+            if ($expense->sucursal !== $userBranch) {
+                return redirect()->back()->with('error', 'No puedes eliminar gastos de otra sucursal.');
             }
         }
 
-        // 3. Eliminar el registro
-        $loan->delete();
+        // 3. Cancelar o eliminar el gasto (usamos borrado lógico 'Cancelado' para mantener historial)
+        $expense->update(['status' => 'Cancelado']);
+        // Si prefieres eliminarlo físicamente de la tabla, usa: $expense->delete();
 
-        return redirect()->back()->with('success', 'Préstamo eliminado correctamente.');
+        return redirect()->back()->with('success', 'Gasto eliminado correctamente.');
     }
 
     /**
@@ -197,27 +209,32 @@ class ExpenseController extends Controller
                 $query->where('user_id', $authUser->id);
             } elseif ($viewMode === 'historial') {
                 $query->where(function ($q) {
-                    $q->where('status', 'Pagado')->orWhere('pres_restante', 0);
+                    $q->where('status', 'Pagado')
+                      ->orWhere('pres_restante', '<=', 0);
                 });
             } else {
-                $query->where('status', 'Activo');
+                $query->where('status', 'Activo')
+                      ->where('pres_restante', '>', 0);
             }
 
             if ($viewMode !== 'mis_prestamos' && !empty($sucursalSel) && $sucursalSel !== 'TODOS') {
                 $query->where('sucursal', $sucursalSel);
             }
         } elseif ($roleId === 2) {
-            $branchName = $authUser->branch?->name ?? $authUser->sucursal;
+            $branchName = $authUser->branch?->name ?? $authUser->branch_name ?? $authUser->sucursal;
 
             if ($viewMode === 'mis_prestamos') {
                 $query->where('user_id', $authUser->id);
             } elseif ($viewMode === 'historial') {
                 $query->where('sucursal', $branchName)
                       ->where(function ($q) {
-                          $q->where('status', 'Pagado')->orWhere('pres_restante', 0);
+                          $q->where('status', 'Pagado')
+                            ->orWhere('pres_restante', '<=', 0);
                       });
             } else {
-                $query->where('sucursal', $branchName)->where('status', 'Activo');
+                $query->where('sucursal', $branchName)
+                      ->where('status', 'Activo')
+                      ->where('pres_restante', '>', 0);
             }
         } else {
             $viewMode = 'mis_prestamos';
@@ -226,12 +243,14 @@ class ExpenseController extends Controller
 
         // Filtro de búsqueda por empleado, descripción o número de préstamo
         if (!empty($search)) {
-            $query->where(function ($q) use ($search) {
+            $hasNameColumn = \Illuminate\Support\Facades\Schema::hasColumn('users', 'username') ;
+
+            $query->where(function ($q) use ($search, $hasNameColumn) {
                 $q->where('pres_descripcion', 'LIKE', "%{$search}%")
                   ->orWhere('pres_id', 'LIKE', "%{$search}%")
-                  ->orWhereHas('user', function ($u) use ($search) {
-                      $u->where('name', 'LIKE', "%{$search}%")
-                        ->orWhere('username', 'LIKE', "%{$search}%");
+                  ->orWhere('usuario', 'LIKE', "%{$search}%")
+                  ->orWhereHas('user', function ($u) use ($search, $hasNameColumn) {
+                      $u->where('username', 'LIKE', "%{$search}%");
                   });
             });
         }
@@ -312,7 +331,11 @@ class ExpenseController extends Controller
             ]);
 
             $nuevoRestante = $loan->pres_restante - $montoAbono;
-            $loan->update(['pres_restante' => $nuevoRestante]);
+            
+            $loan->update([
+                'pres_restante' => $nuevoRestante,
+                'status'        => $nuevoRestante <= 0 ? 'Pagado' : 'Activo',
+            ]);
         });
 
         return redirect()->back()->with('success', 'Abono registrado con éxito.');

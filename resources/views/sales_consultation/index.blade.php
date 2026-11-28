@@ -139,6 +139,9 @@
                         <thead class="table-light">
                             <tr class="fw-bold text-uppercase border-bottom">
                                 <th>Folio</th>
+                                @if($tab === 'facturadas')
+                                    <th>N° Factura</th>
+                                @endif
                                 <th>Fecha y Hora</th>
                                 <th>Cliente</th>
                                 <th>Vendedor</th>
@@ -163,6 +166,19 @@
                                 <tr>
                                     {{-- 1. FOLIO (ID VENTA) --}}
                                     <td class="fw-bold text-primary">#{{ $v->folio_sucursal }}</td>
+
+                                    {{-- 1.5 NÚMERO DE FACTURA (SOLO EN PESTAÑA FACTURADAS) --}}
+                                    @if($tab === 'facturadas')
+                                        <td>
+                                            @if(!empty($v->numero_factura))
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle fw-bold px-2 py-1">
+                                                    #{{ $v->numero_factura }}
+                                                </span>
+                                            @else
+                                                <span class="text-muted fst-italic">Sin asignar</span>
+                                            @endif
+                                        </td>
+                                    @endif
                                     
                                     {{-- 2. FECHA Y HORA JUNTOS --}}
                                     <td>{{ $fechaHora }}</td>

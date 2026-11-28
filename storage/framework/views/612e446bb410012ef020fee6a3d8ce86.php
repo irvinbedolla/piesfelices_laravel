@@ -151,6 +151,9 @@
                         <thead class="table-light">
                             <tr class="fw-bold text-uppercase border-bottom">
                                 <th>Folio</th>
+                                <?php if($tab === 'facturadas'): ?>
+                                    <th>N° Factura</th>
+                                <?php endif; ?>
                                 <th>Fecha y Hora</th>
                                 <th>Cliente</th>
                                 <th>Vendedor</th>
@@ -175,6 +178,20 @@
                                 <tr>
                                     
                                     <td class="fw-bold text-primary">#<?php echo e($v->folio_sucursal); ?></td>
+
+                                    
+                                    <?php if($tab === 'facturadas'): ?>
+                                        <td>
+                                            <?php if(!empty($v->numero_factura)): ?>
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle fw-bold px-2 py-1">
+                                                    #<?php echo e($v->numero_factura); ?>
+
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="text-muted fst-italic">Sin asignar</span>
+                                            <?php endif; ?>
+                                        </td>
+                                    <?php endif; ?>
                                     
                                     
                                     <td><?php echo e($fechaHora); ?></td>

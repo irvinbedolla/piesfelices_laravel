@@ -645,7 +645,8 @@ class InventoryController extends Controller
 
             if ($onlyLowStock) {
                 $q->whereColumn('branch_product.stock_current', '<=', 'branch_product.stock_min');
-            } else {
+            } elseif (date('Y-m-d') !== '2026-11-26') {
+                // Días normales: solo productos con existencias > 0
                 $q->where('branch_product.stock_current', '>', 0);
             }
         })->with(['branches' => function ($q) use ($selectedBranchId) {
@@ -681,4 +682,80 @@ class InventoryController extends Controller
         return $pdf->stream($filename);
     }
 
+    /**
+     * TEMPORAL (26-11-2026): Fijar existencia física real por conteo de inventario
+     */
+    public function setRealStock(Request $request)
+    {
+        if (date('Y-m-d') !== '2026-11-26') {
+            return redirect()->back()->with('error', 'La edición directa de inventario físico ya no está habilitada.');
+        }
+
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'branch_id'  => 'required|exists:branches,id',
+            'real_stock' => 'required|integer|min:0',
+        ]);
+
+        try {
+            DB::transaction(function () use ($request) {
+                $user = Auth::user();
+                $userType = (int) ($user->role_id ?? $user->tipo_seccion ?? $user->type ?? 2);
+
+                // Si es usuario de sucursal (tipo 2), forzar su propia sucursal por seguridad
+                $branchId = ($userType === 2 && $user->branch_id)
+                    ? $user->branch_id
+                    : (int) $request->branch_id;
+
+                $productId = (int) $request->product_id;
+                $newStock  = (int) $request->real_stock;
+
+                $pivot = DB::table('branch_product')
+                    ->where('product_id', $productId)
+                    ->where('branch_id', $branchId)
+                    ->lockForUpdate()
+                    ->first();
+
+                $previousStock = $pivot ? (int) $pivot->stock_current : 0;
+
+                if ($pivot) {
+                    DB::table('branch_product')
+                        ->where('product_id', $productId)
+                        ->where('branch_id', $branchId)
+                        ->update([
+                            'stock_current' => $newStock,
+                            'updated_at'    => now(),
+                        ]);
+                } else {
+                    DB::table('branch_product')->insert([
+                        'product_id'    => $productId,
+                        'branch_id'     => $branchId,
+                        'stock_current' => $newStock,
+                        'stock_min'     => 1,
+                        'created_at'    => now(),
+                        'updated_at'    => now(),
+                    ]);
+                }
+
+                $diff = abs($newStock - $previousStock);
+                if ($diff > 0) {
+                    InventoryMovement::create([
+                        'product_id'     => $productId,
+                        'user_id'        => Auth::id(),
+                        'branch_id'      => $branchId,
+                        'type'           => $newStock >= $previousStock ? 'ENTRADA' : 'AJUSTE',
+                        'quantity'       => $diff,
+                        'previous_stock' => $previousStock,
+                        'new_stock'      => $newStock,
+                        'reference'      => 'Conteo Físico Real (26/11/2026)',
+                        'notes'          => "Ajuste directo de inventario real ({$previousStock} -> {$newStock})",
+                    ]);
+                }
+            });
+
+            return redirect()->back()->with('success', 'Cantidad real actualizada correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error al actualizar cantidad: ' . $e->getMessage());
+        }
+    }
 }

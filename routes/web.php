@@ -200,7 +200,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('patients.index');
 
     // Punto de Venta (POS) - Soporta métodos POST y PUT para actualizar header
-    Route::get('/pos/{id?}', [PosController::class, 'index'])->name('pos.index');
     Route::post('/pos/{id}/add-product', [PosController::class, 'addProduct'])->name('pos.add-product');
     Route::put('/pos/item/{itemId}', [PosController::class, 'updateQuantity'])->name('pos.update-qty');
     Route::delete('/pos/item/{itemId}', [PosController::class, 'removeItem'])->name('pos.remove-item');
@@ -268,13 +267,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/reports/sales-normal', [ReportController::class, 'exportNormalSales'])->name('reports.sales.normal');
     Route::get('/reports/sales-credit', [ReportController::class, 'exportCreditSales'])->name('reports.sales.credit');
     
-    // Ruta dedicada de búsqueda de clientes (no colisiona con /pos/{id?})
     Route::get('/pos-search-customers', [PosController::class, 'searchCustomers'])->name('pos.searchCustomers');
 
     // Ruta principal del POS restringida solo a IDs numéricos
     Route::get('/pos/{id?}', [PosController::class, 'index'])
         ->whereNumber('id')
         ->name('pos.index');
+
+    Route::post('inventory/set-real-stock', [InventoryController::class, 'setRealStock'])->name('inventory.set-real-stock');
 });
 
 require __DIR__.'/auth.php';
